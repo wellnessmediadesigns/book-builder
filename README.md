@@ -101,6 +101,29 @@ Home Screen" to install it like an app.
 
 > The deployed worker is ~2.3 MB gzipped — within Cloudflare's free plan limit.
 
+### Deploying from the Cloudflare dashboard (connect a Git repo)
+
+If you connect this repo in **Workers & Pages → Create → Workers → Import a repository**,
+Cloudflare deploys on every push. The defaults won't work because the project must be
+*built* before it's deployed. Set these in the project's **Build settings**:
+
+- **Build command:** `npx prisma generate && npx opennextjs-cloudflare build`
+- **Deploy command:** `npx opennextjs-cloudflare deploy`
+
+Before the first Git deploy, also do these one-time steps:
+
+1. **Create the D1 database and commit its id.** Run `npx wrangler d1 create quire-db`
+   (locally, or via **Storage & Databases → D1**), then paste the printed `database_id`
+   into `wrangler.jsonc` and commit/push. The Git build reads it from the committed file.
+2. **Add the password secret** in the dashboard: project → **Settings → Variables and
+   Secrets → Add → Secret**, name `APP_PASSWORD`.
+3. **Create the tables:** run `npm run db:migrate:remote` once locally (needs
+   `npx wrangler login`). *(Alternatively, prepend it to the build command:
+   `npx wrangler d1 migrations apply quire-db --remote && npx prisma generate && npx opennextjs-cloudflare build`.)*
+
+The `AI` binding for Cloudflare Workers AI is already declared in `wrangler.jsonc` — no
+extra setup. `.nvmrc` pins the build to Node 22.
+
 ## AI: free by default
 
 Quire defaults to **Cloudflare Workers AI** (the `AI` binding) — **free, no API key**, up
