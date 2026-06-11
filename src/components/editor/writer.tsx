@@ -49,7 +49,8 @@ import {
   type NoteData,
 } from "@/lib/actions/notes";
 import { DiffModal } from "@/components/editor/diff-modal";
-import { runSelectionCommand, runChapterAnalysis } from "@/lib/actions/ai";
+import { runSelectionCommand, runChapterAnalysis, summarizeChapter } from "@/lib/actions/ai";
+import { updateSettings } from "@/lib/actions/settings";
 
 type FullChapter = ChapterMeta & {
   summary: string;
@@ -68,18 +69,20 @@ export function Writer({
   bookTitle,
   aiReady,
   initialChapters,
+  initialReadingFont = "serif",
 }: {
   projectId: string;
   bookTitle: string;
   aiReady: boolean;
   initialChapters: FullChapter[];
+  initialReadingFont?: "serif" | "sans";
 }) {
   const [chapters, setChapters] = useState<FullChapter[]>(initialChapters);
   const [activeId, setActiveId] = useState(initialChapters[0]?.id ?? "");
   const [railOpen, setRailOpen] = useState(true);
   const [panelOpen, setPanelOpen] = useState(true);
   const [focusMode, setFocusMode] = useState(false);
-  const [readingFont, setReadingFont] = useState<"serif" | "sans">("serif");
+  const [readingFont, setReadingFont] = useState<"serif" | "sans">(initialReadingFont);
   const [isMobile, setIsMobile] = useState(false);
 
   // On phones the rails become overlay drawers and start closed.
@@ -309,6 +312,20 @@ export function Writer({
   async function handleChapterAction(a: ChapterAction) {
     if (!editor || !active) return;
     if (a.type === "analysis") return runAnalysis(a.cmd);
+    if (a.type === "summarize") {
+      if (!ensureAi()) return;
+      await flushSave();
+      const id = active.id;
+      toast.info("Updating continuity memory…");
+      const r = await summarizeChapter(id);
+      if (r.ok && r.summary) {
+        setChapters((cs) => cs.map((c) => (c.id === id ? { ...c, summary: r.summary! } : c)));
+        toast.success("Continuity memory updated", "Later chapters will stay consistent.");
+      } else {
+        toast.error("Couldn't summarize", "Try again in a moment.");
+      }
+      return;
+    }
     if (!ensureAi()) return;
 
     if (a.type === "generate" || a.type === "continue") {
@@ -445,6 +462,15 @@ export function Writer({
       setSave({ status: "saved", at: Date.now() });
       loadVersions(active.id);
       toast.success(mode === "continue" ? "Chapter extended" : "Chapter drafted", "Edit any word — it's yours.");
+      // Update continuity memory in the background so later chapters know what happened.
+      summarizeChapter(active.id)
+        .then((r) => {
+          if (r.ok && r.summary)
+            setChapters((cs) =>
+              cs.map((c) => (c.id === active.id ? { ...c, summary: r.summary! } : c)),
+            );
+        })
+        .catch(() => {});
     } catch {
       toast.error("Generation failed", "Check your connection and try again.");
     } finally {
@@ -673,6 +699,12 @@ export function Writer({
 
         {/* Canvas */}
         <main className="relative flex min-w-0 flex-1 flex-col">
+          <button
+            className="skip-link rounded-lg bg-ink px-3 py-2 text-sm text-paper shadow-float"
+            onClick={() => editor?.commands.focus()}
+          >
+            Skip to writing
+          </button>
           {/* canvas toolbar */}
           <div className="flex items-center gap-1 overflow-x-auto border-b border-line/60 px-2 py-2 no-scrollbar sm:px-4">
             {!railOpen && !focusMode && (
@@ -684,7 +716,13 @@ export function Writer({
             <div className="ml-auto flex items-center gap-1">
               <IconBtn
                 title="Toggle reading font"
-                onClick={() => setReadingFont((f) => (f === "serif" ? "sans" : "serif"))}
+                onClick={() =>
+                  setReadingFont((f) => {
+                    const next = f === "serif" ? "sans" : "serif";
+                    updateSettings({ readingFont: next }).catch(() => {});
+                    return next;
+                  })
+                }
               >
                 <Type className="h-4 w-4" />
               </IconBtn>

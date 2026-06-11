@@ -193,6 +193,22 @@ SELECTED PASSAGE TO REVISE:
   ];
 }
 
+/** Distills a written chapter into a tight continuity summary for Book Memory. */
+export function summaryMessages(title: string, text: string): AiMessage[] {
+  return [
+    { role: "system", content: QUIRE_SYSTEM },
+    {
+      role: "user",
+      content: `Summarize this chapter in 2-3 sentences for a continuity bible. Capture what
+actually happens, any new facts, and any threads opened or resolved — so a later chapter
+stays consistent. Write plain prose, no preamble.
+
+CHAPTER: "${title}"
+"""${text.slice(0, 8000)}"""`,
+    },
+  ];
+}
+
 /** Front matter / back matter / marketing section generation. */
 export function matterMessages(
   ctx: BookContext,

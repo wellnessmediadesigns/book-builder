@@ -82,6 +82,7 @@ export default async function DashboardPage() {
                 updatedAt={p.updatedAt.toISOString()}
                 chapterCount={p.chapters.length || p.chapterCount}
                 words={p.chapters.reduce((s, c) => s + c.wordCount, 0)}
+                goalWords={p.estTotalWords}
               />
             ))}
           </div>

@@ -8,6 +8,7 @@ import {
   blueprintMessages,
   selectionMessages,
   analysisMessages,
+  summaryMessages,
 } from "@/lib/ai/prompts";
 
 const ready = configIsReady;
@@ -162,6 +163,53 @@ export async function runSelectionCommand(
   } catch (e) {
     const err = e instanceof AiError ? e.message : "Revision failed.";
     return { ok: false, error: err };
+  }
+}
+
+/**
+ * Distills a written chapter into a continuity summary, saving it to the chapter
+ * and mirroring it into Book Memory so later chapters stay consistent with what
+ * was actually written (not just the original outline). Best-effort.
+ */
+export async function summarizeChapter(
+  chapterId: string,
+): Promise<{ ok: boolean; summary?: string }> {
+  const config = await resolveAiConfig();
+  if (!ready(config)) return { ok: false };
+  const chapter = await prisma.chapter.findUnique({ where: { id: chapterId } });
+  if (!chapter || !chapter.contentText.trim()) return { ok: false };
+
+  try {
+    const raw = await complete(config, summaryMessages(chapter.title, chapter.contentText));
+    const summary = stripQuotes(raw).slice(0, 700);
+    await prisma.chapter.update({ where: { id: chapterId }, data: { summary } });
+
+    // Mirror into Book Memory as an editable chapter-summary entry (upsert by title).
+    const memTitle = `Ch. ${chapter.order + 1}: ${chapter.title}`;
+    const existing = await prisma.memoryEntry.findFirst({
+      where: { projectId: chapter.projectId, kind: "chapter-summary", title: memTitle },
+    });
+    if (existing) {
+      await prisma.memoryEntry.update({ where: { id: existing.id }, data: { body: summary } });
+    } else {
+      const max = await prisma.memoryEntry.aggregate({
+        where: { projectId: chapter.projectId },
+        _max: { order: true },
+      });
+      await prisma.memoryEntry.create({
+        data: {
+          projectId: chapter.projectId,
+          kind: "chapter-summary",
+          title: memTitle,
+          body: summary,
+          pinned: false,
+          order: (max._max.order ?? 0) + 1,
+        },
+      });
+    }
+    return { ok: true, summary };
+  } catch {
+    return { ok: false };
   }
 }
 

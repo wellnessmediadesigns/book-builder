@@ -47,6 +47,21 @@ export async function createProject(input: ProjectInput) {
   redirect(`/studio/book/${project.id}/blueprint`);
 }
 
+export async function listProjectsBrief() {
+  const author = await getAuthor();
+  const projects = await prisma.project.findMany({
+    where: { authorId: author.id },
+    orderBy: { updatedAt: "desc" },
+    select: { id: true, title: true, recommendedTitle: true, status: true },
+    take: 30,
+  });
+  return projects.map((p) => ({
+    id: p.id,
+    title: p.recommendedTitle || p.title,
+    status: p.status,
+  }));
+}
+
 export async function updateProject(id: string, data: Record<string, unknown>) {
   await prisma.project.update({ where: { id }, data });
   revalidatePath(`/studio/book/${id}`, "layout");

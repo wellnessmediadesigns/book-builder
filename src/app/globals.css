@@ -215,4 +215,29 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  /* Visible only when focused — keyboard "skip to writing/content" link */
+  .skip-link {
+    position: fixed;
+    top: 0.5rem;
+    left: 0.5rem;
+    z-index: 200;
+    transform: translateY(-150%);
+    transition: transform 0.18s var(--ease-editorial);
+  }
+  .skip-link:focus {
+    transform: translateY(0);
+  }
+}
+
+/* Respect the OS "reduce motion" preference everywhere. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

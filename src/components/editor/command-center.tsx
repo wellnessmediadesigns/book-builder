@@ -27,6 +27,7 @@ import {
   Trash2,
   Check,
   CornerDownLeft,
+  Brain,
   type LucideIcon,
 } from "lucide-react";
 import type { NoteData } from "@/lib/actions/notes";
@@ -38,6 +39,7 @@ export type ChapterAction =
   | { type: "continue" }
   | { type: "transform"; cmd: string }
   | { type: "analysis"; cmd: string }
+  | { type: "summarize" }
   | { type: "custom"; instruction: string };
 
 type Version = {
@@ -236,6 +238,13 @@ export function CommandCenter({
                   {b.label}
                 </ActionBtn>
               ))}
+              <ActionBtn
+                icon={Brain}
+                disabled={busy || wordCount === 0}
+                onClick={() => onAction({ type: "summarize" })}
+              >
+                Update continuity memory
+              </ActionBtn>
             </Group>
 
             {/* custom */}

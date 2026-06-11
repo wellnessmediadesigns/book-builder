@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { prisma, getAuthor } from "@/lib/db";
 import { aiStatus } from "@/lib/actions/ai";
 import { Writer } from "@/components/editor/writer";
 
@@ -21,13 +21,15 @@ export default async function WritePage({
   if (project.status === "draft" || project.chapters.length === 0) {
     redirect(`/studio/book/${id}/blueprint`);
   }
-  const { ready } = await aiStatus();
+  const [{ ready }, author] = await Promise.all([aiStatus(), getAuthor()]);
+  const readingFont = author.settings?.readingFont === "sans" ? "sans" : "serif";
 
   return (
     <Writer
       projectId={project.id}
       bookTitle={project.recommendedTitle || project.title}
       aiReady={ready}
+      initialReadingFont={readingFont}
       initialChapters={project.chapters.map((c) => ({
         id: c.id,
         order: c.order,

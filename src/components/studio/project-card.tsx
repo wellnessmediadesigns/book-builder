@@ -34,6 +34,7 @@ type P = {
   updatedAt: string;
   chapterCount: number;
   words: number;
+  goalWords: number;
   index: number;
 };
 
@@ -43,6 +44,7 @@ export function ProjectCard(p: P) {
   const accent = ACCENTS[p.coverAccent] ?? ACCENTS.brass;
   const status = STATUS[p.status] ?? STATUS.draft;
   const title = p.recommendedTitle || p.title;
+  const progress = p.goalWords > 0 ? Math.min(100, Math.round((p.words / p.goalWords) * 100)) : 0;
   const href =
     p.status === "draft" ? `/studio/book/${p.id}/blueprint` : `/studio/book/${p.id}/write`;
 
@@ -77,6 +79,19 @@ export function ProjectCard(p: P) {
               <span>{formatNumber(p.words)} words</span>
               <span className="ml-auto text-muted">{relativeTime(p.updatedAt)}</span>
             </div>
+            {p.status !== "draft" && (
+              <div className="mt-3">
+                <div className="h-1.5 overflow-hidden rounded-full bg-paper-sunken">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-brass to-muse transition-all duration-700"
+                    style={{ width: `${Math.max(2, progress)}%` }}
+                  />
+                </div>
+                <p className="mt-1.5 text-[0.6875rem] text-muted">
+                  {progress}% of ~{formatNumber(p.goalWords)} word goal
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </Link>

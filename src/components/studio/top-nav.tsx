@@ -1,7 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { QuireLogo } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { Settings, Palette } from "lucide-react";
+import { Settings, Palette, Search } from "lucide-react";
 
 export function TopNav({ author }: { author?: string }) {
   return (
@@ -11,6 +13,18 @@ export function TopNav({ author }: { author?: string }) {
           <QuireLogo />
         </Link>
         <div className="flex items-center gap-1">
+          <button
+            onClick={() =>
+              document.dispatchEvent(
+                new KeyboardEvent("keydown", { key: "k", metaKey: true }),
+              )
+            }
+            className="mr-1 hidden h-9 items-center gap-2 rounded-xl border border-line bg-paper-raised px-3 text-sm text-muted transition-colors hover:text-ink sm:inline-flex"
+            aria-label="Open command palette"
+          >
+            <Search className="h-3.5 w-3.5" />
+            <span className="font-mono text-xs">⌘K</span>
+          </button>
           <Link
             href="/studio/style"
             className="hidden h-9 items-center gap-2 rounded-xl px-3 text-sm text-ink-soft transition-colors hover:bg-paper-sunken hover:text-ink sm:inline-flex"
