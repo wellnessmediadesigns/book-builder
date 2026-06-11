@@ -214,8 +214,8 @@ model Settings {
   authorId String @unique
   author   Author @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
-  provider    String @default("openai") // openai | openrouter | ollama
-  model       String @default("gpt-4o-mini")
+  provider    String @default("workersai") // workersai | openai | openrouter | ollama
+  model       String @default("@cf/meta/llama-3.3-70b-instruct-fp8-fast")
   apiKey      String @default("")
   baseUrl     String @default("")
   temperature Float  @default(0.7)

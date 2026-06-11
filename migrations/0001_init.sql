@@ -160,8 +160,8 @@ CREATE TABLE "Export" (
 CREATE TABLE "Settings" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "authorId" TEXT NOT NULL,
-    "provider" TEXT NOT NULL DEFAULT 'openai',
-    "model" TEXT NOT NULL DEFAULT 'gpt-4o-mini',
+    "provider" TEXT NOT NULL DEFAULT 'workersai',
+    "model" TEXT NOT NULL DEFAULT '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
     "apiKey" TEXT NOT NULL DEFAULT '',
     "baseUrl" TEXT NOT NULL DEFAULT '',
     "temperature" REAL NOT NULL DEFAULT 0.7,

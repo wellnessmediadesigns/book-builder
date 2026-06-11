@@ -6,10 +6,10 @@ import type { BookContext } from "./prompts";
 export async function resolveAiConfig(): Promise<AiConfig> {
   const author = await getAuthor();
   const s = author.settings;
-  const provider = (s?.provider as AiConfig["provider"]) || "openai";
+  const provider = (s?.provider as AiConfig["provider"]) || "workersai";
   return {
     provider,
-    model: s?.model || process.env.QUIRE_DEFAULT_AI_MODEL || "gpt-4o-mini",
+    model: s?.model || process.env.QUIRE_DEFAULT_AI_MODEL || "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
     apiKey: s?.apiKey || process.env.QUIRE_DEFAULT_AI_KEY || "",
     baseUrl: s?.baseUrl || process.env.QUIRE_DEFAULT_AI_BASEURL || "",
     temperature: s?.temperature ?? 0.7,

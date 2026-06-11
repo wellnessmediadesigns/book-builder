@@ -17,6 +17,10 @@
       "migrations_dir": "migrations"
     }
   ],
+  // Cloudflare Workers AI — free generation, no API key. Powers the default provider.
+  "ai": {
+    "binding": "AI"
+  },
   // Set the login password as a secret instead of a var:
   //   npx wrangler secret put APP_PASSWORD
   "observability": {

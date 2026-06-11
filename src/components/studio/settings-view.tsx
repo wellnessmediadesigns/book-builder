@@ -71,9 +71,9 @@ export function SettingsView({
           <div className="mb-4 flex items-center gap-2">
             <Cpu className="h-4 w-4 text-brass" />
             <h2 className="font-display text-lg font-semibold text-ink">AI provider</h2>
-            {initial.apiKey || s.provider === "ollama" ? (
+            {!preset.needsKey || initial.apiKey ? (
               <Badge tone="sage" className="ml-auto">
-                <Check className="h-3 w-3" /> Configured
+                <Check className="h-3 w-3" /> {preset.needsKey ? "Configured" : "Free · no key"}
               </Badge>
             ) : (
               <Badge tone="brass" className="ml-auto">
@@ -83,7 +83,7 @@ export function SettingsView({
           </div>
 
           <div className="grid gap-5">
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {Object.entries(PROVIDER_PRESETS).map(([key, p]) => (
                 <button
                   key={key}

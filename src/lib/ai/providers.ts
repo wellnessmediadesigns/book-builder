@@ -18,6 +18,11 @@ export function configIsReady(config: AiConfig): boolean {
   return Boolean(config.model);
 }
 
+/** Lazy import keeps the Cloudflare-only binding code out of non-CF code paths. */
+async function workersai() {
+  return import("./workersai");
+}
+
 /**
  * All three providers speak the OpenAI-compatible /chat/completions shape,
  * which keeps the layer modular and trivial to extend with future providers.
@@ -40,6 +45,10 @@ function buildRequest(config: AiConfig, messages: AiMessage[], stream: boolean) 
 }
 
 export async function complete(config: AiConfig, messages: AiMessage[]): Promise<string> {
+  if (config.provider === "workersai") {
+    const { workersComplete } = await workersai();
+    return workersComplete(config.model, messages, config.temperature);
+  }
   const { url, headers, body } = buildRequest(config, messages, false);
   let res: Response;
   try {
@@ -65,6 +74,11 @@ export async function* stream(
   config: AiConfig,
   messages: AiMessage[],
 ): AsyncGenerator<string> {
+  if (config.provider === "workersai") {
+    const { workersStream } = await workersai();
+    yield* workersStream(config.model, messages, config.temperature);
+    return;
+  }
   const { url, headers, body } = buildRequest(config, messages, true);
   let res: Response;
   try {

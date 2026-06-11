@@ -52,7 +52,8 @@ generation → front & back matter → a polished manuscript → **publishing-re
 - **Real exports** — **DOCX** (6×9 trim, styled, page breaks), **EPUB 3** (Kindle/Apple
   Books-ready), **Markdown**, **HTML** print view (→ Save as PDF). Drafted front/back
   matter is included automatically.
-- **Bring-your-own AI** — OpenAI, OpenRouter, or any OpenAI-compatible endpoint.
+- **AI providers** — **Cloudflare Workers AI (free, no key) is the default**; or bring
+  your own OpenAI / OpenRouter / OpenAI-compatible key for top-tier prose.
 - **Password gate** — set one secret and the whole studio sits behind a login screen.
 - **Installable PWA** — add it to your phone's home screen.
 
@@ -90,12 +91,29 @@ npm run deploy
 ```
 
 Open the printed `*.workers.dev` URL (or attach a custom domain in the Cloudflare
-dashboard), log in with your password, open **Settings**, and paste your AI key.
-On your phone, use "Add to Home Screen" to install it like an app.
+dashboard), log in with your password, and start writing. On your phone, use "Add to
+Home Screen" to install it like an app.
 
 > The deployed worker is ~2.3 MB gzipped — within Cloudflare's free plan limit.
-> Note: a *local* Ollama isn't reachable from Cloudflare; use OpenAI/OpenRouter, or
-> point the provider URL at a tunnel (e.g. `cloudflared tunnel`) to your machine.
+
+## AI: free by default
+
+Quire defaults to **Cloudflare Workers AI** (the `AI` binding) — **free, no API key**, up
+to 10,000 requests/day on the same account you deploy to. The default model is
+Llama 3.3 70B, which is solid for drafting.
+
+For the best prose — fewer "AI tells", stronger continuity, better polish — switch to a
+paid model in **Settings** (OpenAI or OpenRouter; both OpenAI-compatible). A great workflow
+is **draft on free, polish on paid**: generate chapters with Workers AI, then use
+Highlight → Improve/Humanize with a paid model on the passages that matter. Because you
+edit every word, free models get you most of the way at zero cost.
+
+Notes:
+- `wrangler dev` needs you logged into Cloudflare (`npx wrangler login`) because Workers
+  AI runs on Cloudflare's GPUs — there's no local emulator. For pure-local dev with
+  `next dev`, choose OpenAI/OpenRouter in Settings.
+- A *local* Ollama isn't reachable from a deployed Worker; use it locally, or point the
+  provider URL at a tunnel (e.g. `cloudflared tunnel`) to your machine.
 
 ## Local development
 
