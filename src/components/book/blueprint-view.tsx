@@ -12,6 +12,7 @@ import {
   RefreshCw,
   ArrowRight,
   KeyRound,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge, Card, Spinner } from "@/components/ui/primitives";
@@ -73,6 +74,7 @@ export function BlueprintView({
   if (!hasBlueprint) {
     return (
       <GeneratePrompt
+        projectId={project.id}
         idea={project.idea}
         aiReady={aiReady}
         generating={generating}
@@ -271,11 +273,13 @@ export function BlueprintView({
 // ——————————————————————————————————————————————
 
 function GeneratePrompt({
+  projectId,
   idea,
   aiReady,
   generating,
   onGenerate,
 }: {
+  projectId: string;
   idea: string;
   aiReady: boolean;
   generating: boolean;
@@ -337,6 +341,16 @@ function GeneratePrompt({
           </>
         )}
       </Button>
+
+      {!generating && (
+        <Link
+          href={`/studio/book/${projectId}/setup`}
+          className="mt-4 inline-flex items-center gap-1.5 text-sm text-ink-soft underline-offset-4 transition-colors hover:text-ink hover:underline"
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          Edit setup — chapters, length, tone &amp; more
+        </Link>
+      )}
     </div>
   );
 }

@@ -10,12 +10,14 @@ import {
   Download,
   ScrollText,
   LayoutGrid,
+  SlidersHorizontal,
 } from "lucide-react";
 import { QuireMark } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { cn } from "@/lib/utils";
 
 const TABS = [
+  { key: "setup", label: "Setup", icon: SlidersHorizontal },
   { key: "blueprint", label: "Blueprint", icon: Sparkles },
   { key: "outline", label: "Outline", icon: LayoutGrid },
   { key: "write", label: "Write", icon: PenLine },

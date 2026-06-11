@@ -67,6 +67,28 @@ export async function updateProject(id: string, data: Record<string, unknown>) {
   revalidatePath(`/studio/book/${id}`, "layout");
 }
 
+/** Edits the Step 1/2 setup fields after creation and recomputes the estimate. */
+export async function updateProjectSetup(id: string, input: Partial<ProjectInput>) {
+  const data: Record<string, unknown> = { ...input };
+  if (
+    input.minWords !== undefined ||
+    input.maxWords !== undefined ||
+    input.chapterCount !== undefined
+  ) {
+    const current = await prisma.project.findUniqueOrThrow({
+      where: { id },
+      select: { minWords: true, maxWords: true, chapterCount: true },
+    });
+    const minWords = input.minWords ?? current.minWords;
+    const maxWords = input.maxWords ?? current.maxWords;
+    const chapterCount = input.chapterCount ?? current.chapterCount;
+    data.estTotalWords = Math.round(((minWords + maxWords) / 2) * chapterCount);
+  }
+  await prisma.project.update({ where: { id }, data });
+  revalidatePath(`/studio/book/${id}`, "layout");
+  return { ok: true };
+}
+
 export async function deleteProject(id: string) {
   await prisma.project.delete({ where: { id } });
   revalidatePath("/studio");
