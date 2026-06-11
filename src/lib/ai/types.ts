@@ -4,7 +4,7 @@ export type AiMessage = {
 };
 
 export type AiConfig = {
-  provider: "workersai" | "groq" | "openai" | "openrouter" | "ollama";
+  provider: "workersai" | "cerebras" | "groq" | "google" | "openai" | "openrouter" | "ollama";
   model: string;
   apiKey: string;
   baseUrl: string;
@@ -37,6 +37,20 @@ export const PROVIDER_PRESETS: Record<
     ],
     help: "Free on your Cloudflare account — 10,000 requests/day, no API key. Runs on the same platform you deploy to.",
   },
+  cerebras: {
+    label: "Cerebras (free · fast)",
+    baseUrl: "https://api.cerebras.ai/v1",
+    needsKey: true,
+    models: ["llama-3.3-70b", "llama3.1-8b", "qwen-3-32b", "gpt-oss-120b"],
+    help: "Free, extremely fast, 1M tokens/day, no credit card. Get a key at cloud.cerebras.ai.",
+  },
+  google: {
+    label: "Google Gemini (free)",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+    needsKey: true,
+    models: ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"],
+    help: "Most generous free tier. Get a key at aistudio.google.com (free, no card).",
+  },
   groq: {
     label: "Groq (free · fast)",
     baseUrl: "https://api.groq.com/openai/v1",
@@ -46,7 +60,7 @@ export const PROVIDER_PRESETS: Record<
       "llama-3.1-8b-instant",
       "gemma2-9b-it",
     ],
-    help: "Free, blazing fast, generous daily limits — great for heavy testing. Get a free key at console.groq.com.",
+    help: "Free and fast. Get a key at console.groq.com (use a current model id if one errors).",
   },
   openai: {
     label: "OpenAI",

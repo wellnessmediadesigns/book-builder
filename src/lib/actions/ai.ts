@@ -69,7 +69,8 @@ export async function testConnection(): Promise<{ ok: boolean; message: string }
     ]);
     return { ok: true, message: `Connected to ${config.model} — ${reply.slice(0, 40)}` };
   } catch (e) {
-    return { ok: false, message: e instanceof AiError ? e.message : "Connection failed." };
+    const msg = e instanceof AiError ? e.message : "Connection failed.";
+    return { ok: false, message: `${config.provider}/${config.model}: ${msg}` };
   }
 }
 
@@ -83,7 +84,8 @@ export async function testFallback(): Promise<{ ok: boolean; message: string }> 
     ]);
     return { ok: true, message: `Fallback ${config.model} — ${reply.slice(0, 40)}` };
   } catch (e) {
-    return { ok: false, message: e instanceof AiError ? e.message : "Connection failed." };
+    const msg = e instanceof AiError ? e.message : "Connection failed.";
+    return { ok: false, message: `${config.provider}/${config.model}: ${msg}` };
   }
 }
 
