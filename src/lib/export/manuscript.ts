@@ -18,6 +18,10 @@ export type MatterSectionOut = {
   title: string;
   /** Plain text content (matter sections are stored as text). */
   text: string;
+  /** Front matter that precedes the Table of Contents (copyright, dedication…). */
+  preToc?: boolean;
+  /** Whether this section is listed on the Contents page. */
+  inToc?: boolean;
 };
 
 /** Everything an export adapter needs, normalized. */
@@ -66,18 +70,29 @@ function escapeHtml(s: string): string {
 
 export function buildMarkdown(pkg: BookPackage): string {
   const { meta, front, chapters, back } = pkg;
+  const preToc = front.filter((s) => s.preToc);
+  const postToc = front.filter((s) => !s.preToc);
   const lines: string[] = [];
   lines.push(`# ${meta.displayTitle}`);
   if (meta.subtitle) lines.push(`### ${meta.subtitle}`);
   lines.push("", `*by ${meta.authorName}*`, "", "---", "");
 
-  for (const s of front) {
+  // Pre-ToC front matter (copyright, dedication, epigraph…)
+  for (const s of preToc) {
     lines.push(`## ${s.title}`, "", s.text, "", "---", "");
   }
 
+  // Contents — lists post-ToC front matter, the chapters, then back matter.
   lines.push("## Contents");
+  postToc.filter((s) => s.inToc).forEach((s) => lines.push(`- ${s.title}`));
   chapters.forEach((c, i) => lines.push(`${i + 1}. ${cleanChapterTitle(c.title)}`));
+  back.filter((s) => s.inToc).forEach((s) => lines.push(`- ${s.title}`));
   lines.push("", "---", "");
+
+  // Post-ToC front matter (foreword, preface, introduction…)
+  for (const s of postToc) {
+    lines.push(`## ${s.title}`, "", s.text, "", "---", "");
+  }
 
   chapters.forEach((c, i) => {
     lines.push(`## Chapter ${i + 1}: ${cleanChapterTitle(c.title)}`, "");
@@ -110,10 +125,18 @@ export function buildHtml(pkg: BookPackage, themeId?: string): string {
   const theme = getTheme(themeId);
   const clean = (t: string) => escapeHtml(cleanChapterTitle(t));
 
-  const toc = chapters
-    .map((c, i) => `<li><a href="#ch-${i + 1}">${clean(c.title)}</a></li>`)
-    .join("\n");
-  const frontHtml = front.map(matterToHtml).join("\n");
+  const preToc = front.filter((s) => s.preToc);
+  const postToc = front.filter((s) => !s.preToc);
+
+  // Contents lists post-ToC front matter → chapters → back matter.
+  const toc = [
+    ...postToc.filter((s) => s.inToc).map((s) => `<li><a href="#m-${s.key}">${escapeHtml(s.title)}</a></li>`),
+    ...chapters.map((c, i) => `<li><a href="#ch-${i + 1}">${clean(c.title)}</a></li>`),
+    ...back.filter((s) => s.inToc).map((s) => `<li><a href="#m-${s.key}">${escapeHtml(s.title)}</a></li>`),
+  ].join("\n");
+
+  const preTocHtml = preToc.map(matterToHtml).join("\n");
+  const postTocHtml = postToc.map(matterToHtml).join("\n");
   const backHtml = back.map(matterToHtml).join("\n");
   const body = chapters
     .map(
@@ -148,11 +171,12 @@ export function buildHtml(pkg: BookPackage, themeId?: string): string {
     <p class="by">${escapeHtml(meta.authorName)}</p>
   </div>
   <div class="page">
-    ${frontHtml}
+    ${preTocHtml}
     <nav>
       <h2>Contents</h2>
       <ol>${toc}</ol>
     </nav>
+    ${postTocHtml}
     ${body}
     ${backHtml}
   </div>

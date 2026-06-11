@@ -132,11 +132,12 @@ export function ExportView({
           <div className="grid grid-cols-3 gap-2 pt-2 text-center">
             <Stat label="Chapters" value={`${writtenCount}/${chapterCount}`} />
             <Stat label="Words" value={formatNumber(wordCount)} />
-            <Stat
-              label="Ready"
-              value={`${chapterCount ? Math.round((writtenCount / chapterCount) * 100) : 0}%`}
-            />
+            <Stat label="Pages ≈" value={`${formatNumber(Math.max(1, Math.ceil(wordCount / 275)))}`} />
           </div>
+          <p className="px-1 pt-1 text-[0.6875rem] leading-snug text-muted">
+            Rough 6×9 print estimate (~275 words/page). Amazon KDP sets the final page
+            count from your interior file; ebooks reflow and have no fixed pages.
+          </p>
         </div>
 
         {/* Live preview */}

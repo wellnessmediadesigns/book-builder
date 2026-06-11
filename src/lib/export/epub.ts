@@ -89,7 +89,16 @@ export function buildEpub(pkg: BookPackage): Uint8Array {
   const uuid = crypto.randomUUID();
   const now = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 
-  type Item = { id: string; href: string; title: string; xhtml: string; type?: string };
+  type Phase = "title" | "pre" | "post" | "chapter" | "back";
+  type Item = {
+    id: string;
+    href: string;
+    title: string;
+    xhtml: string;
+    type?: string;
+    phase: Phase;
+    inToc: boolean;
+  };
   const items: Item[] = [];
 
   // Title page
@@ -98,6 +107,8 @@ export function buildEpub(pkg: BookPackage): Uint8Array {
     href: "titlepage.xhtml",
     title: meta.displayTitle,
     type: "titlepage",
+    phase: "title",
+    inToc: false,
     xhtml: xhtmlDoc(
       meta.displayTitle,
       `<div class="title-page">
@@ -109,13 +120,15 @@ ${meta.subtitle ? `<p class="sub">${esc(meta.subtitle)}</p>` : ""}
     ),
   });
 
-  // Front matter
+  // Front matter — split around the Contents page.
   front.forEach((s, i) => {
     items.push({
       id: `front-${i}`,
       href: `front-${s.key}.xhtml`,
       title: s.title,
       type: "frontmatter",
+      phase: s.preToc ? "pre" : "post",
+      inToc: !s.preToc,
       xhtml: xhtmlDoc(
         s.title,
         `<h1>${esc(s.title)}</h1>\n` +
@@ -142,6 +155,8 @@ ${meta.subtitle ? `<p class="sub">${esc(meta.subtitle)}</p>` : ""}
       href: `chapter-${i + 1}.xhtml`,
       title: `Chapter ${i + 1}: ${ct}`,
       type: "chapter",
+      phase: "chapter",
+      inToc: true,
       xhtml: xhtmlDoc(
         ct,
         `<div class="chapter">
@@ -161,6 +176,8 @@ ${blocks.length ? blocksXhtml(blocks) : "<p><em>This chapter is not yet written.
       href: `back-${s.key}.xhtml`,
       title: s.title,
       type: "backmatter",
+      phase: "back",
+      inToc: true,
       xhtml: xhtmlDoc(
         s.title,
         `<h1>${esc(s.title)}</h1>\n` +
@@ -181,7 +198,7 @@ ${blocks.length ? blocksXhtml(blocks) : "<p><em>This chapter is not yet written.
 <nav epub:type="toc" id="toc">
 <h1>Contents</h1>
 <ol>
-${items.map((it) => `<li><a href="${it.href}">${esc(it.title)}</a></li>`).join("\n")}
+${items.filter((it) => it.inToc).map((it) => `<li><a href="${it.href}">${esc(it.title)}</a></li>`).join("\n")}
 </ol>
 </nav>
 </body>
@@ -197,6 +214,7 @@ ${items.map((it) => `<li><a href="${it.href}">${esc(it.title)}</a></li>`).join("
 <docTitle><text>${esc(meta.displayTitle)}</text></docTitle>
 <navMap>
 ${items
+  .filter((it) => it.inToc)
   .map(
     (it, i) =>
       `<navPoint id="np-${i + 1}" playOrder="${i + 1}"><navLabel><text>${esc(
@@ -225,8 +243,21 @@ ${items
   .join("\n")}
 </manifest>
 <spine toc="ncx">
-${items.map((it) => `<itemref idref="${it.id}"/>`).join("\n")}
-<itemref idref="nav" linear="no"/>
+${(() => {
+  const byPhase = (p: Phase) => items.filter((it) => it.phase === p);
+  const order = [
+    ...byPhase("title"),
+    ...byPhase("pre"),
+  ].map((it) => `<itemref idref="${it.id}"/>`);
+  // Contents page sits after pre-ToC front matter.
+  order.push(`<itemref idref="nav"/>`);
+  order.push(
+    ...[...byPhase("post"), ...byPhase("chapter"), ...byPhase("back")].map(
+      (it) => `<itemref idref="${it.id}"/>`,
+    ),
+  );
+  return order.join("\n");
+})()}
 </spine>
 </package>`;
 

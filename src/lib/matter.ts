@@ -26,6 +26,14 @@ export const MATTER_SECTIONS: MatterSection[] = [
       "Write a standard copyright page for this book: copyright line with the current year and author name, all-rights-reserved language, a brief permissions note, and a fiction/nonfiction disclaimer as appropriate. Keep it conventional and concise.",
   },
   {
+    key: "disclaimer",
+    group: "front",
+    title: "Disclaimer",
+    inManuscript: true,
+    directive:
+      "Write an appropriate disclaimer for this book's genre (e.g. not professional advice, names changed, work of fiction). Keep it brief and standard.",
+  },
+  {
     key: "dedication",
     group: "front",
     title: "Dedication",
@@ -212,3 +220,22 @@ export function matterOrder(matterType: string): number {
   const idx = MATTER_SECTIONS.findIndex((s) => matterTypeOf(s) === matterType);
   return idx === -1 ? 999 : idx;
 }
+
+/**
+ * Standard trade-book placement. Front matter splits around the Table of
+ * Contents: copyright/disclaimer/dedication/epigraph come BEFORE it (and are
+ * not listed in it); foreword/preface/introduction/etc. come AFTER it (and are
+ * listed). Back matter follows the chapters and is listed.
+ */
+const PRE_TOC_FRONT = new Set(["copyright", "disclaimer", "dedication", "epigraph"]);
+
+export function isPreTocFront(group: string, key: string): boolean {
+  return group === "front" && PRE_TOC_FRONT.has(key);
+}
+
+export function isListedInToc(group: string, key: string): boolean {
+  if (group === "marketing") return false;
+  if (group === "front") return !PRE_TOC_FRONT.has(key);
+  return true; // back matter
+}
+

@@ -1,6 +1,6 @@
 import { prisma, getAuthor } from "@/lib/db";
 import { makePackage, type BookPackage, type MatterSectionOut } from "./manuscript";
-import { matterOrder, sectionByMatterType } from "@/lib/matter";
+import { matterOrder, sectionByMatterType, isPreTocFront, isListedInToc } from "@/lib/matter";
 
 /** Builds the normalized BookPackage (front matter + chapters + back matter). */
 export async function assembleBookPackage(projectId: string): Promise<{
@@ -23,11 +23,16 @@ export async function assembleBookPackage(projectId: string): Promise<{
     project.chapters
       .filter((c) => c.matterType?.startsWith(`${group}:`) && c.contentText.trim())
       .sort((a, b) => matterOrder(a.matterType!) - matterOrder(b.matterType!))
-      .map((c) => ({
-        key: sectionByMatterType(c.matterType!)?.key ?? c.matterType!,
-        title: c.title,
-        text: c.contentText,
-      }));
+      .map((c) => {
+        const key = sectionByMatterType(c.matterType!)?.key ?? c.matterType!;
+        return {
+          key,
+          title: c.title,
+          text: c.contentText,
+          preToc: isPreTocFront(group, key),
+          inToc: isListedInToc(group, key),
+        };
+      });
 
   const pkg = makePackage(
     {

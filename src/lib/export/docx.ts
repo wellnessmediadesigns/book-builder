@@ -74,15 +74,26 @@ export function buildDocx(pkg: BookPackage): Uint8Array {
   if (meta.subtitle) body.push(textPara(meta.subtitle, { style: "Subtitle", center: true }));
   body.push(textPara(""), textPara(`by ${meta.authorName}`, { center: true }));
 
-  // Front matter
-  for (const s of front) {
+  const preToc = front.filter((s) => s.preToc);
+  const postToc = front.filter((s) => !s.preToc);
+
+  // Pre-ToC front matter (copyright, dedication, epigraph…)
+  for (const s of preToc) {
     body.push(textPara(s.title, { style: "Heading1", pageBreakBefore: true }));
     for (const p of textToParagraphs(s.text)) body.push(textPara(p));
   }
 
-  // Contents
+  // Contents — post-ToC front matter, chapters, then back matter.
   body.push(textPara("Contents", { style: "Heading1", pageBreakBefore: true }));
+  postToc.filter((s) => s.inToc).forEach((s) => body.push(textPara(s.title)));
   chapters.forEach((c, i) => body.push(textPara(`${i + 1}.  ${cleanChapterTitle(c.title)}`)));
+  back.filter((s) => s.inToc).forEach((s) => body.push(textPara(s.title)));
+
+  // Post-ToC front matter (foreword, preface, introduction…)
+  for (const s of postToc) {
+    body.push(textPara(s.title, { style: "Heading1", pageBreakBefore: true }));
+    for (const p of textToParagraphs(s.text)) body.push(textPara(p));
+  }
 
   // Chapters
   for (const [i, c] of chapters.entries()) {
