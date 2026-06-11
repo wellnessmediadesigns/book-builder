@@ -33,6 +33,24 @@ export function workersAiAvailable(): boolean {
 const NO_BINDING =
   "Cloudflare AI isn't available here. It works once deployed (or under `wrangler dev`). For local `next dev`, pick OpenAI or OpenRouter in Settings.";
 
+/** Workers AI returns text under different keys across models — read them all. */
+function extractText(res: unknown): string | null {
+  if (typeof res === "string") return res;
+  if (!res || typeof res !== "object") return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const r = res as any;
+  if (typeof r.response === "string") return r.response;
+  if (Array.isArray(r.response)) return r.response.join("");
+  if (r.result && typeof r.result.response === "string") return r.result.response;
+  const choice = r.choices?.[0];
+  if (typeof choice?.message?.content === "string") return choice.message.content;
+  if (typeof choice?.text === "string") return choice.text;
+  if (typeof r.text === "string") return r.text;
+  if (typeof r.output_text === "string") return r.output_text;
+  if (typeof r.generated_text === "string") return r.generated_text;
+  return null;
+}
+
 export async function workersComplete(
   model: string,
   messages: AiMessage[],
@@ -46,8 +64,11 @@ export async function workersComplete(
   } catch (e) {
     throw new AiError(workersErr(e, model), "workersai");
   }
-  const text = (res as { response?: string }).response;
-  if (typeof text !== "string") throw new AiError("Cloudflare AI returned no text.", "empty");
+  const text = extractText(res);
+  if (text === null) {
+    const shape = JSON.stringify(res)?.slice(0, 240) ?? String(res);
+    throw new AiError(`Cloudflare AI returned an unexpected response (${shape}).`, "empty");
+  }
   return text.trim();
 }
 
@@ -88,7 +109,11 @@ export async function* workersStream(
       try {
         const json = JSON.parse(payload);
         // Workers AI emits { response: "..." }; tolerate OpenAI-style deltas too.
-        const delta = json.response ?? json?.choices?.[0]?.delta?.content;
+        const delta =
+          (typeof json.response === "string" ? json.response : undefined) ??
+          json?.choices?.[0]?.delta?.content ??
+          json?.choices?.[0]?.text ??
+          (typeof json.token?.text === "string" ? json.token.text : undefined);
         if (typeof delta === "string" && delta) yield delta;
       } catch {
         // ignore keep-alive frames
