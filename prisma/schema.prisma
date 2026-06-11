@@ -30,6 +30,8 @@ model Project {
   title        String  @default("Untitled Book")
   idea         String  @default("")
   theme        String  @default("")
+  seriesName   String  @default("") // books sharing a series keep a consistent voice
+  styleNotes   String  @default("") // reusable voice signature (from a sample or series)
   genre        String  @default("")
   kind         String  @default("nonfiction") // fiction | nonfiction
   audience     String  @default("")

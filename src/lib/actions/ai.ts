@@ -16,7 +16,42 @@ import {
   selectionMessages,
   analysisMessages,
   summaryMessages,
+  styleAnalysisMessages,
 } from "@/lib/ai/prompts";
+
+export type StyleAnalysis = {
+  kind?: string;
+  genre?: string;
+  bookType?: string;
+  audience?: string;
+  tone?: string;
+  style?: string;
+  readingLevel?: string;
+  narrativeStyle?: string;
+  pov?: string;
+  theme?: string;
+  styleNotes?: string;
+};
+
+/** Reads a pasted writing sample and infers setup fields to match its style. */
+export async function analyzeStyleSample(
+  sample: string,
+): Promise<{ ok: true; data: StyleAnalysis } | { ok: false; error: string }> {
+  if (sample.trim().length < 120)
+    return { ok: false, error: "Paste a bit more text (a few paragraphs works best)." };
+  if (!(await aiChainReady())) return { ok: false, error: "no_key" };
+  try {
+    const { text } = await completeWithFallback(styleAnalysisMessages(sample));
+    let s = text.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+    const a = s.indexOf("{");
+    const b = s.lastIndexOf("}");
+    if (a >= 0 && b > a) s = s.slice(a, b + 1);
+    return { ok: true, data: JSON.parse(s) as StyleAnalysis };
+  } catch (e) {
+    const err = e instanceof AiError ? e.message : "Couldn't analyze the sample. Try again.";
+    return { ok: false, error: err === "no_key" ? "no_key" : err };
+  }
+}
 
 export async function aiStatus() {
   const config = await resolveAiConfig();

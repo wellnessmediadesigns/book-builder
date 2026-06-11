@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import {
@@ -10,12 +10,16 @@ import {
   Lightbulb,
   Layers,
   Check,
+  Wand2,
+  Library,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea, Select, Label, FieldHint } from "@/components/ui/field";
+import { Spinner } from "@/components/ui/primitives";
 import { QuireLogo } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { createProject, type ProjectInput } from "@/lib/actions/projects";
+import { createProject, getSeriesInfo, type ProjectInput } from "@/lib/actions/projects";
+import { analyzeStyleSample } from "@/lib/actions/ai";
 import { toast } from "@/components/ui/toast";
 
 const BOOK_TYPES = [
@@ -63,6 +67,8 @@ const empty: ProjectInput = {
   narrativeStyle: "",
   pov: "",
   publishFormat: "Ebook + Print",
+  seriesName: "",
+  styleNotes: "",
 };
 
 const STEPS = [
@@ -75,9 +81,19 @@ export function Wizard() {
   const [step, setStep] = useState(1);
   const [data, setData] = useState<ProjectInput>(empty);
   const [pending, start] = useTransition();
+  const [series, setSeries] = useState<{
+    names: string[];
+    styles: Record<string, Partial<ProjectInput>>;
+  }>({ names: [], styles: {} });
+
+  useEffect(() => {
+    getSeriesInfo().then(setSeries).catch(() => {});
+  }, []);
 
   const set = <K extends keyof ProjectInput>(k: K, v: ProjectInput[K]) =>
     setData((d) => ({ ...d, [k]: v }));
+
+  const merge = (patch: Partial<ProjectInput>) => setData((d) => ({ ...d, ...patch }));
 
   const canNext =
     step === 1 ? data.idea.trim().length > 8 && data.title.trim().length > 0 : true;
@@ -145,7 +161,9 @@ export function Wizard() {
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
           >
-            {step === 1 && <StepIdea data={data} set={set} />}
+            {step === 1 && (
+              <StepIdea data={data} set={set} merge={merge} series={series} />
+            )}
             {step === 2 && <StepStructure data={data} set={set} estWords={estWords} />}
             {step === 3 && <StepReview data={data} estWords={estWords} />}
           </motion.div>
@@ -188,9 +206,21 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
   );
 }
 
-function StepIdea({ data, set }: { data: ProjectInput; set: SetFn }) {
+function StepIdea({
+  data,
+  set,
+  merge,
+  series,
+}: {
+  data: ProjectInput;
+  set: SetFn;
+  merge: (patch: Partial<ProjectInput>) => void;
+  series: { names: string[]; styles: Record<string, Partial<ProjectInput>> };
+}) {
   return (
     <Section title="Start with the spark" hint="Tell Quire what your book is about. The richer the idea, the better the blueprint.">
+      <StyleSampleBox merge={merge} />
+      <SeriesControl data={data} set={set} merge={merge} series={series} />
       <div>
         <Label>Working title</Label>
         <Input
@@ -260,6 +290,128 @@ function StepIdea({ data, set }: { data: ProjectInput; set: SetFn }) {
         </div>
       </div>
     </Section>
+  );
+}
+
+function StyleSampleBox({ merge }: { merge: (patch: Partial<ProjectInput>) => void }) {
+  const [open, setOpen] = useState(false);
+  const [sample, setSample] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+
+  async function analyze() {
+    setBusy(true);
+    const res = await analyzeStyleSample(sample);
+    setBusy(false);
+    if (res.ok) {
+      const a = res.data;
+      merge({
+        ...(a.kind ? { kind: a.kind } : {}),
+        ...(a.genre ? { genre: a.genre } : {}),
+        ...(a.bookType ? { bookType: a.bookType } : {}),
+        ...(a.audience ? { audience: a.audience } : {}),
+        ...(a.tone ? { tone: a.tone } : {}),
+        ...(a.style ? { style: a.style } : {}),
+        ...(a.readingLevel ? { readingLevel: a.readingLevel } : {}),
+        ...(a.narrativeStyle ? { narrativeStyle: a.narrativeStyle } : {}),
+        ...(a.pov ? { pov: a.pov } : {}),
+        ...(a.theme ? { theme: a.theme } : {}),
+        ...(a.styleNotes ? { styleNotes: a.styleNotes } : {}),
+      });
+      setDone(true);
+      toast.success("Style captured", "Fields below are pre-filled to match your sample.");
+    } else if (res.error === "no_key") {
+      toast.error("Add your AI key first", "Open Settings to connect a provider.");
+    } else {
+      toast.error("Couldn't analyze", res.error);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-muse/25 bg-muse-soft/40 p-4">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center gap-2 text-left"
+      >
+        <Wand2 className="h-4 w-4 text-muse" />
+        <span className="text-sm font-semibold text-ink">
+          Match an existing book&apos;s style
+        </span>
+        {done && <Check className="h-4 w-4 text-sage" />}
+        <span className="ml-auto text-xs text-muted">{open ? "Hide" : "Paste a sample"}</span>
+      </button>
+      {open && (
+        <div className="mt-3">
+          <Textarea
+            className="min-h-[120px]"
+            placeholder="Paste a few pages (or paragraphs) from a book whose voice you want to match…"
+            value={sample}
+            onChange={(e) => setSample(e.target.value)}
+          />
+          <div className="mt-2 flex items-center gap-2">
+            <Button variant="muse" size="sm" disabled={busy || sample.trim().length < 120} onClick={analyze}>
+              {busy ? <Spinner /> : <Wand2 className="h-3.5 w-3.5" />} Analyze &amp; fill
+            </Button>
+            <span className="text-xs text-muted">
+              Quire reads the voice and pre-fills genre, tone, style &amp; more.
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SeriesControl({
+  data,
+  set,
+  merge,
+  series,
+}: {
+  data: ProjectInput;
+  set: SetFn;
+  merge: (patch: Partial<ProjectInput>) => void;
+  series: { names: string[]; styles: Record<string, Partial<ProjectInput>> };
+}) {
+  const on = data.seriesName.trim().length > 0;
+  return (
+    <div className="rounded-2xl border border-line bg-paper-sunken/40 p-4">
+      <label className="flex cursor-pointer items-center gap-2">
+        <input
+          type="checkbox"
+          checked={on}
+          onChange={(e) => set("seriesName", e.target.checked ? data.seriesName || "My Series" : "")}
+          className="h-4 w-4 accent-[hsl(var(--brass))]"
+        />
+        <Library className="h-4 w-4 text-brass" />
+        <span className="text-sm font-semibold text-ink">This book is part of a series</span>
+      </label>
+      {on && (
+        <div className="mt-3">
+          <Label>Series name</Label>
+          <Input
+            list="series-names"
+            value={data.seriesName}
+            onChange={(e) => {
+              const name = e.target.value;
+              set("seriesName", name);
+              const style = series.styles[name];
+              if (style) merge(style); // inherit the series' established voice
+            }}
+            placeholder="e.g. Bedtime Sleep Stories"
+          />
+          <datalist id="series-names">
+            {series.names.map((n) => (
+              <option key={n} value={n} />
+            ))}
+          </datalist>
+          <FieldHint>
+            Books in the same series share tone, style, and reading level so the whole
+            series feels consistent. Pick an existing name to inherit its voice.
+          </FieldHint>
+        </div>
+      )}
+    </div>
   );
 }
 

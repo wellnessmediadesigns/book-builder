@@ -26,9 +26,43 @@ export type ProjectInput = {
   narrativeStyle: string;
   pov: string;
   publishFormat: string;
+  seriesName: string;
+  styleNotes: string;
 };
 
 const ACCENTS = ["brass", "muse", "sage"];
+
+/** Existing series names + a sibling's style, so a new book in the series matches. */
+export async function getSeriesInfo(): Promise<{
+  names: string[];
+  styles: Record<string, Partial<ProjectInput>>;
+}> {
+  const author = await getAuthor();
+  const rows = await prisma.project.findMany({
+    where: { authorId: author.id, seriesName: { not: "" } },
+    orderBy: { updatedAt: "desc" },
+  });
+  const names: string[] = [];
+  const styles: Record<string, Partial<ProjectInput>> = {};
+  for (const p of rows) {
+    if (names.includes(p.seriesName)) continue;
+    names.push(p.seriesName);
+    styles[p.seriesName] = {
+      kind: p.kind,
+      genre: p.genre,
+      bookType: p.bookType,
+      audience: p.audience,
+      tone: p.tone,
+      style: p.style,
+      readingLevel: p.readingLevel,
+      narrativeStyle: p.narrativeStyle,
+      pov: p.pov,
+      theme: p.theme,
+      styleNotes: p.styleNotes,
+    };
+  }
+  return { names, styles };
+}
 
 export async function createProject(input: ProjectInput) {
   const author = await getAuthor();

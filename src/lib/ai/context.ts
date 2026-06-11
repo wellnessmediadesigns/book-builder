@@ -123,6 +123,8 @@ export async function buildBookContext(
     readerPromise: project.readerPromise,
     include: project.include,
     avoid: project.avoid,
+    seriesName: project.seriesName,
+    styleNotes: project.styleNotes,
     memory: project.memory.map((m) => ({ kind: m.kind, title: m.title, body: m.body })),
     priorSummaries,
   };

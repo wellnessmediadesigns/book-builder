@@ -11,6 +11,40 @@ Principles you never break:
 - Return only the requested writing. No preamble, no meta commentary, no markdown fences
   unless the format explicitly calls for headings.`;
 
+/** Analyzes a writing sample and infers setup fields + a reusable style signature. */
+export function styleAnalysisMessages(sample: string): AiMessage[] {
+  const schema = `{
+  "kind": "fiction" | "nonfiction",
+  "genre": "best-fit genre",
+  "bookType": "Novel | Memoir | Self-help | Business | Children's book | Devotional | Educational | Workbook | Short guide",
+  "audience": "who this is written for",
+  "tone": "the tone in a few words",
+  "style": "the prose style in a phrase (e.g. lyrical, plain-spoken, punchy)",
+  "readingLevel": "e.g. General adult, Middle grade",
+  "narrativeStyle": "for fiction, e.g. close third, first person; else ''",
+  "pov": "point of view, or ''",
+  "theme": "central theme(s)",
+  "styleNotes": "3-5 sentences describing the voice precisely enough to reproduce it: sentence length and rhythm, vocabulary, use of dialogue/imagery, pacing, and any signature habits"
+}`;
+  return [
+    {
+      role: "system",
+      content:
+        "You are a literary style analyst. Read the sample and describe its voice and category precisely so another author could write a matching book.",
+    },
+    {
+      role: "user",
+      content: `Analyze this writing sample and return ONLY minified JSON matching the schema — no commentary, no fences.
+
+SCHEMA:
+${schema}
+
+SAMPLE:
+"""${sample.slice(0, 9000)}"""`,
+    },
+  ];
+}
+
 export type BookContext = {
   title: string;
   kind: string;
@@ -25,6 +59,8 @@ export type BookContext = {
   readerPromise: string;
   include: string;
   avoid: string;
+  seriesName?: string;
+  styleNotes?: string;
   memory: { kind: string; title: string; body: string }[];
   priorSummaries: { title: string; summary: string }[];
 };
@@ -42,6 +78,11 @@ export function contextBlock(ctx: BookContext): string {
   if (ctx.readerPromise) lines.push(`Reader promise: ${ctx.readerPromise}`);
   if (ctx.include) lines.push(`Must include where relevant: ${ctx.include}`);
   if (ctx.avoid) lines.push(`Must avoid: ${ctx.avoid}`);
+  if (ctx.seriesName)
+    lines.push(
+      `SERIES: Part of "${ctx.seriesName}". Keep the same voice, tone, and reading experience as the other books in this series so readers feel continuity across the series.`,
+    );
+  if (ctx.styleNotes) lines.push(`VOICE SIGNATURE (match this style closely): ${ctx.styleNotes}`);
 
   if (ctx.memory.length) {
     lines.push("\nBOOK MEMORY (keep consistent — never contradict):");
