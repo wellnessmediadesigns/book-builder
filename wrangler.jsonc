@@ -12,8 +12,7 @@
     {
       "binding": "DB",
       "database_name": "quire-db",
-      // After `npx wrangler d1 create quire-db`, paste the database_id it prints here.
-      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
+      "database_id": "5c31bed9-0b93-4334-9c04-001e03040e1b",
       "migrations_dir": "migrations"
     }
   ],
