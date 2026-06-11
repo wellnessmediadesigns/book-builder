@@ -168,8 +168,18 @@ CREATE TABLE "Settings" (
     "maxContext" INTEGER NOT NULL DEFAULT 8000,
     "theme" TEXT NOT NULL DEFAULT 'system',
     "readingFont" TEXT NOT NULL DEFAULT 'serif',
+    "dailyGoal" INTEGER NOT NULL DEFAULT 500,
     "updatedAt" DATETIME NOT NULL,
     CONSTRAINT "Settings_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "Author" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "DailyStat" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "authorId" TEXT NOT NULL,
+    "day" TEXT NOT NULL,
+    "words" INTEGER NOT NULL DEFAULT 0,
+    "saves" INTEGER NOT NULL DEFAULT 0
 );
 
 -- CreateIndex
@@ -201,4 +211,10 @@ CREATE INDEX "Export_projectId_idx" ON "Export"("projectId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Settings_authorId_key" ON "Settings"("authorId");
+
+-- CreateIndex
+CREATE INDEX "DailyStat_authorId_day_idx" ON "DailyStat"("authorId", "day");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "DailyStat_authorId_day_key" ON "DailyStat"("authorId", "day");
 

@@ -31,8 +31,13 @@ generation → front & back matter → a polished manuscript → **publishing-re
 - **Per-chapter generation** — streams in live; each chapter is continuity-aware of the
   outline, Book Memory, and everything written before it. Never a whole book at once.
 - **Manuscript editor** — distraction-free TipTap canvas, drag-reorder chapters, focus
-  mode, autosave with live status. Fully responsive: side rails become slide-in drawers
-  on the phone, and the selection toolbar docks to the bottom of the screen.
+  mode, **find & replace (⌘F)**, autosave with live status. Fully responsive: side rails
+  become slide-in drawers on the phone, and the selection toolbar docks to the bottom.
+- **Outline corkboard** — the whole book at a glance: drag chapters to reorder, edit
+  titles/summaries inline, see per-chapter progress, and jump straight into writing.
+- **Writing streaks & goals** — a daily word-count goal ring, current streak, and a
+  4-week activity heatmap on your dashboard to keep momentum.
+- **Command palette (⌘K)** — fuzzy-jump to any book, action, or setting.
 - **Highlight & Ask AI** — Rewrite, Improve, Expand, Humanize, Add emotion/dialogue/
   tension, Fix grammar… plus free-form **Ask AI**. Only the selection changes.
 - **AI Revision Mode** — original vs. proposed with **Accept / Reject**. Nothing

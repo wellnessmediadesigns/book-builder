@@ -3,6 +3,8 @@ import { Plus, Sparkles, BookMarked } from "lucide-react";
 import { prisma, getAuthor } from "@/lib/db";
 import { TopNav } from "@/components/studio/top-nav";
 import { ProjectCard } from "@/components/studio/project-card";
+import { WritingStatsCard } from "@/components/studio/writing-stats";
+import { getWritingStats } from "@/lib/actions/stats";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/primitives";
 import { timeOfDayGreeting, formatNumber } from "@/lib/utils";
@@ -23,6 +25,8 @@ export default async function DashboardPage() {
     (sum, p) => sum + p.chapters.reduce((s, c) => s + c.wordCount, 0),
     0,
   );
+
+  const stats = await getWritingStats();
 
   return (
     <>
@@ -67,7 +71,11 @@ export default async function DashboardPage() {
             }
           />
         ) : (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <>
+            <div className="mb-8">
+              <WritingStatsCard stats={stats} />
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {projects.map((p, i) => (
               <ProjectCard
                 key={p.id}
@@ -85,7 +93,8 @@ export default async function DashboardPage() {
                 goalWords={p.estTotalWords}
               />
             ))}
-          </div>
+            </div>
+          </>
         )}
       </main>
     </>

@@ -3,14 +3,19 @@
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { countWords, docToText } from "@/lib/utils";
+import { recordWriting } from "@/lib/actions/stats";
 
 export async function saveChapterContent(
   chapterId: string,
   contentJson: unknown,
-  options?: { snapshot?: boolean; source?: string },
+  options?: { snapshot?: boolean; source?: string; day?: string },
 ) {
   const text = docToText(contentJson);
   const wordCount = countWords(text);
+  const prev = await prisma.chapter.findUnique({
+    where: { id: chapterId },
+    select: { wordCount: true },
+  });
   const chapter = await prisma.chapter.update({
     where: { id: chapterId },
     data: {
@@ -20,6 +25,8 @@ export async function saveChapterContent(
       status: wordCount > 0 ? "drafted" : "planned",
     },
   });
+  // Track daily progress (net words added) for streaks & goals.
+  await recordWriting(wordCount - (prev?.wordCount ?? 0), options?.day).catch(() => {});
   if (options?.snapshot) {
     await prisma.chapterVersion.create({
       data: {

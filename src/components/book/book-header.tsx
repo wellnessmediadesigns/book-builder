@@ -2,13 +2,22 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronLeft, Sparkles, PenLine, Brain, Download, ScrollText } from "lucide-react";
+import {
+  ChevronLeft,
+  Sparkles,
+  PenLine,
+  Brain,
+  Download,
+  ScrollText,
+  LayoutGrid,
+} from "lucide-react";
 import { QuireMark } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { cn } from "@/lib/utils";
 
 const TABS = [
   { key: "blueprint", label: "Blueprint", icon: Sparkles },
+  { key: "outline", label: "Outline", icon: LayoutGrid },
   { key: "write", label: "Write", icon: PenLine },
   { key: "memory", label: "Memory", icon: Brain },
   { key: "matter", label: "Sections", icon: ScrollText },

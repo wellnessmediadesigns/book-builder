@@ -7,10 +7,13 @@ export const dynamic = "force-dynamic";
 
 export default async function WritePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ chapter?: string; generate?: string }>;
 }) {
   const { id } = await params;
+  const { chapter, generate } = await searchParams;
   const project = await prisma.project.findUnique({
     where: { id },
     include: {
@@ -23,6 +26,7 @@ export default async function WritePage({
   }
   const [{ ready }, author] = await Promise.all([aiStatus(), getAuthor()]);
   const readingFont = author.settings?.readingFont === "sans" ? "sans" : "serif";
+  const initialChapterId = project.chapters.some((c) => c.id === chapter) ? chapter : undefined;
 
   return (
     <Writer
@@ -30,6 +34,8 @@ export default async function WritePage({
       bookTitle={project.recommendedTitle || project.title}
       aiReady={ready}
       initialReadingFont={readingFont}
+      initialChapterId={initialChapterId}
+      autoGenerate={Boolean(initialChapterId && generate === "1")}
       initialChapters={project.chapters.map((c) => ({
         id: c.id,
         order: c.order,

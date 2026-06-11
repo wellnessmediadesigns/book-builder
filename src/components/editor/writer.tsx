@@ -17,6 +17,7 @@ import {
   CloudOff,
   Loader2,
   Type,
+  Search as SearchIcon,
 } from "lucide-react";
 
 import { Lock } from "@/components/editor/extensions/lock";
@@ -49,6 +50,7 @@ import {
   type NoteData,
 } from "@/lib/actions/notes";
 import { DiffModal } from "@/components/editor/diff-modal";
+import { FindReplace } from "@/components/editor/find-replace";
 import { runSelectionCommand, runChapterAnalysis, summarizeChapter } from "@/lib/actions/ai";
 import { updateSettings } from "@/lib/actions/settings";
 
@@ -70,20 +72,27 @@ export function Writer({
   aiReady,
   initialChapters,
   initialReadingFont = "serif",
+  initialChapterId,
+  autoGenerate = false,
 }: {
   projectId: string;
   bookTitle: string;
   aiReady: boolean;
   initialChapters: FullChapter[];
   initialReadingFont?: "serif" | "sans";
+  initialChapterId?: string;
+  autoGenerate?: boolean;
 }) {
   const [chapters, setChapters] = useState<FullChapter[]>(initialChapters);
-  const [activeId, setActiveId] = useState(initialChapters[0]?.id ?? "");
+  const [activeId, setActiveId] = useState(
+    initialChapterId ?? initialChapters[0]?.id ?? "",
+  );
   const [railOpen, setRailOpen] = useState(true);
   const [panelOpen, setPanelOpen] = useState(true);
   const [focusMode, setFocusMode] = useState(false);
   const [readingFont, setReadingFont] = useState<"serif" | "sans">(initialReadingFont);
   const [isMobile, setIsMobile] = useState(false);
+  const [findOpen, setFindOpen] = useState(false);
 
   // On phones the rails become overlay drawers and start closed.
   useEffect(() => {
@@ -177,7 +186,7 @@ export function Writer({
     saveTimer.current = setTimeout(async () => {
       try {
         const json = ed.getJSON();
-        const { wordCount } = await saveChapterContent(id, json);
+        const { wordCount } = await saveChapterContent(id, json, { day: localDay() });
         setChapters((cs) =>
           cs.map((c) => (c.id === id ? { ...c, wordCount, contentJson: JSON.stringify(json) } : c)),
         );
@@ -194,7 +203,7 @@ export function Writer({
     const id = activeIdRef.current;
     const json = editor.getJSON();
     try {
-      await saveChapterContent(id, json);
+      await saveChapterContent(id, json, { day: localDay() });
       setChapters((cs) =>
         cs.map((c) =>
           c.id === id ? { ...c, wordCount: countWords(editor.getText()), contentJson: JSON.stringify(json) } : c,
@@ -249,6 +258,18 @@ export function Writer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Deep-link from the Outline: auto-generate an empty chapter once on open.
+  const autoGenDone = useRef(false);
+  useEffect(() => {
+    if (!autoGenerate || autoGenDone.current || !editor) return;
+    autoGenDone.current = true;
+    const ch = chapters.find((c) => c.id === activeId);
+    if (ch && ch.wordCount === 0 && !ch.locked && aiReady) {
+      setTimeout(() => streamGenerate("generate"), 200);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor]);
+
   // ——— selection AI command ———
   async function runCommand(cmd: string, instruction = "") {
     if (!editor || !sel) return;
@@ -283,7 +304,7 @@ export function Writer({
     resolveRevision(activeId, command, instruction, original, proposed, "accepted").catch(() => {});
     // snapshot after AI edit
     const json = editor.getJSON();
-    saveChapterContent(activeId, json, { snapshot: true, source: "ai" }).then(() => {
+    saveChapterContent(activeId, json, { snapshot: true, source: "ai", day: localDay() }).then(() => {
       loadVersions(activeId);
       setSave({ status: "saved", at: Date.now() });
     });
@@ -382,7 +403,7 @@ export function Writer({
       fullProposed.current = null;
       setRevision(null);
       const json = editor.getJSON();
-      saveChapterContent(activeId, json, { snapshot: true, source: "ai" }).then(() => loadVersions(activeId));
+      saveChapterContent(activeId, json, { snapshot: true, source: "ai", day: localDay() }).then(() => loadVersions(activeId));
       toast.success("Chapter updated");
       return;
     }
@@ -453,6 +474,7 @@ export function Writer({
       const { wordCount } = await saveChapterContent(active.id, json, {
         snapshot: true,
         source: "generation",
+        day: localDay(),
       });
       setChapters((cs) =>
         cs.map((c) =>
@@ -614,6 +636,11 @@ export function Writer({
         e.preventDefault();
         setFocusMode((f) => !f);
       }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setFindOpen(true);
+      }
+      if (e.key === "Escape") setFindOpen(false);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -714,6 +741,9 @@ export function Writer({
             )}
             <FormatBar editor={editor} />
             <div className="ml-auto flex items-center gap-1">
+              <IconBtn title="Find & replace (⌘F)" onClick={() => setFindOpen(true)} active={findOpen}>
+                <SearchIcon className="h-4 w-4" />
+              </IconBtn>
               <IconBtn
                 title="Toggle reading font"
                 onClick={() =>
@@ -736,6 +766,12 @@ export function Writer({
               )}
             </div>
           </div>
+
+          <AnimatePresence>
+            {findOpen && editor && (
+              <FindReplace editor={editor} onClose={() => setFindOpen(false)} />
+            )}
+          </AnimatePresence>
 
           <div className="manuscript min-h-0 flex-1 overflow-y-auto" onClick={() => editor?.commands.focus()}>
             <div
@@ -979,6 +1015,11 @@ function sourceName(s: string) {
     { manual: "Manual save", ai: "After AI edit", snapshot: "Snapshot", generation: "Generated" }[s] ??
     "Version"
   );
+}
+
+function localDay() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function emptyDoc() {

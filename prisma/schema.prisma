@@ -224,5 +224,18 @@ model Settings {
 
   // editor prefs
   readingFont String @default("serif") // serif | sans
+  dailyGoal   Int    @default(500)
   updatedAt   DateTime @updatedAt
+}
+
+/** One row per author per day — powers writing streaks and daily goals. */
+model DailyStat {
+  id       String @id @default(cuid())
+  authorId String
+  day      String // YYYY-MM-DD (author-local)
+  words    Int    @default(0) // net words added that day
+  saves    Int    @default(0)
+
+  @@unique([authorId, day])
+  @@index([authorId, day])
 }
