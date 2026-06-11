@@ -66,6 +66,22 @@ export const MATTER_SECTIONS: MatterSection[] = [
       "Write the book's introduction (500-800 words): hook the reader, frame the promise, and preview the journey ahead without summarizing every chapter.",
   },
   {
+    key: "how-to-use",
+    group: "front",
+    title: "How to Use This Book",
+    inManuscript: true,
+    directive:
+      "Write a concise 'How to Use This Book' section: how the reader should approach it, in what order, and how to get the most from it.",
+  },
+  {
+    key: "about-book",
+    group: "front",
+    title: "About This Book",
+    inManuscript: true,
+    directive:
+      "Write a short 'About This Book' section: what it is, who it is for, and what the reader will gain.",
+  },
+  {
     key: "disclaimer",
     group: "front",
     title: "Disclaimer",

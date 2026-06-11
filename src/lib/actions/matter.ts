@@ -2,11 +2,86 @@
 
 import { prisma, getAuthor } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { countWords } from "@/lib/utils";
+import { countWords, docToText, textToDoc } from "@/lib/utils";
 import { resolveAiConfig, buildBookContext } from "@/lib/ai/context";
 import { complete, configIsReady, AiError } from "@/lib/ai/providers";
 import { matterMessages } from "@/lib/ai/prompts";
 import { MATTER_SECTIONS, matterTypeOf, sectionByMatterType } from "@/lib/matter";
+
+function revalidateBook(projectId: string) {
+  for (const tab of ["write", "outline", "matter", "blueprint", "export"]) {
+    revalidatePath(`/studio/book/${projectId}/${tab}`);
+  }
+}
+
+/** Converts a body chapter into a front/back-matter section (e.g. Introduction). */
+export async function convertChapterToMatter(chapterId: string, matterType: string) {
+  const ch = await prisma.chapter.findUniqueOrThrow({ where: { id: chapterId } });
+  if (ch.matterType !== null) return { ok: false as const };
+  const section = sectionByMatterType(matterType);
+  if (!section) return { ok: false as const };
+
+  // If a (usually empty) row for this section already exists, move content into it
+  // so we never end up with two of the same section.
+  const existing = await prisma.chapter.findFirst({
+    where: { projectId: ch.projectId, matterType, id: { not: ch.id } },
+  });
+  if (existing) {
+    await prisma.chapter.update({
+      where: { id: existing.id },
+      data: {
+        contentText: ch.contentText || existing.contentText,
+        contentJson: ch.contentJson ?? existing.contentJson,
+        wordCount: ch.wordCount || existing.wordCount,
+        status: ch.wordCount > 0 ? "drafted" : existing.status,
+      },
+    });
+    await prisma.chapter.delete({ where: { id: ch.id } });
+  } else {
+    await prisma.chapter.update({
+      where: { id: ch.id },
+      data: { matterType, title: section.title, order: 10_000 },
+    });
+  }
+
+  // Close the gap in the body-chapter ordering.
+  const body = await prisma.chapter.findMany({
+    where: { projectId: ch.projectId, matterType: null },
+    orderBy: { order: "asc" },
+  });
+  for (let i = 0; i < body.length; i++) {
+    if (body[i].order !== i)
+      await prisma.chapter.update({ where: { id: body[i].id }, data: { order: i } });
+  }
+
+  revalidateBook(ch.projectId);
+  return { ok: true as const, group: section.group };
+}
+
+/** Converts a matter section back into a regular body chapter at the end. */
+export async function convertMatterToChapter(sectionId: string) {
+  const s = await prisma.chapter.findUniqueOrThrow({ where: { id: sectionId } });
+  if (!s.matterType) return { ok: false as const };
+
+  const max = await prisma.chapter.aggregate({
+    where: { projectId: s.projectId, matterType: null },
+    _max: { order: true },
+  });
+  const json =
+    s.contentJson ?? (s.contentText ? JSON.stringify(textToDoc(s.contentText)) : null);
+  await prisma.chapter.update({
+    where: { id: sectionId },
+    data: {
+      matterType: null,
+      order: (max._max.order ?? -1) + 1,
+      contentJson: json,
+      contentText: s.contentText || (json ? docToText(JSON.parse(json)) : ""),
+      status: s.wordCount > 0 ? "drafted" : "planned",
+    },
+  });
+  revalidateBook(s.projectId);
+  return { ok: true as const };
+}
 
 export type MatterRow = {
   id: string;

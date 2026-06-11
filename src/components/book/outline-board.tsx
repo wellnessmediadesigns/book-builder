@@ -11,6 +11,7 @@ import {
   Sparkles,
   PenLine,
   BookOpen,
+  FolderInput,
 } from "lucide-react";
 import { Badge } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,16 @@ import {
   addChapter,
   deleteChapter,
 } from "@/lib/actions/chapters";
+import { convertChapterToMatter } from "@/lib/actions/matter";
+
+const MOVE_TARGETS = [
+  { mt: "front:introduction", label: "Introduction" },
+  { mt: "front:how-to-use", label: "How to Use This Book" },
+  { mt: "front:about-book", label: "About This Book" },
+  { mt: "front:preface", label: "Preface" },
+  { mt: "front:foreword", label: "Foreword" },
+  { mt: "back:conclusion", label: "Conclusion" },
+];
 
 type Ch = {
   id: string;
@@ -55,6 +66,18 @@ export function OutlineBoard({
   const [chapters, setChapters] = useState<Ch[]>(initial);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  const [menuId, setMenuId] = useState<string | null>(null);
+
+  async function moveToSection(id: string, mt: string, label: string) {
+    setMenuId(null);
+    const res = await convertChapterToMatter(id, mt);
+    if (res.ok) {
+      setChapters((cs) => cs.filter((c) => c.id !== id).map((c, i) => ({ ...c, order: i })));
+      toast.success(`Moved to “${label}”`, "Edit it any time in the Sections tab.");
+    } else {
+      toast.error("Couldn't move this chapter");
+    }
+  }
 
   const totalWords = chapters.reduce((s, c) => s + c.wordCount, 0);
   const goalWords = chapters.reduce((s, c) => s + (c.maxWords || 0), 0);
@@ -195,7 +218,7 @@ export function OutlineBoard({
                 <span>{pct}%</span>
               </div>
 
-              <div className="mt-3 flex items-center gap-1 border-t border-line pt-3">
+              <div className="relative mt-3 flex items-center gap-1 border-t border-line pt-3">
                 {c.wordCount === 0 ? (
                   <Button
                     variant="museSoft"
@@ -215,15 +238,46 @@ export function OutlineBoard({
                     <PenLine className="h-3.5 w-3.5" /> Open
                   </Button>
                 )}
+
+                <button
+                  onClick={() => setMenuId((m) => (m === c.id ? null : c.id))}
+                  title="Convert to a front/back-matter section"
+                  className="ml-auto flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs text-ink-soft transition-colors hover:bg-paper-sunken hover:text-ink"
+                >
+                  <FolderInput className="h-3.5 w-3.5" /> Move
+                </button>
                 {chapters.length > 1 && (
                   <button
                     onClick={() => {
                       if (confirm(`Delete "${c.title}"?`)) remove(c.id);
                     }}
-                    className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-clay/10 hover:text-clay"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-clay/10 hover:text-clay"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
+                )}
+
+                {menuId === c.id && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setMenuId(null)} />
+                    <div className="absolute bottom-10 right-0 z-20 w-56 overflow-hidden rounded-xl border border-line bg-paper-raised p-1 shadow-float animate-scale-in">
+                      <p className="px-2.5 py-1.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">
+                        Move to section
+                      </p>
+                      {MOVE_TARGETS.map((t) => (
+                        <button
+                          key={t.mt}
+                          onClick={() => moveToSection(c.id, t.mt, t.label)}
+                          className="block w-full rounded-lg px-2.5 py-2 text-left text-sm text-ink-soft transition-colors hover:bg-paper-sunken hover:text-ink"
+                        >
+                          {t.label}
+                        </button>
+                      ))}
+                      <p className="px-2.5 py-1.5 text-[0.6875rem] text-muted">
+                        Removes it from the chapter list and into your book sections.
+                      </p>
+                    </div>
+                  </>
                 )}
               </div>
             </motion.div>
