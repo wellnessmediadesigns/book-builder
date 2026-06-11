@@ -17,11 +17,11 @@ import { Button } from "@/components/ui/button";
 import { formatNumber } from "@/lib/utils";
 
 const FORMATS = [
-  { key: "markdown", label: "Markdown", ext: ".md", icon: Code2, real: true, desc: "Clean Markdown with title page, contents, and chapter headings." },
+  { key: "docx", label: "Word", ext: ".docx", icon: FileText, real: true, desc: "Microsoft Word manuscript — 6×9 trim, styled headings, page breaks, front & back matter." },
+  { key: "epub", label: "EPUB", ext: ".epub", icon: BookOpen, real: true, desc: "Reflowable EPUB 3 for Kindle & Apple Books, with navigation and semantic sections." },
+  { key: "markdown", label: "Markdown", ext: ".md", icon: Code2, real: true, desc: "Clean Markdown with title page, contents, chapters, and matter sections." },
   { key: "html", label: "HTML", ext: ".html", icon: Globe, real: true, desc: "Styled, print-ready 6×9 layout with proper page breaks." },
-  { key: "pdf", label: "PDF", ext: ".pdf", icon: FileType, real: false, desc: "Print the HTML export to PDF from your browser — pixel-perfect 6×9." },
-  { key: "docx", label: "Word", ext: ".docx", icon: FileText, real: false, desc: "Microsoft Word manuscript. Pipeline scaffolded — coming soon." },
-  { key: "epub", label: "EPUB", ext: ".epub", icon: BookOpen, real: false, desc: "Reflowable ebook for Kindle & Apple Books. Coming soon." },
+  { key: "pdf", label: "PDF", ext: ".pdf", icon: FileType, real: false, desc: "Open the print view and use your browser's Save as PDF — pixel-perfect 6×9." },
 ];
 
 export function ExportView({
@@ -100,13 +100,9 @@ export function ExportView({
                   <Button variant="primary" size="sm" onClick={() => download(f.key)}>
                     <Download className="h-4 w-4" /> Download {f.label}
                   </Button>
-                ) : f.key === "pdf" ? (
+                ) : (
                   <Button variant="outline" size="sm" onClick={printPdf}>
                     <Printer className="h-4 w-4" /> Open print view
-                  </Button>
-                ) : (
-                  <Button variant="soft" size="sm" disabled>
-                    <Sparkles className="h-4 w-4" /> Coming soon
                   </Button>
                 )}
               </div>
@@ -116,8 +112,8 @@ export function ExportView({
       </div>
 
       <p className="mt-8 text-center text-xs text-muted">
-        Markdown & HTML export the full manuscript today. DOCX & EPUB adapters are wired
-        into the same pipeline and arrive next.
+        Exports include your drafted front &amp; back matter sections automatically.
+        Marketing copy stays out of the manuscript.
       </p>
     </div>
   );

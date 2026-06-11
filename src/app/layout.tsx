@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { fontVars } from "@/lib/fonts";
 import { Providers } from "@/components/providers";
@@ -9,6 +9,21 @@ export const metadata: Metadata = {
   description:
     "From a spark to a finished book. Quire is a premium, AI-native studio for writing real books — you hold the pen, Quire holds everything else.",
   applicationName: "Quire",
+  appleWebApp: {
+    capable: true,
+    title: "Quire",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#FBF9F4" },
+    { media: "(prefers-color-scheme: dark)", color: "#15171F" },
+  ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

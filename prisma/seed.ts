@@ -1,3 +1,5 @@
+// Seeds the plain-SQLite fallback database (`npm run db:push && npm run db:seed`).
+// The D1 path needs no seeding — the app creates the author profile on first run.
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();

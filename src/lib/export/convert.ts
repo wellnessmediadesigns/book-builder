@@ -70,6 +70,68 @@ export function docToHtml(doc: Node | null): string {
     .join("\n");
 }
 
+// ——— Normalized blocks for binary exporters (DOCX / EPUB) ———
+
+export type Run = { text: string; bold?: boolean; italic?: boolean; underline?: boolean };
+export type Block =
+  | { type: "p" | "quote"; runs: Run[] }
+  | { type: "h"; level: number; runs: Run[] }
+  | { type: "list"; ordered: boolean; items: Run[][] };
+
+function inlineToRuns(nodes: Node[] = []): Run[] {
+  const out: Run[] = [];
+  for (const n of nodes) {
+    if (n.type !== "text") {
+      out.push(...inlineToRuns(n.content));
+      continue;
+    }
+    const marks = new Set((n.marks ?? []).map((m) => m.type));
+    out.push({
+      text: n.text ?? "",
+      bold: marks.has("bold") || undefined,
+      italic: marks.has("italic") || undefined,
+      underline: marks.has("underline") || undefined,
+    });
+  }
+  return out;
+}
+
+/** Flattens a TipTap doc into exporter-friendly blocks. */
+export function docToBlocks(doc: Node | null): Block[] {
+  if (!doc?.content) return [];
+  const blocks: Block[] = [];
+  for (const node of doc.content) {
+    switch (node.type) {
+      case "heading":
+        blocks.push({
+          type: "h",
+          level: Math.min(3, Number(node.attrs?.level ?? 2)),
+          runs: inlineToRuns(node.content),
+        });
+        break;
+      case "blockquote":
+        for (const inner of node.content ?? []) {
+          blocks.push({ type: "quote", runs: inlineToRuns(inner.content) });
+        }
+        break;
+      case "bulletList":
+      case "orderedList":
+        blocks.push({
+          type: "list",
+          ordered: node.type === "orderedList",
+          items: (node.content ?? []).map((li) => inlineToRuns(li.content?.[0]?.content)),
+        });
+        break;
+      case "paragraph": {
+        const runs = inlineToRuns(node.content);
+        if (runs.some((r) => r.text.trim())) blocks.push({ type: "p", runs });
+        break;
+      }
+    }
+  }
+  return blocks;
+}
+
 export function docToMarkdown(doc: Node | null): string {
   if (!doc?.content) return "";
   return doc.content

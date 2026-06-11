@@ -21,8 +21,15 @@ import {
   PanelRightClose,
   Lock,
   Unlock,
+  GitCompareArrows,
+  StickyNote,
+  BookmarkIcon,
+  Trash2,
+  Check,
+  CornerDownLeft,
   type LucideIcon,
 } from "lucide-react";
+import type { NoteData } from "@/lib/actions/notes";
 import { cn, relativeTime, formatNumber } from "@/lib/utils";
 import { Spinner } from "@/components/ui/primitives";
 
@@ -75,11 +82,18 @@ export function CommandCenter({
   analysis,
   analysisLoading,
   versions,
+  notes,
   onAction,
   onSnapshot,
   onRestore,
+  onCompare,
   onToggleLock,
   onCollapse,
+  onAddComment,
+  onToggleComment,
+  onDeleteComment,
+  onJumpBookmark,
+  onDeleteBookmark,
 }: {
   chapterTitle: string;
   wordCount: number;
@@ -90,13 +104,21 @@ export function CommandCenter({
   analysis: string | null;
   analysisLoading: boolean;
   versions: Version[];
+  notes: NoteData;
   onAction: (a: ChapterAction) => void;
   onSnapshot: () => void;
   onRestore: (id: string) => void;
+  onCompare: (id: string) => void;
   onToggleLock: () => void;
   onCollapse: () => void;
+  onAddComment: (body: string) => void;
+  onToggleComment: (id: string) => void;
+  onDeleteComment: (id: string) => void;
+  onJumpBookmark: (anchor: string) => void;
+  onDeleteBookmark: (id: string) => void;
 }) {
-  const [tab, setTab] = useState<"ai" | "history">("ai");
+  const [tab, setTab] = useState<"ai" | "history" | "notes">("ai");
+  const [comment, setComment] = useState("");
   const [custom, setCustom] = useState("");
   const goal = maxWords > 0 ? Math.min(100, Math.round((wordCount / maxWords) * 100)) : 0;
 
@@ -110,6 +132,9 @@ export function CommandCenter({
           </TabBtn>
           <TabBtn active={tab === "history"} onClick={() => setTab("history")}>
             <History className="h-3.5 w-3.5" /> History
+          </TabBtn>
+          <TabBtn active={tab === "notes"} onClick={() => setTab("notes")}>
+            <StickyNote className="h-3.5 w-3.5" /> Notes
           </TabBtn>
         </div>
         <button
@@ -266,8 +291,7 @@ export function CommandCenter({
               )}
             </AnimatePresence>
           </div>
-        ) : (
-          // history tab
+        ) : tab === "history" ? (
           <div className="space-y-2">
             <div className="flex gap-1.5">
               <button
@@ -309,17 +333,118 @@ export function CommandCenter({
                     </p>
                   </div>
                   <button
+                    onClick={() => onCompare(v.id)}
+                    title="Compare with current"
+                    className="flex h-7 w-7 items-center justify-center rounded-lg text-muted transition-all hover:bg-muse-soft hover:text-muse-deep sm:opacity-0 sm:group-hover:opacity-100"
+                  >
+                    <GitCompareArrows className="h-3.5 w-3.5" />
+                  </button>
+                  <button
                     onClick={() => {
                       if (confirm("Restore this version? Your current text is snapshotted first."))
                         onRestore(v.id);
                     }}
                     title="Restore"
-                    className="flex h-7 w-7 items-center justify-center rounded-lg text-muted opacity-0 transition-all hover:bg-paper-sunken hover:text-ink group-hover:opacity-100"
+                    className="flex h-7 w-7 items-center justify-center rounded-lg text-muted transition-all hover:bg-paper-sunken hover:text-ink sm:opacity-0 sm:group-hover:opacity-100"
                   >
                     <RotateCcw className="h-3.5 w-3.5" />
                   </button>
                 </div>
               ))
+            )}
+          </div>
+        ) : (
+          // notes tab — comments & bookmarks
+          <div className="space-y-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (comment.trim()) {
+                  onAddComment(comment.trim());
+                  setComment("");
+                }
+              }}
+              className="flex gap-1.5"
+            >
+              <input
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Add a note to this chapter…"
+                className="h-9 min-w-0 flex-1 rounded-xl border border-line bg-paper-raised px-3 text-sm text-ink placeholder:text-muted outline-none focus:border-muse/40 focus:ring-2 focus:ring-muse/20"
+              />
+              <button
+                type="submit"
+                disabled={!comment.trim()}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ink text-paper transition-opacity hover:opacity-90 disabled:opacity-40"
+              >
+                <CornerDownLeft className="h-3.5 w-3.5" />
+              </button>
+            </form>
+
+            {notes.comments.length === 0 && notes.bookmarks.length === 0 && (
+              <p className="px-1 py-4 text-center text-sm text-muted">
+                Notes and bookmarks live here. Select text and tap the bookmark icon to
+                mark a passage.
+              </p>
+            )}
+
+            {notes.comments.map((c) => (
+              <div
+                key={c.id}
+                className={cn(
+                  "group rounded-xl border border-line bg-paper-raised px-3 py-2.5",
+                  c.resolved && "opacity-60",
+                )}
+              >
+                <p className={cn("text-sm text-ink", c.resolved && "line-through")}>{c.body}</p>
+                <div className="mt-1.5 flex items-center gap-1">
+                  <span className="text-[0.6875rem] text-muted">{relativeTime(c.createdAt)}</span>
+                  <button
+                    onClick={() => onToggleComment(c.id)}
+                    title={c.resolved ? "Reopen" : "Resolve"}
+                    className="ml-auto flex h-6 w-6 items-center justify-center rounded-md text-muted transition-colors hover:bg-sage/10 hover:text-sage"
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => onDeleteComment(c.id)}
+                    title="Delete"
+                    className="flex h-6 w-6 items-center justify-center rounded-md text-muted transition-colors hover:bg-clay/10 hover:text-clay"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {notes.bookmarks.length > 0 && (
+              <div>
+                <p className="mb-1.5 px-1 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">
+                  Bookmarks
+                </p>
+                <div className="space-y-1.5">
+                  {notes.bookmarks.map((b) => (
+                    <div
+                      key={b.id}
+                      className="group flex items-center gap-2 rounded-xl border border-line bg-paper-raised px-3 py-2"
+                    >
+                      <BookmarkIcon className="h-3.5 w-3.5 shrink-0 text-brass" />
+                      <button
+                        onClick={() => onJumpBookmark(b.anchor)}
+                        className="min-w-0 flex-1 truncate text-left text-sm text-ink-soft transition-colors hover:text-ink"
+                      >
+                        {b.label}
+                      </button>
+                      <button
+                        onClick={() => onDeleteBookmark(b.id)}
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-clay/10 hover:text-clay sm:opacity-0 sm:group-hover:opacity-100"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         )}

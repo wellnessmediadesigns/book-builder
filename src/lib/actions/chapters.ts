@@ -134,6 +134,18 @@ export async function reorderChapters(projectId: string, orderedIds: string[]) {
   revalidatePath(`/studio/book/${projectId}/write`);
 }
 
+export async function getVersionDetail(versionId: string) {
+  const v = await prisma.chapterVersion.findUniqueOrThrow({ where: { id: versionId } });
+  return {
+    id: v.id,
+    label: v.label,
+    source: v.source,
+    wordCount: v.wordCount,
+    contentText: v.contentText,
+    createdAt: v.createdAt.toISOString(),
+  };
+}
+
 export async function listChapterVersions(chapterId: string) {
   const versions = await prisma.chapterVersion.findMany({
     where: { chapterId },

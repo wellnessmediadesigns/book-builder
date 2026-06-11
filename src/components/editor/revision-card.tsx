@@ -37,16 +37,20 @@ export function RevisionCard({
   onRetry: () => void;
 }) {
   if (!rev.rect) return null;
+  const isPhone = typeof window !== "undefined" && window.innerWidth < 640;
   const top = rev.rect.top + 18;
   const left = Math.min(Math.max(rev.rect.left, 16), window.innerWidth - 440);
+  const style: React.CSSProperties = isPhone
+    ? { position: "fixed", left: 8, right: 8, bottom: "max(8px, env(safe-area-inset-bottom))", zIndex: 55 }
+    : { position: "fixed", top, left, zIndex: 55 };
 
   return (
-    <div style={{ position: "fixed", top, left, zIndex: 55 }}>
+    <div style={style}>
       <motion.div
         initial={{ opacity: 0, y: 8, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-        className="w-[26rem] overflow-hidden rounded-2xl border border-muse/25 bg-paper-raised shadow-glow"
+        className="mx-auto w-full max-w-[26rem] overflow-hidden rounded-2xl border border-muse/25 bg-paper-raised shadow-glow"
       >
         <div className="flex items-center gap-2 border-b border-line bg-muse-soft/50 px-4 py-2.5">
           <Sparkles className="h-4 w-4 text-muse" />

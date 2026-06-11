@@ -16,6 +16,7 @@ import {
   Quote,
   Zap,
   CheckCheck,
+  Bookmark,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -58,12 +59,14 @@ export function FloatingToolbar({
   onCommand,
   onAsk,
   onToggleLock,
+  onBookmark,
 }: {
   sel: SelInfo;
   busy: boolean;
   onCommand: (cmd: string) => void;
   onAsk: (instruction: string) => void;
   onToggleLock: () => void;
+  onBookmark: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [asking, setAsking] = useState(false);
@@ -76,19 +79,30 @@ export function FloatingToolbar({
 
   if (!sel.rect) return null;
 
+  // On phones the toolbar docks to the bottom of the screen (above the
+  // keyboard/selection handles); on larger screens it floats over the selection.
+  const isPhone = typeof window !== "undefined" && window.innerWidth < 640;
   const top = Math.max(12, sel.rect.top - 14);
   const left = sel.rect.left + sel.rect.width / 2;
+  const style: React.CSSProperties = isPhone
+    ? {
+        position: "fixed",
+        left: 8,
+        right: 8,
+        bottom: "max(8px, env(safe-area-inset-bottom))",
+        zIndex: 50,
+        display: "flex",
+        justifyContent: "center",
+      }
+    : { position: "fixed", top, left, transform: "translate(-50%, -100%)", zIndex: 50 };
 
   return (
-    <div
-      style={{ position: "fixed", top, left, transform: "translate(-50%, -100%)", zIndex: 50 }}
-      onMouseDown={(e) => e.preventDefault()}
-    >
+    <div style={style} onMouseDown={(e) => e.preventDefault()}>
       <motion.div
         initial={{ opacity: 0, y: 6, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
-        className="overflow-hidden rounded-2xl border border-line bg-paper-raised shadow-float"
+        className="max-w-full overflow-hidden rounded-2xl border border-line bg-paper-raised shadow-float"
       >
         {sel.locked ? (
           <div className="flex items-center gap-2 px-3 py-2">
@@ -130,24 +144,31 @@ export function FloatingToolbar({
             </button>
           </form>
         ) : (
-          <div className="flex items-center p-1">
+          <div className="flex items-center overflow-x-auto p-1 no-scrollbar">
             <ToolbarBtn onClick={() => setAsking(true)} active busy={busy}>
               <Wand2 className="h-3.5 w-3.5" /> Ask AI
             </ToolbarBtn>
-            <div className="mx-1 h-5 w-px bg-line" />
+            <div className="mx-1 h-5 w-px shrink-0 bg-line" />
             {QUICK.map((q) => (
               <ToolbarBtn key={q.cmd} onClick={() => onCommand(q.cmd)} busy={busy}>
                 <q.icon className="h-3.5 w-3.5" /> {q.label}
               </ToolbarBtn>
             ))}
-            <div className="mx-1 h-5 w-px bg-line" />
+            <div className="mx-1 h-5 w-px shrink-0 bg-line" />
             <ToolbarBtn onClick={() => setExpanded((v) => !v)} busy={false}>
               {expanded ? "Less" : "More"}
             </ToolbarBtn>
             <button
+              onClick={onBookmark}
+              title="Bookmark this passage"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-ink-soft transition-colors hover:bg-paper-sunken hover:text-brass"
+            >
+              <Bookmark className="h-3.5 w-3.5" />
+            </button>
+            <button
               onClick={onToggleLock}
               title="Lock selection"
-              className="flex h-8 w-8 items-center justify-center rounded-xl text-ink-soft transition-colors hover:bg-paper-sunken hover:text-brass"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-ink-soft transition-colors hover:bg-paper-sunken hover:text-brass"
             >
               <Lock className="h-3.5 w-3.5" />
             </button>
@@ -163,7 +184,7 @@ export function FloatingToolbar({
               transition={{ duration: 0.18 }}
               className="border-t border-line"
             >
-              <div className="grid w-[28rem] grid-cols-2 gap-0.5 p-2">
+              <div className="grid w-[min(28rem,calc(100vw-2rem))] grid-cols-2 gap-0.5 p-2">
                 {MORE.map((m) => (
                   <button
                     key={m.cmd}

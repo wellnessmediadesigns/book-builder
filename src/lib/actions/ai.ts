@@ -81,61 +81,60 @@ export async function generateBlueprint(
   const recommendedTitle = String(bp.recommendedTitle || project.title);
   const subtitle = String(bp.recommendedSubtitle || "");
 
-  await prisma.$transaction(async (tx) => {
-    await tx.project.update({
-      where: { id: projectId },
-      data: {
-        blueprintJson: JSON.stringify(bp),
-        recommendedTitle,
-        subtitle,
-        positioning: String(bp.positioning || ""),
-        readerPromise: String(bp.readerPromise || ""),
-        status: "blueprint",
-      },
-    });
-
-    // Rebuild chapters from the table of contents.
-    await tx.chapter.deleteMany({ where: { projectId, matterType: null } });
-    await tx.chapter.createMany({
-      data: toc.map((c, i) => {
-        const ch = c as { title?: string; summary?: string };
-        return {
-          projectId,
-          order: i,
-          title: ch.title || `Chapter ${i + 1}`,
-          summary: ch.summary || "",
-          minWords: project.minWords,
-          maxWords: project.maxWords,
-        };
-      }),
-    });
-
-    // Seed Book Memory.
-    await tx.memoryEntry.deleteMany({ where: { projectId } });
-    const mem: { kind: string; title: string; body: string; order: number }[] = [];
-    let order = 0;
-    const push = (kind: string, title: string, body: string) =>
-      mem.push({ kind, title, body, order: order++ });
-
-    if (bp.positioning) push("premise", "Positioning", String(bp.positioning));
-    if (bp.readerPromise) push("reader-promise", "Reader promise", String(bp.readerPromise));
-    if (bp.readerJourney) push("note", "Reader journey", String(bp.readerJourney));
-    forEachStr(bp.styleGuide, (s, i) => push("style-rule", `Style ${i + 1}`, s));
-    forEachStr(bp.toneGuide, (s, i) => push("tone-rule", `Tone ${i + 1}`, s));
-    forEachStr(bp.continuityGuide, (s, i) => push("fact", `Continuity ${i + 1}`, s));
-    forEachObj(bp.characters, (o) =>
-      push("character", String(o.name || "Character"), String(o.description || o.role || "")),
-    );
-    forEachObj(bp.settings, (o) =>
-      push("setting", String(o.name || "Setting"), String(o.description || "")),
-    );
-    forEachObj(bp.keyConcepts, (o) =>
-      push("key-concept", String(o.name || "Concept"), String(o.description || "")),
-    );
-
-    if (mem.length)
-      await tx.memoryEntry.createMany({ data: mem.map((m) => ({ projectId, ...m })) });
+  // Sequential writes (D1 has no interactive transactions).
+  await prisma.project.update({
+    where: { id: projectId },
+    data: {
+      blueprintJson: JSON.stringify(bp),
+      recommendedTitle,
+      subtitle,
+      positioning: String(bp.positioning || ""),
+      readerPromise: String(bp.readerPromise || ""),
+      status: "blueprint",
+    },
   });
+
+  // Rebuild chapters from the table of contents.
+  await prisma.chapter.deleteMany({ where: { projectId, matterType: null } });
+  await prisma.chapter.createMany({
+    data: toc.map((c, i) => {
+      const ch = c as { title?: string; summary?: string };
+      return {
+        projectId,
+        order: i,
+        title: ch.title || `Chapter ${i + 1}`,
+        summary: ch.summary || "",
+        minWords: project.minWords,
+        maxWords: project.maxWords,
+      };
+    }),
+  });
+
+  // Seed Book Memory.
+  await prisma.memoryEntry.deleteMany({ where: { projectId } });
+  const mem: { kind: string; title: string; body: string; order: number }[] = [];
+  let order = 0;
+  const push = (kind: string, title: string, body: string) =>
+    mem.push({ kind, title, body, order: order++ });
+
+  if (bp.positioning) push("premise", "Positioning", String(bp.positioning));
+  if (bp.readerPromise) push("reader-promise", "Reader promise", String(bp.readerPromise));
+  if (bp.readerJourney) push("note", "Reader journey", String(bp.readerJourney));
+  forEachStr(bp.styleGuide, (s, i) => push("style-rule", `Style ${i + 1}`, s));
+  forEachStr(bp.toneGuide, (s, i) => push("tone-rule", `Tone ${i + 1}`, s));
+  forEachStr(bp.continuityGuide, (s, i) => push("fact", `Continuity ${i + 1}`, s));
+  forEachObj(bp.characters, (o) =>
+    push("character", String(o.name || "Character"), String(o.description || o.role || "")),
+  );
+  forEachObj(bp.settings, (o) =>
+    push("setting", String(o.name || "Setting"), String(o.description || "")),
+  );
+  forEachObj(bp.keyConcepts, (o) =>
+    push("key-concept", String(o.name || "Concept"), String(o.description || "")),
+  );
+
+  if (mem.length)
+    await prisma.memoryEntry.createMany({ data: mem.map((m) => ({ projectId, ...m })) });
 
   await logGen(projectId, "blueprint", config, raw.length, "ok", `${Date.now() - started}ms`);
   revalidatePath(`/studio/book/${projectId}`, "layout");

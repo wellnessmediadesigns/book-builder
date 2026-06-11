@@ -46,6 +46,6 @@ export const PROVIDER_PRESETS: Record<
     baseUrl: "http://localhost:11434/v1",
     needsKey: false,
     models: ["llama3.1", "mistral", "qwen2.5", "phi3"],
-    help: "Run models locally — no key needed (ollama.com).",
+    help: "Local models, no key (ollama.com). Deployed on Cloudflare? Point the URL at a tunnel to your machine.",
   },
 };

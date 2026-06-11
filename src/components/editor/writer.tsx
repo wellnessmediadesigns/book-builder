@@ -37,7 +37,18 @@ import {
   reorderChapters,
   resolveRevision,
   listChapterVersions,
+  getVersionDetail,
 } from "@/lib/actions/chapters";
+import {
+  listNotes,
+  addComment,
+  toggleCommentResolved,
+  deleteComment,
+  addBookmark,
+  deleteBookmark,
+  type NoteData,
+} from "@/lib/actions/notes";
+import { DiffModal } from "@/components/editor/diff-modal";
 import { runSelectionCommand, runChapterAnalysis } from "@/lib/actions/ai";
 
 type FullChapter = ChapterMeta & {
@@ -69,6 +80,20 @@ export function Writer({
   const [panelOpen, setPanelOpen] = useState(true);
   const [focusMode, setFocusMode] = useState(false);
   const [readingFont, setReadingFont] = useState<"serif" | "sans">("serif");
+  const [isMobile, setIsMobile] = useState(false);
+
+  // On phones the rails become overlay drawers and start closed.
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const apply = () => setIsMobile(mq.matches);
+    apply();
+    if (mq.matches) {
+      setRailOpen(false);
+      setPanelOpen(false);
+    }
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
 
   const [sel, setSel] = useState<SelInfo | null>(null);
   const [revision, setRevision] = useState<PendingRevision | null>(null);
@@ -78,6 +103,13 @@ export function Writer({
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [versions, setVersions] = useState<Version[]>([]);
+  const [notes, setNotes] = useState<NoteData>({ comments: [], bookmarks: [] });
+  const [diff, setDiff] = useState<{
+    versionId: string;
+    label: string;
+    date: string;
+    text: string;
+  } | null>(null);
 
   const [save, setSave] = useState<{ status: "idle" | "saving" | "saved" | "error"; at: number }>({
     status: "idle",
@@ -182,6 +214,8 @@ export function Writer({
     const next = chapters.find((c) => c.id === id);
     editor.commands.setContent(next?.contentJson ? safeParse(next.contentJson) : emptyDoc(), false);
     loadVersions(id);
+    loadNotes(id);
+    if (isMobile) setRailOpen(false);
   }
 
   useEffect(() => {
@@ -196,8 +230,19 @@ export function Writer({
     }
   }, []);
 
+  const loadNotes = useCallback(async (id: string) => {
+    try {
+      setNotes(await listNotes(id));
+    } catch {
+      setNotes({ comments: [], bookmarks: [] });
+    }
+  }, []);
+
   useEffect(() => {
-    if (activeId) loadVersions(activeId);
+    if (activeId) {
+      loadVersions(activeId);
+      loadNotes(activeId);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -467,6 +512,63 @@ export function Writer({
     toast.success("Version restored", "Previous text was snapshotted first.");
   }
 
+  // ——— notes & bookmarks ———
+  async function handleAddComment(body: string) {
+    await addComment(activeId, body);
+    loadNotes(activeId);
+  }
+  async function handleToggleComment(id: string) {
+    await toggleCommentResolved(id);
+    loadNotes(activeId);
+  }
+  async function handleDeleteComment(id: string) {
+    await deleteComment(id);
+    loadNotes(activeId);
+  }
+  async function handleBookmarkSelection() {
+    if (!sel) return;
+    const label = sel.text.length > 64 ? sel.text.slice(0, 64) + "…" : sel.text;
+    const anchor = sel.text.split("\n")[0].slice(0, 120);
+    await addBookmark(activeId, label, anchor);
+    setSel(null);
+    loadNotes(activeId);
+    toast.success("Bookmarked", "Find it in the Notes tab.");
+  }
+  async function handleDeleteBookmark(id: string) {
+    await deleteBookmark(id);
+    loadNotes(activeId);
+  }
+  function jumpToBookmark(anchor: string) {
+    if (!editor || !anchor) return;
+    const found = posOfSnippet(editor, anchor);
+    if (!found) {
+      toast.info("Passage not found", "The text may have changed since it was bookmarked.");
+      return;
+    }
+    if (isMobile) setPanelOpen(false);
+    editor
+      .chain()
+      .focus()
+      .setTextSelection(found)
+      .scrollIntoView()
+      .run();
+  }
+
+  // ——— version compare ———
+  async function handleCompare(versionId: string) {
+    try {
+      const v = await getVersionDetail(versionId);
+      setDiff({
+        versionId,
+        label: v.label || sourceName(v.source),
+        date: v.createdAt,
+        text: v.contentText,
+      });
+    } catch {
+      toast.error("Could not load that version");
+    }
+  }
+
   function ensureAi(): boolean {
     if (!aiReady) {
       toast.error("Add your AI key first", "Open Settings to connect a provider.");
@@ -505,42 +607,74 @@ export function Writer({
       />
 
       <div className="flex min-h-0 flex-1">
-        {/* Chapter rail */}
-        <AnimatePresence initial={false}>
-          {railOpen && !focusMode && (
-            <motion.aside
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 264, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              className="shrink-0 overflow-hidden border-r border-line"
-            >
-              <div className="h-full w-[264px]">
-                <ChapterRail
-                  projectId={projectId}
-                  bookTitle={bookTitle}
-                  chapters={chapters}
-                  activeId={activeId}
-                  generatingId={generatingId}
-                  onSelect={selectChapter}
-                  onAdd={handleAdd}
-                  onDelete={handleDelete}
-                  onReorder={handleReorder}
-                  onGenerate={(id) => {
-                    if (id !== activeId) selectChapter(id).then(() => setTimeout(() => streamGenerate("generate"), 60));
-                    else streamGenerate("generate");
-                  }}
-                  onCollapse={() => setRailOpen(false)}
-                />
-              </div>
-            </motion.aside>
-          )}
-        </AnimatePresence>
+        {/* Chapter rail — inline on desktop, overlay drawer on phones */}
+        {(() => {
+          const rail = (
+            <ChapterRail
+              projectId={projectId}
+              bookTitle={bookTitle}
+              chapters={chapters}
+              activeId={activeId}
+              generatingId={generatingId}
+              onSelect={selectChapter}
+              onAdd={handleAdd}
+              onDelete={handleDelete}
+              onReorder={handleReorder}
+              onGenerate={(id) => {
+                if (isMobile) setRailOpen(false);
+                if (id !== activeId) selectChapter(id).then(() => setTimeout(() => streamGenerate("generate"), 60));
+                else streamGenerate("generate");
+              }}
+              onCollapse={() => setRailOpen(false)}
+            />
+          );
+          if (isMobile) {
+            return (
+              <AnimatePresence>
+                {railOpen && !focusMode && (
+                  <div className="fixed inset-0 z-40">
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="absolute inset-0 bg-ink/35 backdrop-blur-[2px]"
+                      onClick={() => setRailOpen(false)}
+                    />
+                    <motion.div
+                      initial={{ x: -300 }}
+                      animate={{ x: 0 }}
+                      exit={{ x: -300 }}
+                      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                      className="absolute inset-y-0 left-0 w-[290px] max-w-[85vw] border-r border-line bg-paper shadow-float"
+                    >
+                      {rail}
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
+            );
+          }
+          return (
+            <AnimatePresence initial={false}>
+              {railOpen && !focusMode && (
+                <motion.aside
+                  initial={{ width: 0, opacity: 0 }}
+                  animate={{ width: 264, opacity: 1 }}
+                  exit={{ width: 0, opacity: 0 }}
+                  transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                  className="shrink-0 overflow-hidden border-r border-line"
+                >
+                  <div className="h-full w-[264px]">{rail}</div>
+                </motion.aside>
+              )}
+            </AnimatePresence>
+          );
+        })()}
 
         {/* Canvas */}
         <main className="relative flex min-w-0 flex-1 flex-col">
           {/* canvas toolbar */}
-          <div className="flex items-center gap-1 border-b border-line/60 px-4 py-2">
+          <div className="flex items-center gap-1 overflow-x-auto border-b border-line/60 px-2 py-2 no-scrollbar sm:px-4">
             {!railOpen && !focusMode && (
               <IconBtn title="Show chapters" onClick={() => setRailOpen(true)}>
                 <PanelLeftOpen className="h-4 w-4" />
@@ -567,7 +701,7 @@ export function Writer({
 
           <div className="manuscript min-h-0 flex-1 overflow-y-auto" onClick={() => editor?.commands.focus()}>
             <div
-              className={cn("mx-auto px-6 py-14 transition-all duration-300", focusMode ? "max-w-2xl py-24" : "max-w-3xl")}
+              className={cn("mx-auto px-5 py-10 transition-all duration-300 sm:px-6 sm:py-14", focusMode ? "max-w-2xl sm:py-24" : "max-w-3xl")}
               style={{
                 ["--reading-measure" as string]: focusMode ? "40rem" : "38rem",
               }}
@@ -602,37 +736,78 @@ export function Writer({
           )}
         </main>
 
-        {/* Command center */}
-        <AnimatePresence initial={false}>
-          {panelOpen && !focusMode && (
-            <motion.aside
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 312, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              className="shrink-0 overflow-hidden border-l border-line"
-            >
-              <div className="h-full w-[312px]">
-                <CommandCenter
-                  chapterTitle={active?.title ?? ""}
-                  wordCount={wordCount}
-                  minWords={active?.minWords ?? 0}
-                  maxWords={active?.maxWords ?? 0}
-                  locked={active?.locked ?? false}
-                  busy={busy || generatingId !== null}
-                  analysis={analysis}
-                  analysisLoading={analysisLoading}
-                  versions={versions}
-                  onAction={handleChapterAction}
-                  onSnapshot={handleSnapshot}
-                  onRestore={handleRestore}
-                  onToggleLock={toggleLock}
-                  onCollapse={() => setPanelOpen(false)}
-                />
-              </div>
-            </motion.aside>
-          )}
-        </AnimatePresence>
+        {/* Command center — inline on desktop, overlay drawer on phones */}
+        {(() => {
+          const panel = (
+            <CommandCenter
+              chapterTitle={active?.title ?? ""}
+              wordCount={wordCount}
+              minWords={active?.minWords ?? 0}
+              maxWords={active?.maxWords ?? 0}
+              locked={active?.locked ?? false}
+              busy={busy || generatingId !== null}
+              analysis={analysis}
+              analysisLoading={analysisLoading}
+              versions={versions}
+              notes={notes}
+              onAction={(a) => {
+                if (isMobile && (a.type === "generate" || a.type === "continue")) setPanelOpen(false);
+                handleChapterAction(a);
+              }}
+              onSnapshot={handleSnapshot}
+              onRestore={handleRestore}
+              onCompare={handleCompare}
+              onToggleLock={toggleLock}
+              onCollapse={() => setPanelOpen(false)}
+              onAddComment={handleAddComment}
+              onToggleComment={handleToggleComment}
+              onDeleteComment={handleDeleteComment}
+              onJumpBookmark={jumpToBookmark}
+              onDeleteBookmark={handleDeleteBookmark}
+            />
+          );
+          if (isMobile) {
+            return (
+              <AnimatePresence>
+                {panelOpen && !focusMode && (
+                  <div className="fixed inset-0 z-40">
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="absolute inset-0 bg-ink/35 backdrop-blur-[2px]"
+                      onClick={() => setPanelOpen(false)}
+                    />
+                    <motion.div
+                      initial={{ x: 340 }}
+                      animate={{ x: 0 }}
+                      exit={{ x: 340 }}
+                      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                      className="absolute inset-y-0 right-0 w-[320px] max-w-[88vw] border-l border-line bg-paper shadow-float"
+                    >
+                      {panel}
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
+            );
+          }
+          return (
+            <AnimatePresence initial={false}>
+              {panelOpen && !focusMode && (
+                <motion.aside
+                  initial={{ width: 0, opacity: 0 }}
+                  animate={{ width: 312, opacity: 1 }}
+                  exit={{ width: 0, opacity: 0 }}
+                  transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                  className="shrink-0 overflow-hidden border-l border-line"
+                >
+                  <div className="h-full w-[312px]">{panel}</div>
+                </motion.aside>
+              )}
+            </AnimatePresence>
+          );
+        })()}
       </div>
 
       {/* Floating selection toolbar */}
@@ -643,6 +818,23 @@ export function Writer({
           onCommand={(cmd) => runCommand(cmd)}
           onAsk={(instruction) => runCommand("custom", instruction)}
           onToggleLock={toggleSelectionLock}
+          onBookmark={handleBookmarkSelection}
+        />
+      )}
+
+      {/* Version compare */}
+      {diff && (
+        <DiffModal
+          versionLabel={diff.label}
+          versionDate={diff.date}
+          versionText={diff.text}
+          currentText={editor?.getText() ?? ""}
+          onRestore={() => {
+            const id = diff.versionId;
+            setDiff(null);
+            handleRestore(id);
+          }}
+          onClose={() => setDiff(null)}
         />
       )}
 
@@ -722,6 +914,32 @@ function FormatBar({ editor }: { editor: Editor | null }) {
       <Btn on={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()} label="I" />
       <Btn on={editor.isActive("blockquote")} onClick={() => editor.chain().focus().toggleBlockquote().run()} label="❝" />
     </div>
+  );
+}
+
+/** Maps a plain-text snippet to document positions by walking text nodes. */
+function posOfSnippet(editor: Editor, snippet: string): { from: number; to: number } | null {
+  const positions: number[] = [];
+  let text = "";
+  editor.state.doc.descendants((node, pos) => {
+    if (node.isText && node.text) {
+      for (let i = 0; i < node.text.length; i++) positions.push(pos + i);
+      text += node.text;
+    } else if (node.isBlock && text.length && !text.endsWith("\n")) {
+      positions.push(pos);
+      text += "\n";
+    }
+    return true;
+  });
+  const idx = text.indexOf(snippet);
+  if (idx === -1 || idx + snippet.length > positions.length) return null;
+  return { from: positions[idx], to: positions[idx + snippet.length - 1] + 1 };
+}
+
+function sourceName(s: string) {
+  return (
+    { manual: "Manual save", ai: "After AI edit", snapshot: "Snapshot", generation: "Generated" }[s] ??
+    "Version"
   );
 }
 

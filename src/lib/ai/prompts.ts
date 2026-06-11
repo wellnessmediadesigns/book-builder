@@ -193,6 +193,30 @@ SELECTED PASSAGE TO REVISE:
   ];
 }
 
+/** Front matter / back matter / marketing section generation. */
+export function matterMessages(
+  ctx: BookContext,
+  authorName: string,
+  sectionTitle: string,
+  directive: string,
+): AiMessage[] {
+  return [
+    { role: "system", content: QUIRE_SYSTEM },
+    {
+      role: "user",
+      content: `${directive}
+
+${contextBlock(ctx)}
+
+Author name: ${authorName}
+
+You are writing the "${sectionTitle}" section for this specific book. Use everything you
+know about it from the context above. Return only the section's text — no surrounding
+commentary, no markdown headings unless the section naturally needs labels or lists.`,
+    },
+  ];
+}
+
 /** Chapter-level analysis commands (readability/continuity/repetition checks). */
 export function analysisMessages(ctx: BookContext, command: string, text: string): AiMessage[] {
   const asks: Record<string, string> = {

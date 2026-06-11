@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronLeft, Sparkles, PenLine, Brain, Download } from "lucide-react";
+import { ChevronLeft, Sparkles, PenLine, Brain, Download, ScrollText } from "lucide-react";
 import { QuireMark } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,7 @@ const TABS = [
   { key: "blueprint", label: "Blueprint", icon: Sparkles },
   { key: "write", label: "Write", icon: PenLine },
   { key: "memory", label: "Memory", icon: Brain },
+  { key: "matter", label: "Sections", icon: ScrollText },
   { key: "export", label: "Export", icon: Download },
 ];
 
@@ -24,45 +25,51 @@ export function BookHeader({
   right?: React.ReactNode;
 }) {
   const path = usePathname();
+  const tabs = (
+    <nav className="flex items-center gap-1 rounded-xl bg-paper-sunken/60 p-1">
+      {TABS.map((t) => {
+        const href = `/studio/book/${projectId}/${t.key}`;
+        const active = path === href;
+        return (
+          <Link
+            key={t.key}
+            href={href}
+            className={cn(
+              "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm transition-all sm:px-3",
+              active
+                ? "bg-paper-raised text-ink shadow-soft"
+                : "text-ink-soft hover:text-ink",
+            )}
+          >
+            <t.icon className="h-3.5 w-3.5" />
+            <span className={cn(!active && "hidden sm:inline")}>{t.label}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+
   return (
     <header className="sticky top-0 z-30 border-b border-line/70 bg-paper/85 backdrop-blur-xl">
-      <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-3 px-4">
+      <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-2 px-3 sm:gap-3 sm:px-4">
         <Link
           href="/studio"
-          className="flex h-9 w-9 items-center justify-center rounded-xl text-ink-soft transition-colors hover:bg-paper-sunken hover:text-ink"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-ink-soft transition-colors hover:bg-paper-sunken hover:text-ink"
         >
           <ChevronLeft className="h-5 w-5" />
         </Link>
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="hidden min-w-0 items-center gap-2 md:flex">
           <QuireMark className="h-5 w-5 shrink-0 text-brass" />
-          <span className="truncate font-display text-sm font-semibold text-ink">
+          <span className="max-w-[200px] truncate font-display text-sm font-semibold text-ink">
             {title}
           </span>
         </div>
 
-        <nav className="ml-2 hidden items-center gap-1 rounded-xl bg-paper-sunken/60 p-1 md:flex">
-          {TABS.map((t) => {
-            const href = `/studio/book/${projectId}/${t.key}`;
-            const active = path === href;
-            return (
-              <Link
-                key={t.key}
-                href={href}
-                className={cn(
-                  "inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-sm transition-all",
-                  active
-                    ? "bg-paper-raised text-ink shadow-soft"
-                    : "text-ink-soft hover:text-ink",
-                )}
-              >
-                <t.icon className="h-3.5 w-3.5" />
-                {t.label}
-              </Link>
-            );
-          })}
-        </nav>
+        <div className="min-w-0 flex-1 overflow-x-auto no-scrollbar md:ml-2 md:flex-none">
+          {tabs}
+        </div>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           {right}
           <ThemeToggle />
         </div>
