@@ -83,7 +83,7 @@ export function SettingsView({
           </div>
 
           <div className="grid gap-5">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {Object.entries(PROVIDER_PRESETS).map(([key, p]) => (
                 <button
                   key={key}

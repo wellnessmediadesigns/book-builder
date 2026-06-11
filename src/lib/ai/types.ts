@@ -4,7 +4,7 @@ export type AiMessage = {
 };
 
 export type AiConfig = {
-  provider: "workersai" | "openai" | "openrouter" | "ollama";
+  provider: "workersai" | "groq" | "openai" | "openrouter" | "ollama";
   model: string;
   apiKey: string;
   baseUrl: string;
@@ -37,12 +37,23 @@ export const PROVIDER_PRESETS: Record<
     ],
     help: "Free on your Cloudflare account — 10,000 requests/day, no API key. Runs on the same platform you deploy to.",
   },
+  groq: {
+    label: "Groq (free · fast)",
+    baseUrl: "https://api.groq.com/openai/v1",
+    needsKey: true,
+    models: [
+      "llama-3.3-70b-versatile",
+      "llama-3.1-8b-instant",
+      "gemma2-9b-it",
+    ],
+    help: "Free, blazing fast, generous daily limits — great for heavy testing. Get a free key at console.groq.com.",
+  },
   openai: {
     label: "OpenAI",
     baseUrl: "https://api.openai.com/v1",
     needsKey: true,
     models: ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1", "o4-mini"],
-    help: "Best prose quality. Use an OpenAI API key (platform.openai.com).",
+    help: "Best prose quality. Cheap with gpt-4o-mini. Key at platform.openai.com.",
   },
   openrouter: {
     label: "OpenRouter",
