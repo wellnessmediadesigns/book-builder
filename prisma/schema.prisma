@@ -1,0 +1,227 @@
+// Quire — data model.
+// SQLite for instant local dev; swap `provider`/`url` to Postgres for production.
+// JSON-shaped fields are stored as String (SQLite) and parsed in app code.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Author {
+  id        String    @id @default(cuid())
+  name      String    @default("Author")
+  email     String?
+  createdAt DateTime  @default(now())
+  projects  Project[]
+  settings  Settings?
+}
+
+model Project {
+  id       String @id @default(cuid())
+  authorId String
+  author   Author @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  // ——— Step 1: Idea ———
+  title        String  @default("Untitled Book")
+  idea         String  @default("")
+  theme        String  @default("")
+  genre        String  @default("")
+  kind         String  @default("nonfiction") // fiction | nonfiction
+  audience     String  @default("")
+  tone         String  @default("")
+  style        String  @default("")
+  readingLevel String  @default("")
+  include      String  @default("") // things to include
+  avoid        String  @default("") // things to avoid
+  notes        String  @default("")
+  inspiration  String  @default("")
+  goals        String  @default("")
+
+  // ——— Step 2: Structure ———
+  bookType        String @default("Self-help") // Novel, Memoir, Self-help, Business, Children's, Devotional, Educational, Workbook, Short guide
+  chapterCount    Int    @default(10)
+  minWords        Int    @default(1200)
+  maxWords        Int    @default(2500)
+  estTotalWords   Int    @default(20000)
+  narrativeStyle  String @default("")
+  pov             String @default("") // point of view
+  publishFormat   String @default("Ebook + Print")
+
+  // ——— Step 3: Blueprint (all editable) ———
+  blueprintJson String? // titles, subtitle, recommended, positioning, reader promise,
+                        // toc, guides, characters/concepts, reader journey, front/back matter
+  recommendedTitle    String @default("")
+  subtitle            String @default("")
+  positioning         String @default("")
+  readerPromise       String @default("")
+
+  status      String   @default("draft") // draft | blueprint | writing | complete
+  coverAccent String   @default("brass")  // brass | muse | sage
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  chapters    Chapter[]
+  memory      MemoryEntry[]
+  generations GenerationLog[]
+  exports     Export[]
+
+  @@index([authorId])
+}
+
+model Chapter {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  order   Int
+  title   String @default("Untitled Chapter")
+  summary String @default("")
+  status  String @default("planned") // planned | drafting | drafted | revised | final
+
+  contentJson String? // TipTap document JSON
+  contentText String  @default("") // plaintext mirror for word-count + AI context
+  wordCount   Int     @default(0)
+  minWords    Int     @default(0)
+  maxWords    Int     @default(0)
+  locked      Boolean @default(false)
+
+  matterType String? // null = body; or front:title|copyright|dedication... / back:...
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  versions  ChapterVersion[]
+  revisions AiRevision[]
+  comments  Comment[]
+  bookmarks Bookmark[]
+
+  @@index([projectId, order])
+}
+
+model ChapterVersion {
+  id        String  @id @default(cuid())
+  chapterId String
+  chapter   Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  label       String  @default("")
+  source      String  @default("manual") // manual | ai | snapshot | generation
+  contentJson String?
+  contentText String  @default("")
+  wordCount   Int     @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([chapterId, createdAt])
+}
+
+model AiRevision {
+  id        String  @id @default(cuid())
+  chapterId String
+  chapter   Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  command    String
+  instruction String @default("")
+  fromPos    Int     @default(0)
+  toPos      Int     @default(0)
+  original   String
+  proposed   String
+  status     String  @default("pending") // pending | accepted | rejected
+  createdAt  DateTime @default(now())
+
+  @@index([chapterId, status])
+}
+
+model MemoryEntry {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // premise | reader-promise | style-rule | tone-rule | character | relationship |
+  // setting | timeline | worldbuilding | key-concept | fact | terminology |
+  // chapter-summary | open-thread | resolved-thread | future-goal | note
+  kind      String
+  title     String  @default("")
+  body      String  @default("")
+  dataJson  String? // structured extras (e.g. character traits)
+  pinned    Boolean @default(true)
+  order     Int     @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId, kind])
+}
+
+model Comment {
+  id        String  @id @default(cuid())
+  chapterId String
+  chapter   Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  body      String
+  anchor    String  @default("") // serialized range
+  resolved  Boolean @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([chapterId])
+}
+
+model Bookmark {
+  id        String  @id @default(cuid())
+  chapterId String
+  chapter   Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  label     String
+  anchor    String  @default("")
+  createdAt DateTime @default(now())
+
+  @@index([chapterId])
+}
+
+model GenerationLog {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  scope       String   // blueprint | chapter | selection | custom
+  provider    String   @default("")
+  model       String   @default("")
+  command     String   @default("")
+  promptChars Int      @default(0)
+  outputChars Int      @default(0)
+  durationMs  Int      @default(0)
+  status      String   @default("ok") // ok | error
+  detail      String   @default("")
+  createdAt   DateTime @default(now())
+
+  @@index([projectId, createdAt])
+}
+
+model Export {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  format    String  // markdown | html | docx | epub | pdf
+  status    String  @default("ready")
+  meta      String  @default("")
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+}
+
+model Settings {
+  id       String @id @default(cuid())
+  authorId String @unique
+  author   Author @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  provider    String @default("openai") // openai | openrouter | ollama
+  model       String @default("gpt-4o-mini")
+  apiKey      String @default("")
+  baseUrl     String @default("")
+  temperature Float  @default(0.7)
+  maxContext  Int    @default(8000)
+  theme       String @default("system")
+
+  // editor prefs
+  readingFont String @default("serif") // serif | sans
+  updatedAt   DateTime @updatedAt
+}

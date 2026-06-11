@@ -1,0 +1,218 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ——— Ink & Ivory (light) ——— */
+    --paper: 40 33% 97%;          /* #FBF9F4 warm ivory */
+    --paper-raised: 0 0% 100%;
+    --paper-sunken: 40 30% 95%;
+    --ink: 230 22% 14%;           /* #1B1E2B deep blue-black */
+    --ink-soft: 230 13% 33%;      /* #4A4E5E */
+    --muted: 230 9% 58%;          /* #8A8E9C */
+    --line: 40 28% 90%;           /* #ECE7DD hairline */
+
+    --brass: 32 40% 51%;          /* #B5894F */
+    --brass-deep: 32 44% 38%;     /* #8C6536 */
+    --brass-soft: 36 50% 92%;
+
+    --muse: 250 45% 56%;          /* #6B5CC4 AI violet */
+    --muse-deep: 250 42% 46%;
+    --muse-soft: 250 60% 95%;     /* #EEEBFA */
+
+    --sage: 147 21% 46%;          /* #5E8B72 */
+    --clay: 6 49% 52%;            /* #C0584B */
+
+    --ease-editorial: cubic-bezier(0.22, 1, 0.36, 1);
+    color-scheme: light;
+  }
+
+  .dark {
+    /* ——— Midnight Study (dark) ——— */
+    --paper: 228 22% 10%;         /* #15171F */
+    --paper-raised: 228 18% 14%;  /* #1E212C */
+    --paper-sunken: 228 24% 8%;
+    --ink: 40 33% 94%;            /* warm ivory text */
+    --ink-soft: 230 12% 72%;
+    --muted: 230 9% 55%;
+    --line: 228 14% 22%;
+
+    --brass: 34 52% 60%;
+    --brass-deep: 34 48% 50%;
+    --brass-soft: 32 30% 22%;
+
+    --muse: 250 65% 72%;
+    --muse-deep: 250 55% 62%;
+    --muse-soft: 250 30% 22%;
+
+    --sage: 147 30% 58%;
+    --clay: 6 60% 64%;
+    color-scheme: dark;
+  }
+
+  * {
+    @apply border-line;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-paper text-ink font-sans;
+    font-feature-settings: "kern", "liga", "calt";
+  }
+
+  ::selection {
+    background: hsl(var(--muse) / 0.22);
+  }
+
+  /* Refined focus ring */
+  :focus-visible {
+    outline: 2px solid hsl(var(--muse) / 0.6);
+    outline-offset: 2px;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--ink) / 0.14);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--ink) / 0.24);
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+
+  /* Subtle paper grain for premium surfaces */
+  .grain {
+    position: relative;
+  }
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.025;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .card {
+    @apply rounded-2xl border border-line bg-paper-raised shadow-soft;
+  }
+
+  .hairline {
+    @apply border-line;
+  }
+
+  /* Animated gradient text for the AI accent */
+  .muse-text {
+    background: linear-gradient(100deg, hsl(var(--muse)), hsl(var(--brass)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* ——— Manuscript canvas (ProseMirror) ——— */
+  .manuscript .ProseMirror {
+    @apply font-serif text-ink outline-none;
+    font-size: var(--reading-size, 1.1875rem);
+    line-height: var(--reading-leading, 1.85);
+    max-width: var(--reading-measure, 38rem);
+    margin: 0 auto;
+    caret-color: hsl(var(--muse));
+  }
+  .manuscript .ProseMirror p {
+    margin: 0 0 1.1em;
+  }
+  .manuscript .ProseMirror > h1,
+  .manuscript .ProseMirror > h2,
+  .manuscript .ProseMirror > h3 {
+    @apply font-display text-ink;
+    line-height: 1.18;
+    margin: 1.8em 0 0.6em;
+    letter-spacing: -0.01em;
+  }
+  .manuscript .ProseMirror h1 { font-size: 1.9em; }
+  .manuscript .ProseMirror h2 { font-size: 1.5em; }
+  .manuscript .ProseMirror h3 { font-size: 1.2em; }
+  .manuscript .ProseMirror blockquote {
+    @apply border-l-2 border-brass pl-5 italic text-ink-soft;
+    margin: 1.3em 0;
+  }
+  .manuscript .ProseMirror p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    @apply text-muted;
+    float: left;
+    height: 0;
+    pointer-events: none;
+  }
+
+  /* Locked content */
+  .manuscript .ProseMirror .locked {
+    background: hsl(var(--brass) / 0.07);
+    box-shadow: inset 2px 0 0 hsl(var(--brass) / 0.55);
+    border-radius: 2px;
+    padding: 0 2px;
+  }
+
+  /* AI suggestion marks */
+  .manuscript .ProseMirror .ai-added {
+    background: hsl(var(--sage) / 0.16);
+    border-bottom: 2px solid hsl(var(--sage) / 0.5);
+  }
+  .manuscript .ProseMirror .ai-removed {
+    background: hsl(var(--clay) / 0.14);
+    text-decoration: line-through;
+    text-decoration-color: hsl(var(--clay) / 0.6);
+    color: hsl(var(--ink-soft));
+  }
+
+  .shimmer-bg {
+    position: relative;
+    overflow: hidden;
+  }
+  .shimmer-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--ink) / 0.06),
+      transparent
+    );
+    @apply animate-shimmer;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
