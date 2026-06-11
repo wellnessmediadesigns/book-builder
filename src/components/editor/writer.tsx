@@ -27,7 +27,7 @@ import { ChapterRail, type ChapterMeta } from "@/components/editor/chapter-rail"
 import { CommandCenter, type ChapterAction } from "@/components/editor/command-center";
 import { BookHeader } from "@/components/book/book-header";
 import { toast } from "@/components/ui/toast";
-import { cn, textToDoc, countWords, relativeTime } from "@/lib/utils";
+import { cn, textToDoc, countWords, relativeTime, cleanChapterTitle } from "@/lib/utils";
 import {
   saveChapterContent,
   createSnapshot,
@@ -786,7 +786,7 @@ export function Writer({
                   active?.locked && "opacity-90",
                 )}
               >
-                {active?.title}
+                {cleanChapterTitle(active?.title ?? "")}
               </h1>
               <div className="mx-auto mb-8 flex max-w-[38rem] items-center gap-2 text-xs text-muted">
                 <span>{wordCount} words</span>

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { BookHeader } from "@/components/book/book-header";
 import { ExportView } from "@/components/book/export-view";
+import { THEMES } from "@/lib/export/themes";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,8 @@ export default async function ExportPage({
         chapterCount={project.chapters.length}
         wordCount={wordCount}
         writtenCount={writtenCount}
+        currentTheme={project.formatTheme}
+        themes={THEMES.map((t) => ({ id: t.id, name: t.name, description: t.description }))}
       />
     </>
   );

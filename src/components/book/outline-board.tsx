@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
 import { EditableText } from "@/components/book/editable-text";
 import { toast } from "@/components/ui/toast";
-import { cn, formatNumber } from "@/lib/utils";
+import { cn, formatNumber, cleanChapterTitle } from "@/lib/utils";
 import {
   updateChapterMeta,
   reorderChapters,
@@ -186,7 +186,7 @@ export function OutlineBoard({
               </div>
 
               <EditableText
-                value={c.title}
+                value={cleanChapterTitle(c.title)}
                 onSave={(v) => {
                   updateChapterMeta(c.id, { title: v });
                   setChapters((cs) => cs.map((x) => (x.id === c.id ? { ...x, title: v } : x)));

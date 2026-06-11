@@ -90,6 +90,7 @@ CORE IDEA: ${idea}
 ${extras ? `\nAUTHOR NOTES: ${extras}` : ""}
 
 Generate exactly ${ctx.priorSummaries.length || "the planned number of"} chapters worth of table of contents matching the requested chapter count.
+Chapter "title" must be the title ONLY — do NOT prefix it with "Chapter 1:", "Ch. 2 -", or any number; the app adds chapter numbers automatically.
 For fiction, fill "characters" and "settings" and leave "keyConcepts" empty.
 For nonfiction, fill "keyConcepts" and leave "characters"/"settings" empty.
 

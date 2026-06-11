@@ -7,6 +7,7 @@
 import { zipSync, strToU8 } from "fflate";
 import { docToBlocks, type Block, type Run } from "./convert";
 import { textToParagraphs, type BookPackage } from "./manuscript";
+import { cleanChapterTitle } from "@/lib/utils";
 
 function esc(s: string): string {
   return s
@@ -135,16 +136,17 @@ ${meta.subtitle ? `<p class="sub">${esc(meta.subtitle)}</p>` : ""}
       doc = null;
     }
     const blocks = docToBlocks(doc);
+    const ct = cleanChapterTitle(c.title);
     items.push({
       id: `ch-${i + 1}`,
       href: `chapter-${i + 1}.xhtml`,
-      title: c.title,
+      title: `Chapter ${i + 1}: ${ct}`,
       type: "chapter",
       xhtml: xhtmlDoc(
-        c.title,
+        ct,
         `<div class="chapter">
 <p class="chapter-num">Chapter ${i + 1}</p>
-<h1>${esc(c.title)}</h1>
+<h1>${esc(ct)}</h1>
 ${blocks.length ? blocksXhtml(blocks) : "<p><em>This chapter is not yet written.</em></p>"}
 </div>`,
         "chapter",

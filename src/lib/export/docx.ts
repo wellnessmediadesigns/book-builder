@@ -8,6 +8,7 @@
 import { zipSync, strToU8 } from "fflate";
 import { docToBlocks, type Block, type Run } from "./convert";
 import { textToParagraphs, type BookPackage } from "./manuscript";
+import { cleanChapterTitle } from "@/lib/utils";
 
 function esc(s: string): string {
   return s
@@ -81,12 +82,12 @@ export function buildDocx(pkg: BookPackage): Uint8Array {
 
   // Contents
   body.push(textPara("Contents", { style: "Heading1", pageBreakBefore: true }));
-  chapters.forEach((c, i) => body.push(textPara(`${i + 1}.  ${c.title}`)));
+  chapters.forEach((c, i) => body.push(textPara(`${i + 1}.  ${cleanChapterTitle(c.title)}`)));
 
   // Chapters
   for (const [i, c] of chapters.entries()) {
     body.push(textPara(`Chapter ${i + 1}`, { style: "ChapterNum", pageBreakBefore: true }));
-    body.push(textPara(c.title, { style: "Heading1" }));
+    body.push(textPara(cleanChapterTitle(c.title), { style: "Heading1" }));
     let doc: Parameters<typeof docToBlocks>[0] = null;
     try {
       doc = c.contentJson ? JSON.parse(c.contentJson) : null;

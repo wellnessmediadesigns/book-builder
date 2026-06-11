@@ -85,6 +85,30 @@ export function textToDoc(text: string) {
   };
 }
 
+/** Strips a leading "Chapter 2:", "Ch. 2 -", "2." etc. so titles don't double up
+ *  with the chapter-number label the formatting already shows. */
+export function cleanChapterTitle(title: string): string {
+  const stripped = title
+    .replace(/^\s*chapter\s+[\divxlcdm]+\s*[:.\-–—)]*\s*/i, "")
+    .replace(/^\s*ch\.?\s*\d+\s*[:.\-–—)]*\s*/i, "")
+    .replace(/^\s*\d+\s*[:.\-–—)]\s*/, "")
+    .trim();
+  return stripped || title.trim();
+}
+
+/** Arabic → Roman numerals (for formatting themes). */
+export function toRoman(n: number): string {
+  if (n <= 0) return String(n);
+  const map: [number, string][] = [
+    [1000, "M"], [900, "CM"], [500, "D"], [400, "CD"], [100, "C"], [90, "XC"],
+    [50, "L"], [40, "XL"], [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"],
+  ];
+  let out = "";
+  let r = n;
+  for (const [v, s] of map) while (r >= v) { out += s; r -= v; }
+  return out;
+}
+
 export function slugify(s: string): string {
   return s
     .toLowerCase()

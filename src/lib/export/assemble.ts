@@ -1,0 +1,46 @@
+import { prisma, getAuthor } from "@/lib/db";
+import { makePackage, type BookPackage, type MatterSectionOut } from "./manuscript";
+import { matterOrder, sectionByMatterType } from "@/lib/matter";
+
+/** Builds the normalized BookPackage (front matter + chapters + back matter). */
+export async function assembleBookPackage(projectId: string): Promise<{
+  pkg: BookPackage;
+  theme: string;
+  title: string;
+} | null> {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    include: { chapters: { orderBy: { order: "asc" } } },
+  });
+  if (!project) return null;
+  const author = await getAuthor();
+
+  const bodyChapters = project.chapters
+    .filter((c) => c.matterType === null)
+    .map((c) => ({ title: c.title, contentJson: c.contentJson }));
+
+  const matterOut = (group: "front" | "back"): MatterSectionOut[] =>
+    project.chapters
+      .filter((c) => c.matterType?.startsWith(`${group}:`) && c.contentText.trim())
+      .sort((a, b) => matterOrder(a.matterType!) - matterOrder(b.matterType!))
+      .map((c) => ({
+        key: sectionByMatterType(c.matterType!)?.key ?? c.matterType!,
+        title: c.title,
+        text: c.contentText,
+      }));
+
+  const pkg = makePackage(
+    {
+      recommendedTitle: project.recommendedTitle,
+      title: project.title,
+      subtitle: project.subtitle,
+      authorName: author.name,
+      positioning: project.positioning,
+    },
+    matterOut("front"),
+    bodyChapters,
+    matterOut("back"),
+  );
+
+  return { pkg, theme: project.formatTheme, title: project.recommendedTitle || project.title };
+}

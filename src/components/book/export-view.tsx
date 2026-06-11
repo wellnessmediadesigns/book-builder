@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState, useTransition } from "react";
 import { motion } from "framer-motion";
 import {
   FileText,
@@ -10,19 +11,25 @@ import {
   Download,
   Printer,
   Check,
-  Sparkles,
+  Palette,
+  Loader2,
+  Maximize2,
 } from "lucide-react";
 import { Card, Badge } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
-import { formatNumber } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
+import { toast } from "@/components/ui/toast";
+import { previewHtml, setBookTheme } from "@/lib/actions/export";
 
 const FORMATS = [
-  { key: "docx", label: "Word", ext: ".docx", icon: FileText, real: true, desc: "Microsoft Word manuscript — 6×9 trim, styled headings, page breaks, front & back matter." },
-  { key: "epub", label: "EPUB", ext: ".epub", icon: BookOpen, real: true, desc: "Reflowable EPUB 3 for Kindle & Apple Books, with navigation and semantic sections." },
-  { key: "markdown", label: "Markdown", ext: ".md", icon: Code2, real: true, desc: "Clean Markdown with title page, contents, chapters, and matter sections." },
-  { key: "html", label: "HTML", ext: ".html", icon: Globe, real: true, desc: "Styled, print-ready 6×9 layout with proper page breaks." },
-  { key: "pdf", label: "PDF", ext: ".pdf", icon: FileType, real: false, desc: "Open the print view and use your browser's Save as PDF — pixel-perfect 6×9." },
+  { key: "docx", label: "Word", ext: ".docx", icon: FileText, real: true, desc: "Editable Word manuscript — 6×9 trim, styled headings, page breaks, matter." },
+  { key: "epub", label: "EPUB", ext: ".epub", icon: BookOpen, real: true, desc: "Reflowable ebook for Kindle & Apple Books, with navigation." },
+  { key: "markdown", label: "Markdown", ext: ".md", icon: Code2, real: true, desc: "Clean Markdown with title page, contents, and matter." },
+  { key: "html", label: "HTML", ext: ".html", icon: Globe, real: true, desc: "Styled web page in your chosen theme." },
+  { key: "pdf", label: "PDF", ext: ".pdf", icon: FileType, real: false, desc: "Opens the themed print view — use your browser's Save as PDF." },
 ];
+
+type ThemeMeta = { id: string; name: string; description: string };
 
 export function ExportView({
   projectId,
@@ -30,51 +37,147 @@ export function ExportView({
   chapterCount,
   wordCount,
   writtenCount,
+  themes,
+  currentTheme,
 }: {
   projectId: string;
   title: string;
   chapterCount: number;
   wordCount: number;
   writtenCount: number;
+  themes: ThemeMeta[];
+  currentTheme: string;
 }) {
+  const [theme, setTheme] = useState(currentTheme);
+  const [html, setHtml] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+  const [, startSave] = useTransition();
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    previewHtml(projectId, theme)
+      .then((h) => {
+        if (active) {
+          setHtml(h);
+          setLoading(false);
+        }
+      })
+      .catch(() => active && setLoading(false));
+    return () => {
+      active = false;
+    };
+  }, [projectId, theme]);
+
+  function pickTheme(id: string) {
+    if (id === theme) return;
+    setTheme(id);
+    startSave(async () => {
+      await setBookTheme(projectId, id);
+    });
+  }
+
   function download(format: string) {
     window.location.href = `/api/export/${format}?project=${projectId}`;
   }
-  function printPdf() {
-    window.open(`/api/export/html?project=${projectId}`, "_blank");
+  function openPrint() {
+    window.open(`/api/export/html?project=${projectId}&theme=${theme}`, "_blank");
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-10">
+    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
       <Badge tone="brass">
-        <Download className="h-3 w-3" /> Export
+        <Palette className="h-3 w-3" /> Format &amp; export
       </Badge>
       <h1 className="mt-3 font-display text-display-md font-semibold text-ink">
-        Publishing-ready manuscript
+        Design your book, then export
       </h1>
       <p className="mt-2 max-w-xl text-ink-soft">
-        Export <span className="font-medium text-ink">{title}</span> with a proper title
-        page, table of contents, and clean chapter formatting — little to no cleanup needed.
+        Pick a formatting style and see exactly how <span className="font-medium text-ink">{title}</span> will
+        look — live, no exporting needed. Your choice applies to the HTML and PDF.
       </p>
 
-      {/* stats */}
-      <div className="mt-6 grid grid-cols-3 gap-3">
-        <Stat label="Chapters" value={`${writtenCount}/${chapterCount}`} hint="written" />
-        <Stat label="Words" value={formatNumber(wordCount)} hint="total" />
-        <Stat
-          label="Readiness"
-          value={`${chapterCount ? Math.round((writtenCount / chapterCount) * 100) : 0}%`}
-          hint="drafted"
-        />
+      <div className="mt-6 grid gap-6 lg:grid-cols-[300px_1fr]">
+        {/* Theme picker */}
+        <div className="space-y-2">
+          <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted">
+            Formatting style
+          </p>
+          {themes.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => pickTheme(t.id)}
+              className={cn(
+                "w-full rounded-xl border p-3.5 text-left transition-all",
+                theme === t.id
+                  ? "border-brass/50 bg-brass-soft shadow-soft"
+                  : "border-line bg-paper-raised hover:border-brass/30",
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <span className="font-display font-semibold text-ink">{t.name}</span>
+                {theme === t.id && (
+                  <Check className="ml-auto h-4 w-4 text-brass-deep" />
+                )}
+                {t.id === "classic" && theme !== t.id && (
+                  <Badge tone="neutral" className="ml-auto text-[0.625rem]">
+                    Most common
+                  </Badge>
+                )}
+              </div>
+              <p className="mt-1 text-xs leading-relaxed text-ink-soft">{t.description}</p>
+            </button>
+          ))}
+
+          <div className="grid grid-cols-3 gap-2 pt-2 text-center">
+            <Stat label="Chapters" value={`${writtenCount}/${chapterCount}`} />
+            <Stat label="Words" value={formatNumber(wordCount)} />
+            <Stat
+              label="Ready"
+              value={`${chapterCount ? Math.round((writtenCount / chapterCount) * 100) : 0}%`}
+            />
+          </div>
+        </div>
+
+        {/* Live preview */}
+        <div>
+          <div className="mb-2 flex items-center justify-between px-1">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+              Live preview
+            </p>
+            <button
+              onClick={openPrint}
+              className="inline-flex items-center gap-1.5 text-xs text-ink-soft transition-colors hover:text-ink"
+            >
+              <Maximize2 className="h-3.5 w-3.5" /> Open full view
+            </button>
+          </div>
+          <div className="relative overflow-hidden rounded-2xl border border-line bg-paper-sunken/40 shadow-soft">
+            {loading && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-paper-sunken/40 text-muted backdrop-blur-sm">
+                <Loader2 className="h-5 w-5 animate-spin" />
+              </div>
+            )}
+            <div className="flex justify-center p-4 sm:p-6">
+              <iframe
+                title="Book preview"
+                srcDoc={html}
+                className="h-[64vh] w-full max-w-[460px] rounded-lg border border-line bg-white shadow-raised"
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2">
+      {/* Downloads */}
+      <h2 className="mt-10 font-display text-lg font-semibold text-ink">Download</h2>
+      <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {FORMATS.map((f, i) => (
           <motion.div
             key={f.key}
-            initial={{ opacity: 0, y: 12 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.35, delay: i * 0.04, ease: [0.22, 1, 0.36, 1] }}
           >
             <Card className="flex h-full flex-col p-5">
               <div className="flex items-start justify-between">
@@ -85,10 +188,8 @@ export function ExportView({
                   <Badge tone="sage">
                     <Check className="h-3 w-3" /> Ready
                   </Badge>
-                ) : f.key === "pdf" ? (
-                  <Badge tone="muse">via print</Badge>
                 ) : (
-                  <Badge tone="neutral">Soon</Badge>
+                  <Badge tone="muse">via print</Badge>
                 )}
               </div>
               <h3 className="mt-3 font-display text-lg font-semibold text-ink">
@@ -101,7 +202,7 @@ export function ExportView({
                     <Download className="h-4 w-4" /> Download {f.label}
                   </Button>
                 ) : (
-                  <Button variant="outline" size="sm" onClick={printPdf}>
+                  <Button variant="outline" size="sm" onClick={openPrint}>
                     <Printer className="h-4 w-4" /> Open print view
                   </Button>
                 )}
@@ -112,19 +213,19 @@ export function ExportView({
       </div>
 
       <p className="mt-8 text-center text-xs text-muted">
-        Exports include your drafted front &amp; back matter sections automatically.
-        Marketing copy stays out of the manuscript.
+        The formatting style applies to the HTML &amp; PDF. Word, EPUB, and Markdown use
+        clean standard manuscript formatting. Drafted front/back matter is included
+        automatically.
       </p>
     </div>
   );
 }
 
-function Stat({ label, value, hint }: { label: string; value: string; hint: string }) {
+function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-line bg-paper-raised p-4">
-      <p className="text-xs text-muted">{label}</p>
-      <p className="mt-1 font-display text-2xl font-semibold text-ink">{value}</p>
-      <p className="text-xs text-muted">{hint}</p>
+    <div className="rounded-xl border border-line bg-paper-raised p-2.5">
+      <p className="font-display text-lg font-semibold text-ink">{value}</p>
+      <p className="text-[0.6875rem] text-muted">{label}</p>
     </div>
   );
 }

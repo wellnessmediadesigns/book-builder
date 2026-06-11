@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { cleanChapterTitle } from "@/lib/utils";
 import { resolveAiConfig, buildBookContext } from "@/lib/ai/context";
 import { complete, configIsReady, AiError } from "@/lib/ai/providers";
 import {
@@ -103,7 +104,7 @@ export async function generateBlueprint(
       return {
         projectId,
         order: i,
-        title: ch.title || `Chapter ${i + 1}`,
+        title: ch.title ? cleanChapterTitle(ch.title) : `Chapter ${i + 1}`,
         summary: ch.summary || "",
         minWords: project.minWords,
         maxWords: project.maxWords,

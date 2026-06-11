@@ -1,14 +1,9 @@
 import { NextRequest } from "next/server";
-import { prisma, getAuthor } from "@/lib/db";
-import {
-  buildMarkdown,
-  buildHtml,
-  makePackage,
-  type MatterSectionOut,
-} from "@/lib/export/manuscript";
+import { prisma } from "@/lib/db";
+import { buildMarkdown, buildHtml } from "@/lib/export/manuscript";
 import { buildDocx } from "@/lib/export/docx";
 import { buildEpub } from "@/lib/export/epub";
-import { matterOrder, sectionByMatterType } from "@/lib/matter";
+import { assembleBookPackage } from "@/lib/export/assemble";
 import { slugify } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +16,7 @@ export async function GET(
 ) {
   const { format } = await params;
   const projectId = req.nextUrl.searchParams.get("project");
+  const themeOverride = req.nextUrl.searchParams.get("theme") ?? undefined;
   if (!projectId) return new Response("Missing project", { status: 400 });
 
   if (!FORMATS.has(format)) {
@@ -30,45 +26,12 @@ export async function GET(
     });
   }
 
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    include: { chapters: { orderBy: { order: "asc" } } },
-  });
-  if (!project) return new Response("Not found", { status: 404 });
-  const author = await getAuthor();
+  const assembled = await assembleBookPackage(projectId);
+  if (!assembled) return new Response("Not found", { status: 404 });
+  const { pkg, theme, title } = assembled;
+  const base = slugify(title) || "manuscript";
 
-  const bodyChapters = project.chapters
-    .filter((c) => c.matterType === null)
-    .map((c) => ({ title: c.title, contentJson: c.contentJson }));
-
-  const matterOut = (group: "front" | "back"): MatterSectionOut[] =>
-    project.chapters
-      .filter((c) => c.matterType?.startsWith(`${group}:`) && c.contentText.trim())
-      .sort((a, b) => matterOrder(a.matterType!) - matterOrder(b.matterType!))
-      .map((c) => ({
-        key: sectionByMatterType(c.matterType!)?.key ?? c.matterType!,
-        title: c.title,
-        text: c.contentText,
-      }));
-
-  const pkg = makePackage(
-    {
-      recommendedTitle: project.recommendedTitle,
-      title: project.title,
-      subtitle: project.subtitle,
-      authorName: author.name,
-      positioning: project.positioning,
-    },
-    matterOut("front"),
-    bodyChapters,
-    matterOut("back"),
-  );
-
-  const base = slugify(project.recommendedTitle || project.title) || "manuscript";
-
-  await prisma.export
-    .create({ data: { projectId, format, status: "ready" } })
-    .catch(() => {});
+  await prisma.export.create({ data: { projectId, format, status: "ready" } }).catch(() => {});
 
   switch (format) {
     case "markdown":
@@ -94,8 +57,8 @@ export async function GET(
         },
       });
     default:
-      // html — also the print-to-PDF path
-      return new Response(buildHtml(pkg), {
+      // html — also the print-to-PDF path; uses the saved theme (or an override)
+      return new Response(buildHtml(pkg, themeOverride ?? theme), {
         headers: {
           "Content-Type": "text/html; charset=utf-8",
           "Content-Disposition": `inline; filename="${base}.html"`,
