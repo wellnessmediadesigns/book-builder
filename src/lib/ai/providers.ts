@@ -23,6 +23,47 @@ async function workersai() {
   return import("./workersai");
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * POSTs with automatic retry on rate limits (429) and transient server errors
+ * (502/503/529) — smooths over flaky free tiers. Honors Retry-After when sent.
+ */
+async function postWithRetry(
+  url: string,
+  init: RequestInit,
+  provider: string,
+  attempts = 3,
+): Promise<Response> {
+  const backoff = [800, 2200, 4500];
+  let lastDetail = "";
+  for (let i = 0; i < attempts; i++) {
+    let res: Response;
+    try {
+      res = await fetch(url, init);
+    } catch {
+      if (i === attempts - 1)
+        throw new AiError(
+          `Could not reach ${provider}. Check the provider URL and your network.`,
+          "network",
+        );
+      await sleep(backoff[i]);
+      continue;
+    }
+    if (res.status === 429 || res.status === 502 || res.status === 503 || res.status === 529) {
+      if (i === attempts - 1) return res;
+      const retryAfter = Number(res.headers.get("retry-after"));
+      const wait = retryAfter > 0 ? Math.min(retryAfter * 1000, 8000) : backoff[i];
+      lastDetail = await res.text().catch(() => "");
+      await sleep(wait);
+      continue;
+    }
+    return res;
+  }
+  // Should be unreachable, but satisfy the type checker.
+  throw new AiError(humanizeError(429, lastDetail), "http_429");
+}
+
 /**
  * All three providers speak the OpenAI-compatible /chat/completions shape,
  * which keeps the layer modular and trivial to extend with future providers.
@@ -50,15 +91,7 @@ export async function complete(config: AiConfig, messages: AiMessage[]): Promise
     return workersComplete(config.model, messages, config.temperature);
   }
   const { url, headers, body } = buildRequest(config, messages, false);
-  let res: Response;
-  try {
-    res = await fetch(url, { method: "POST", headers, body });
-  } catch {
-    throw new AiError(
-      `Could not reach ${config.provider}. Check the provider URL and your network.`,
-      "network",
-    );
-  }
+  const res = await postWithRetry(url, { method: "POST", headers, body }, config.provider);
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
     throw new AiError(humanizeError(res.status, detail), `http_${res.status}`);
@@ -80,15 +113,7 @@ export async function* stream(
     return;
   }
   const { url, headers, body } = buildRequest(config, messages, true);
-  let res: Response;
-  try {
-    res = await fetch(url, { method: "POST", headers, body });
-  } catch {
-    throw new AiError(
-      `Could not reach ${config.provider}. Check the provider URL and your network.`,
-      "network",
-    );
-  }
+  const res = await postWithRetry(url, { method: "POST", headers, body }, config.provider);
   if (!res.ok || !res.body) {
     const detail = await res.text().catch(() => "");
     throw new AiError(humanizeError(res.status, detail), `http_${res.status}`);

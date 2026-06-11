@@ -51,6 +51,10 @@ function extractText(res: unknown): string | null {
   return null;
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const isTransient = (e: unknown) =>
+  /capacity|429|rate|timeout|temporarily/i.test(e instanceof Error ? e.message : String(e));
+
 export async function workersComplete(
   model: string,
   messages: AiMessage[],
@@ -59,10 +63,18 @@ export async function workersComplete(
   const ai = getBinding();
   if (!ai) throw new AiError(NO_BINDING, "no_binding");
   let res: { response?: string } | ReadableStream<Uint8Array>;
-  try {
-    res = await ai.run(model, { messages, temperature, max_tokens: 4096 });
-  } catch (e) {
-    throw new AiError(workersErr(e, model), "workersai");
+  const backoff = [700, 2000, 4000];
+  for (let i = 0; ; i++) {
+    try {
+      res = await ai.run(model, { messages, temperature, max_tokens: 4096 });
+      break;
+    } catch (e) {
+      if (i < backoff.length && isTransient(e)) {
+        await sleep(backoff[i]);
+        continue;
+      }
+      throw new AiError(workersErr(e, model), "workersai");
+    }
   }
   const text = extractText(res);
   if (text === null) {
