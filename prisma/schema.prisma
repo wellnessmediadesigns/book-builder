@@ -215,13 +215,20 @@ model Settings {
   authorId String @unique
   author   Author @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
-  provider    String @default("workersai") // workersai | openai | openrouter | ollama
+  provider    String @default("workersai") // workersai | groq | openai | openrouter | ollama
   model       String @default("@cf/meta/llama-3.3-70b-instruct-fp8-fast")
   apiKey      String @default("")
   baseUrl     String @default("")
   temperature Float  @default(0.7)
   maxContext  Int    @default(8000)
   theme       String @default("system")
+
+  // Optional fallback provider: used automatically when the primary is rate-limited
+  // or unavailable. Empty fallbackProvider disables it.
+  fallbackProvider String @default("groq")
+  fallbackModel    String @default("llama-3.1-8b-instant")
+  fallbackApiKey   String @default("")
+  fallbackBaseUrl  String @default("")
 
   // editor prefs
   readingFont String @default("serif") // serif | sans

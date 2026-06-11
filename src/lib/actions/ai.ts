@@ -3,7 +3,13 @@
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { cleanChapterTitle } from "@/lib/utils";
-import { resolveAiConfig, buildBookContext } from "@/lib/ai/context";
+import {
+  resolveAiConfig,
+  resolveFallbackConfig,
+  buildBookContext,
+  completeWithFallback,
+  aiChainReady,
+} from "@/lib/ai/context";
 import { complete, configIsReady, AiError } from "@/lib/ai/providers";
 import {
   blueprintMessages,
@@ -12,14 +18,14 @@ import {
   summaryMessages,
 } from "@/lib/ai/prompts";
 
-const ready = configIsReady;
-
 export async function aiStatus() {
   const config = await resolveAiConfig();
-  return { ready: configIsReady(config), provider: config.provider, model: config.model };
+  const ready = await aiChainReady();
+  return { ready, provider: config.provider, model: config.model };
 }
 
 export async function testConnection(): Promise<{ ok: boolean; message: string }> {
+  // Tests the primary; the fallback is exercised automatically during real use.
   const config = await resolveAiConfig();
   if (!configIsReady(config)) return { ok: false, message: "Add a model and key first." };
   try {
@@ -27,6 +33,20 @@ export async function testConnection(): Promise<{ ok: boolean; message: string }
       { role: "user", content: "Reply with exactly the word: ready" },
     ]);
     return { ok: true, message: `Connected to ${config.model} — ${reply.slice(0, 40)}` };
+  } catch (e) {
+    return { ok: false, message: e instanceof AiError ? e.message : "Connection failed." };
+  }
+}
+
+export async function testFallback(): Promise<{ ok: boolean; message: string }> {
+  const config = await resolveFallbackConfig();
+  if (!config) return { ok: false, message: "No fallback configured." };
+  if (!configIsReady(config)) return { ok: false, message: "Fallback needs a model and key." };
+  try {
+    const reply = await complete(config, [
+      { role: "user", content: "Reply with exactly the word: ready" },
+    ]);
+    return { ok: true, message: `Fallback ${config.model} — ${reply.slice(0, 40)}` };
   } catch (e) {
     return { ok: false, message: e instanceof AiError ? e.message : "Connection failed." };
   }
@@ -47,8 +67,7 @@ function parseBlueprint(raw: string): Record<string, unknown> {
 export async function generateBlueprint(
   projectId: string,
 ): Promise<ActionResult<null>> {
-  const config = await resolveAiConfig();
-  if (!ready(config)) return { ok: false, error: "no_key" };
+  if (!(await aiChainReady())) return { ok: false, error: "no_key" };
 
   const project = await prisma.project.findUniqueOrThrow({ where: { id: projectId } });
   const ctx = await buildBookContext(projectId);
@@ -63,11 +82,15 @@ export async function generateBlueprint(
 
   const started = Date.now();
   let raw = "";
+  let config;
   try {
-    raw = await complete(config, blueprintMessages(ctx, project.idea, extras));
+    const res = await completeWithFallback(blueprintMessages(ctx, project.idea, extras));
+    raw = res.text;
+    config = res.config;
   } catch (e) {
     const err = e instanceof AiError ? e.message : "Generation failed.";
-    await logGen(projectId, "blueprint", config, 0, "error", err);
+    if (err === "no_key") return { ok: false, error: "no_key" };
+    await logGen(projectId, "blueprint", await resolveAiConfig(), 0, "error", err);
     return { ok: false, error: err };
   }
 
@@ -150,20 +173,18 @@ export async function runSelectionCommand(
   selectedText: string,
   surrounding: string,
 ): Promise<ActionResult<{ proposed: string }>> {
-  const config = await resolveAiConfig();
-  if (!ready(config)) return { ok: false, error: "no_key" };
+  if (!(await aiChainReady())) return { ok: false, error: "no_key" };
   const chapter = await prisma.chapter.findUniqueOrThrow({ where: { id: chapterId } });
   const ctx = await buildBookContext(chapter.projectId, chapter.order);
   try {
-    const proposed = await complete(
-      config,
+    const { text: proposed, config } = await completeWithFallback(
       selectionMessages(ctx, command, instruction, selectedText, surrounding),
     );
     await logGen(chapter.projectId, "selection", config, selectedText.length, "ok", command);
     return { ok: true, data: { proposed: stripQuotes(proposed) } };
   } catch (e) {
     const err = e instanceof AiError ? e.message : "Revision failed.";
-    return { ok: false, error: err };
+    return { ok: false, error: err === "no_key" ? "no_key" : err };
   }
 }
 
@@ -175,13 +196,14 @@ export async function runSelectionCommand(
 export async function summarizeChapter(
   chapterId: string,
 ): Promise<{ ok: boolean; summary?: string }> {
-  const config = await resolveAiConfig();
-  if (!ready(config)) return { ok: false };
+  if (!(await aiChainReady())) return { ok: false };
   const chapter = await prisma.chapter.findUnique({ where: { id: chapterId } });
   if (!chapter || !chapter.contentText.trim()) return { ok: false };
 
   try {
-    const raw = await complete(config, summaryMessages(chapter.title, chapter.contentText));
+    const { text: raw } = await completeWithFallback(
+      summaryMessages(chapter.title, chapter.contentText),
+    );
     const summary = stripQuotes(raw).slice(0, 700);
     await prisma.chapter.update({ where: { id: chapterId }, data: { summary } });
 
@@ -218,18 +240,19 @@ export async function runChapterAnalysis(
   chapterId: string,
   command: string,
 ): Promise<ActionResult<{ report: string }>> {
-  const config = await resolveAiConfig();
-  if (!ready(config)) return { ok: false, error: "no_key" };
+  if (!(await aiChainReady())) return { ok: false, error: "no_key" };
   const chapter = await prisma.chapter.findUniqueOrThrow({ where: { id: chapterId } });
   if (!chapter.contentText.trim())
     return { ok: false, error: "Write or generate this chapter first." };
   const ctx = await buildBookContext(chapter.projectId, chapter.order);
   try {
-    const report = await complete(config, analysisMessages(ctx, command, chapter.contentText));
+    const { text: report } = await completeWithFallback(
+      analysisMessages(ctx, command, chapter.contentText),
+    );
     return { ok: true, data: { report } };
   } catch (e) {
     const err = e instanceof AiError ? e.message : "Analysis failed.";
-    return { ok: false, error: err };
+    return { ok: false, error: err === "no_key" ? "no_key" : err };
   }
 }
 

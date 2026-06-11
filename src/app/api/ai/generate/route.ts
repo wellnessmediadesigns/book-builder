@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { resolveAiConfig, buildBookContext } from "@/lib/ai/context";
-import { stream, configIsReady, AiError } from "@/lib/ai/providers";
+import { buildBookContext, streamWithFallback, aiChainReady } from "@/lib/ai/context";
+import { AiError } from "@/lib/ai/providers";
 import { chapterMessages, continueChapterMessages } from "@/lib/ai/prompts";
 
 export const runtime = "nodejs";
@@ -13,8 +13,7 @@ export async function POST(req: NextRequest) {
     mode: "generate" | "continue";
   };
 
-  const config = await resolveAiConfig();
-  if (!configIsReady(config)) {
+  if (!(await aiChainReady())) {
     return new Response(JSON.stringify({ error: "no_key" }), {
       status: 428,
       headers: { "Content-Type": "application/json" },
@@ -49,7 +48,7 @@ export async function POST(req: NextRequest) {
   const body = new ReadableStream({
     async start(controller) {
       try {
-        for await (const delta of stream(config, messages)) {
+        for await (const delta of streamWithFallback(messages)) {
           controller.enqueue(encoder.encode(delta));
         }
       } catch (e) {

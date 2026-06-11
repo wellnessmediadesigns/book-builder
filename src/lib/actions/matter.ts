@@ -3,8 +3,8 @@
 import { prisma, getAuthor } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { countWords, docToText, textToDoc } from "@/lib/utils";
-import { resolveAiConfig, buildBookContext } from "@/lib/ai/context";
-import { complete, configIsReady, AiError } from "@/lib/ai/providers";
+import { buildBookContext, completeWithFallback, aiChainReady } from "@/lib/ai/context";
+import { AiError } from "@/lib/ai/providers";
 import { matterMessages } from "@/lib/ai/prompts";
 import { MATTER_SECTIONS, matterTypeOf, sectionByMatterType } from "@/lib/matter";
 
@@ -148,8 +148,7 @@ export async function saveMatter(sectionId: string, content: string) {
 export async function generateMatter(
   sectionId: string,
 ): Promise<{ ok: true; content: string } | { ok: false; error: string }> {
-  const config = await resolveAiConfig();
-  if (!configIsReady(config)) return { ok: false, error: "no_key" };
+  if (!(await aiChainReady())) return { ok: false, error: "no_key" };
 
   const row = await prisma.chapter.findUniqueOrThrow({ where: { id: sectionId } });
   const section = row.matterType ? sectionByMatterType(row.matterType) : undefined;
@@ -159,8 +158,7 @@ export async function generateMatter(
   const author = await getAuthor();
 
   try {
-    const content = await complete(
-      config,
+    const { text: content, config } = await completeWithFallback(
       matterMessages(ctx, author.name, section.title, section.directive),
     );
     await prisma.chapter.update({
