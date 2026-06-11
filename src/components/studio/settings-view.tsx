@@ -108,12 +108,15 @@ export function SettingsView({
                 ))}
                 {!preset.models.includes(s.model) && <option>{s.model}</option>}
               </Select>
-              <FieldHint>Type a custom model name below if yours isn't listed.</FieldHint>
+              <FieldHint>
+                Or paste any model id below. It must be a <strong>chat / instruct</strong>{" "}
+                model — rerank, embedding, and content-safety models can&apos;t generate text.
+              </FieldHint>
               <Input
-                className="mt-2"
+                className="mt-2 font-mono text-xs"
                 value={s.model}
                 onChange={(e) => set("model", e.target.value)}
-                placeholder="Custom model id"
+                placeholder="e.g. meta-llama/llama-3.3-70b-instruct:free"
               />
             </div>
 

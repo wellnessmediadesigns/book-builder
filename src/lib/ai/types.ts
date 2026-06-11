@@ -49,12 +49,15 @@ export const PROVIDER_PRESETS: Record<
     baseUrl: "https://openrouter.ai/api/v1",
     needsKey: true,
     models: [
+      "meta-llama/llama-3.3-70b-instruct:free",
+      "deepseek/deepseek-chat-v3.1:free",
+      "google/gemma-3-12b-it:free",
+      "nvidia/llama-3.1-nemotron-nano-8b-v1:free",
+      "mistralai/mistral-7b-instruct:free",
       "anthropic/claude-3.5-sonnet",
       "openai/gpt-4o-mini",
-      "google/gemini-flash-1.5",
-      "meta-llama/llama-3.1-70b-instruct",
     ],
-    help: "One key, many models — including free tiers (openrouter.ai).",
+    help: "One key, many models. The ':free' ones cost nothing. Must be a chat/instruct model — rerank, embedding, and content-safety models can't write.",
   },
   ollama: {
     label: "Ollama (local)",
