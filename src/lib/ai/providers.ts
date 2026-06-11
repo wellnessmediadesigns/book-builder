@@ -10,7 +10,7 @@ export class AiError extends Error {
 }
 
 function resolveBaseUrl(config: AiConfig): string {
-  return (config.baseUrl || PROVIDER_PRESETS[config.provider].baseUrl).replace(/\/$/, "");
+  return (config.baseUrl.trim() || PROVIDER_PRESETS[config.provider].baseUrl).replace(/\/$/, "");
 }
 
 export function configIsReady(config: AiConfig): boolean {
@@ -71,13 +71,16 @@ async function postWithRetry(
 function buildRequest(config: AiConfig, messages: AiMessage[], stream: boolean) {
   const url = `${resolveBaseUrl(config)}/chat/completions`;
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (config.apiKey) headers["Authorization"] = `Bearer ${config.apiKey}`;
+  // Trim defensively — pasted keys/models often carry stray spaces or newlines
+  // (especially on mobile), which causes 401 "key rejected" / 404 "model not found".
+  const apiKey = config.apiKey.trim();
+  if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
   if (config.provider === "openrouter") {
     headers["HTTP-Referer"] = "https://quire.studio";
     headers["X-Title"] = "Quire";
   }
   const body = JSON.stringify({
-    model: config.model,
+    model: config.model.trim(),
     messages,
     temperature: config.temperature,
     stream,

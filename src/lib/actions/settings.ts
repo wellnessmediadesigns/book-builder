@@ -16,10 +16,15 @@ export async function updateSettings(data: {
   fallbackApiKey?: string;
   fallbackBaseUrl?: string;
 }) {
+  // Trim text fields so stray paste whitespace can't break auth or model lookup.
+  const clean = { ...data };
+  for (const k of ["apiKey", "model", "baseUrl", "fallbackApiKey", "fallbackModel", "fallbackBaseUrl"] as const) {
+    if (typeof clean[k] === "string") clean[k] = (clean[k] as string).trim();
+  }
   const author = await getAuthor();
   await prisma.settings.update({
     where: { authorId: author.id },
-    data,
+    data: clean,
   });
   revalidatePath("/studio/settings");
   return { ok: true };

@@ -22,6 +22,14 @@ import { PROVIDER_PRESETS } from "@/lib/ai/types";
 import { updateSettings, updateAuthorName, swapProviders } from "@/lib/actions/settings";
 import { testConnection, testFallback } from "@/lib/actions/ai";
 
+const KEY_HINT: Record<string, { prefix: string; placeholder: string; where: string }> = {
+  cerebras: { prefix: "csk-", placeholder: "csk-…", where: "cloud.cerebras.ai" },
+  groq: { prefix: "gsk_", placeholder: "gsk_…", where: "console.groq.com" },
+  google: { prefix: "AIza", placeholder: "AIza…", where: "aistudio.google.com" },
+  openai: { prefix: "sk-", placeholder: "sk-…", where: "platform.openai.com" },
+  openrouter: { prefix: "sk-or-", placeholder: "sk-or-…", where: "openrouter.ai" },
+};
+
 type S = {
   provider: string;
   model: string;
@@ -251,6 +259,9 @@ function ProviderBlock({
     onChange("provider", p);
     onChange("model", pre.models[0]);
     onChange("baseUrl", "");
+    // Keys are provider-specific; clear it so a leftover key from another
+    // provider can't cause a 401 on the new one.
+    if (p !== provider) onChange("apiKey", "");
   }
 
   return (
@@ -311,7 +322,7 @@ function ProviderBlock({
                   type={showKey ? "text" : "password"}
                   value={apiKey}
                   onChange={(e) => onChange("apiKey", e.target.value)}
-                  placeholder="sk-…"
+                  placeholder={KEY_HINT[provider]?.placeholder ?? "your API key"}
                   className="pr-10 font-mono"
                 />
                 <button
@@ -321,6 +332,13 @@ function ProviderBlock({
                   {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              {KEY_HINT[provider] && (
+                <FieldHint>
+                  This should be a <strong>{preset.label.split(" ")[0]}</strong> key (starts
+                  with <code className="font-mono">{KEY_HINT[provider].prefix}</code>), from{" "}
+                  {KEY_HINT[provider].where}. Paste carefully — no spaces.
+                </FieldHint>
+              )}
             </div>
           )}
 
