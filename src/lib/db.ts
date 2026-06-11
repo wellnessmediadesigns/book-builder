@@ -60,6 +60,13 @@ export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
   },
 });
 
+// New accounts default to Cloudflare primary (free, no key) + Cerebras fallback
+// (free, generous). Set explicitly so it doesn't depend on the DB column default.
+const SETTINGS_DEFAULTS = {
+  fallbackProvider: "cerebras",
+  fallbackModel: "llama-3.3-70b",
+};
+
 /** Returns the single local author (single-profile app behind the password gate). */
 export async function getAuthor() {
   let author = await prisma.author.findFirst({ include: { settings: true } });
@@ -67,13 +74,13 @@ export async function getAuthor() {
     author = await prisma.author.create({
       data: {
         name: "Author",
-        settings: { create: {} },
+        settings: { create: { ...SETTINGS_DEFAULTS } },
       },
       include: { settings: true },
     });
   }
   if (!author.settings) {
-    await prisma.settings.create({ data: { authorId: author.id } });
+    await prisma.settings.create({ data: { authorId: author.id, ...SETTINGS_DEFAULTS } });
     author = await prisma.author.findFirstOrThrow({ include: { settings: true } });
   }
   return author;

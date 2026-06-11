@@ -227,8 +227,8 @@ model Settings {
 
   // Optional fallback provider: used automatically when the primary is rate-limited
   // or unavailable. Empty fallbackProvider disables it.
-  fallbackProvider String @default("groq")
-  fallbackModel    String @default("llama-3.1-8b-instant")
+  fallbackProvider String @default("cerebras")
+  fallbackModel    String @default("llama-3.3-70b")
   fallbackApiKey   String @default("")
   fallbackBaseUrl  String @default("")
 
