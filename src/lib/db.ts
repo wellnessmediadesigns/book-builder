@@ -64,7 +64,7 @@ export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
 // (free, generous). Set explicitly so it doesn't depend on the DB column default.
 const SETTINGS_DEFAULTS = {
   fallbackProvider: "cerebras",
-  fallbackModel: "llama-3.3-70b",
+  fallbackModel: "gpt-oss-120b",
 };
 
 /** Returns the single local author (single-profile app behind the password gate). */

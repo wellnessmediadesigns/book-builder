@@ -228,7 +228,7 @@ model Settings {
   // Optional fallback provider: used automatically when the primary is rate-limited
   // or unavailable. Empty fallbackProvider disables it.
   fallbackProvider String @default("cerebras")
-  fallbackModel    String @default("llama-3.3-70b")
+  fallbackModel    String @default("gpt-oss-120b")
   fallbackApiKey   String @default("")
   fallbackBaseUrl  String @default("")
 

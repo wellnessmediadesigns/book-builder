@@ -41,8 +41,8 @@ export const PROVIDER_PRESETS: Record<
     label: "Cerebras (free · fast)",
     baseUrl: "https://api.cerebras.ai/v1",
     needsKey: true,
-    models: ["llama-3.3-70b", "llama3.1-8b", "qwen-3-32b", "gpt-oss-120b"],
-    help: "Free, extremely fast, 1M tokens/day, no credit card. Get a key at cloud.cerebras.ai.",
+    models: ["gpt-oss-120b", "llama-3.3-70b", "llama3.1-8b", "qwen-3-32b"],
+    help: "Free, extremely fast, 1M tokens/day, no card. Get a key at cloud.cerebras.ai. gpt-oss-120b is the most capable.",
   },
   google: {
     label: "Google Gemini (free)",
