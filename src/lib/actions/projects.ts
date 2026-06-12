@@ -32,6 +32,47 @@ export type ProjectInput = {
 
 const ACCENTS = ["brass", "muse", "sage"];
 
+/** Full setup of every existing book, for the "copy from a book" picker. */
+export async function listProjectSetups(): Promise<
+  { id: string; label: string; setup: ProjectInput }[]
+> {
+  const author = await getAuthor();
+  const rows = await prisma.project.findMany({
+    where: { authorId: author.id },
+    orderBy: { updatedAt: "desc" },
+    take: 60,
+  });
+  return rows.map((p) => ({
+    id: p.id,
+    label: p.recommendedTitle || p.title || "Untitled book",
+    setup: {
+      title: p.title,
+      idea: p.idea,
+      theme: p.theme,
+      genre: p.genre,
+      kind: p.kind,
+      audience: p.audience,
+      tone: p.tone,
+      style: p.style,
+      readingLevel: p.readingLevel,
+      include: p.include,
+      avoid: p.avoid,
+      notes: p.notes,
+      inspiration: p.inspiration,
+      goals: p.goals,
+      bookType: p.bookType,
+      chapterCount: p.chapterCount,
+      minWords: p.minWords,
+      maxWords: p.maxWords,
+      narrativeStyle: p.narrativeStyle,
+      pov: p.pov,
+      publishFormat: p.publishFormat,
+      seriesName: p.seriesName,
+      styleNotes: p.styleNotes,
+    },
+  }));
+}
+
 /** Existing series names + a sibling's style, so a new book in the series matches. */
 export async function getSeriesInfo(): Promise<{
   names: string[];

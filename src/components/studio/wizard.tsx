@@ -18,9 +18,16 @@ import { Input, Textarea, Select, Label, FieldHint } from "@/components/ui/field
 import { Spinner } from "@/components/ui/primitives";
 import { QuireLogo } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { createProject, getSeriesInfo, type ProjectInput } from "@/lib/actions/projects";
+import {
+  createProject,
+  getSeriesInfo,
+  listProjectSetups,
+  type ProjectInput,
+} from "@/lib/actions/projects";
 import { analyzeStyleSample } from "@/lib/actions/ai";
 import { toast } from "@/components/ui/toast";
+
+type BookSetupOption = { id: string; label: string; setup: ProjectInput };
 
 const BOOK_TYPES = [
   "Novel",
@@ -85,9 +92,11 @@ export function Wizard() {
     names: string[];
     styles: Record<string, Partial<ProjectInput>>;
   }>({ names: [], styles: {} });
+  const [books, setBooks] = useState<BookSetupOption[]>([]);
 
   useEffect(() => {
     getSeriesInfo().then(setSeries).catch(() => {});
+    listProjectSetups().then(setBooks).catch(() => {});
   }, []);
 
   const set = <K extends keyof ProjectInput>(k: K, v: ProjectInput[K]) =>
@@ -162,7 +171,7 @@ export function Wizard() {
             transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
           >
             {step === 1 && (
-              <StepIdea data={data} set={set} merge={merge} series={series} />
+              <StepIdea data={data} set={set} merge={merge} series={series} books={books} />
             )}
             {step === 2 && <StepStructure data={data} set={set} estWords={estWords} />}
             {step === 3 && <StepReview data={data} estWords={estWords} />}
@@ -211,14 +220,17 @@ function StepIdea({
   set,
   merge,
   series,
+  books,
 }: {
   data: ProjectInput;
   set: SetFn;
   merge: (patch: Partial<ProjectInput>) => void;
   series: { names: string[]; styles: Record<string, Partial<ProjectInput>> };
+  books: BookSetupOption[];
 }) {
   return (
     <Section title="Start with the spark" hint="Tell Quire what your book is about. The richer the idea, the better the blueprint.">
+      <QuickStart books={books} merge={merge} />
       <StyleSampleBox merge={merge} />
       <SeriesControl data={data} set={set} merge={merge} series={series} />
       <div>
@@ -290,6 +302,44 @@ function StepIdea({
         </div>
       </div>
     </Section>
+  );
+}
+
+function QuickStart({
+  books,
+  merge,
+}: {
+  books: BookSetupOption[];
+  merge: (patch: Partial<ProjectInput>) => void;
+}) {
+  if (books.length === 0) return null;
+  return (
+    <div className="rounded-2xl border border-brass/25 bg-brass-soft/40 p-4">
+      <div className="flex items-center gap-2">
+        <Library className="h-4 w-4 text-brass" />
+        <span className="text-sm font-semibold text-ink">Start from an existing book</span>
+      </div>
+      <p className="mt-1 text-xs text-ink-soft">
+        Copy a previous book&apos;s setup, then tweak a few fields below — no starting from zero.
+      </p>
+      <Select
+        className="mt-2.5"
+        defaultValue=""
+        onChange={(e) => {
+          const b = books.find((x) => x.id === e.target.value);
+          if (!b) return;
+          merge({ ...b.setup }); // copy the whole setup; tweak any field below
+          toast.success(`Copied setup from "${b.label}"`, "Adjust the idea, title, and anything else below.");
+        }}
+      >
+        <option value="">Choose a book to copy its setup…</option>
+        {books.map((b) => (
+          <option key={b.id} value={b.id}>
+            {b.label}
+          </option>
+        ))}
+      </Select>
+    </div>
   );
 }
 
