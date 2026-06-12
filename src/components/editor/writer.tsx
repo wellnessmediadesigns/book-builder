@@ -18,6 +18,10 @@ import {
   Loader2,
   Type,
   Search as SearchIcon,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Sparkles,
 } from "lucide-react";
 
 import { Lock } from "@/components/editor/extensions/lock";
@@ -783,7 +787,7 @@ export function Writer({
 
           <div className="manuscript min-h-0 flex-1 overflow-y-auto" onClick={() => editor?.commands.focus()}>
             <div
-              className={cn("mx-auto px-5 py-10 transition-all duration-300 sm:px-6 sm:py-14", focusMode ? "max-w-2xl sm:py-24" : "max-w-3xl")}
+              className={cn("mx-auto px-5 py-10 transition-all duration-300 sm:px-6 sm:py-14", focusMode ? "max-w-2xl sm:py-24" : "max-w-3xl", isMobile && !focusMode && "pb-28")}
               style={{
                 ["--reading-measure" as string]: focusMode ? "40rem" : "38rem",
               }}
@@ -929,6 +933,104 @@ export function Writer({
           setTimeout(() => runCommand(r.command, r.instruction), 30);
         }} />
       )}
+
+      {/* Mobile bottom navigation — one-tap chapter switch + add-more */}
+      {isMobile && !focusMode && !railOpen && !panelOpen && !revision && !sel && (
+        <MobileBottomBar
+          chapters={chapters}
+          activeId={activeId}
+          generatingId={generatingId}
+          busy={busy}
+          onPrev={() => {
+            const i = chapters.findIndex((c) => c.id === activeId);
+            if (i > 0) selectChapter(chapters[i - 1].id);
+          }}
+          onNext={() => {
+            const i = chapters.findIndex((c) => c.id === activeId);
+            if (i >= 0 && i < chapters.length - 1) selectChapter(chapters[i + 1].id);
+          }}
+          onList={() => setRailOpen(true)}
+          onAddMore={() =>
+            streamGenerate((active?.wordCount ?? 0) === 0 ? "generate" : "continue")
+          }
+        />
+      )}
+    </div>
+  );
+}
+
+function MobileBottomBar({
+  chapters,
+  activeId,
+  generatingId,
+  busy,
+  onPrev,
+  onNext,
+  onList,
+  onAddMore,
+}: {
+  chapters: FullChapter[];
+  activeId: string;
+  generatingId: string | null;
+  busy: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+  onList: () => void;
+  onAddMore: () => void;
+}) {
+  const i = chapters.findIndex((c) => c.id === activeId);
+  const active = chapters[i];
+  const empty = (active?.wordCount ?? 0) === 0;
+  const generating = generatingId === activeId;
+  const locked = active?.locked ?? false;
+  return (
+    <div
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-paper/95 backdrop-blur-xl"
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
+      <div className="flex items-center gap-1.5 px-2 py-2">
+        <button
+          onClick={onPrev}
+          disabled={i <= 0}
+          aria-label="Previous chapter"
+          className="flex h-11 w-11 items-center justify-center rounded-xl text-ink-soft transition-colors active:bg-paper-sunken disabled:opacity-30"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+        <button
+          onClick={onList}
+          className="flex h-11 min-w-0 flex-1 flex-col items-center justify-center rounded-xl px-2 active:bg-paper-sunken"
+        >
+          <span className="font-mono text-[0.625rem] leading-none text-muted">
+            {i >= 0 ? `${i + 1} / ${chapters.length}` : ""}
+          </span>
+          <span className="mt-0.5 line-clamp-1 max-w-full text-[0.8125rem] font-medium leading-tight text-ink">
+            {cleanChapterTitle(active?.title ?? "Chapter")}
+          </span>
+        </button>
+        <button
+          onClick={onNext}
+          disabled={i < 0 || i >= chapters.length - 1}
+          aria-label="Next chapter"
+          className="flex h-11 w-11 items-center justify-center rounded-xl text-ink-soft transition-colors active:bg-paper-sunken disabled:opacity-30"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </button>
+        <button
+          onClick={onAddMore}
+          disabled={busy || generating || locked}
+          className="flex h-11 items-center gap-1.5 rounded-xl bg-gradient-to-r from-muse to-muse-deep px-3.5 font-medium text-white transition-opacity active:opacity-90 disabled:opacity-50"
+        >
+          {generating ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : empty ? (
+            <Sparkles className="h-4 w-4" />
+          ) : (
+            <Plus className="h-4 w-4" />
+          )}
+          <span className="text-sm">{empty ? "Generate" : "Add more"}</span>
+        </button>
+      </div>
     </div>
   );
 }
