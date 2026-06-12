@@ -166,16 +166,21 @@ from the story so far and set up what comes next. Write the full chapter now.`,
 }
 
 export function continueChapterMessages(ctx: BookContext, existing: string, chapter: { title: string; summary: string; maxWords: number }): AiMessage[] {
+  const add = Math.max(300, Math.round(chapter.maxWords / 3));
   return [
     { role: "system", content: QUIRE_SYSTEM },
     {
       role: "user",
-      content: `Continue writing this chapter from exactly where it stops. Do not repeat existing text.
+      content: `Write roughly ${add} more words to extend this chapter. Your text will be appended to the end, so write only the NEW prose (do not repeat what's already there).
 
 ${contextBlock(ctx)}
 
 CHAPTER: "${chapter.title}" — goal: ${chapter.summary}
-Add roughly ${Math.max(300, Math.round(chapter.maxWords / 3))} more words that flow seamlessly.
+
+IMPORTANT — avoid a double ending:
+- If the current text already ends with a clear conclusion or sign-off (e.g. a character falling asleep, a final reflection, a wrap-up), DO NOT write another ending or repeat that farewell.
+- Instead, gently re-open the moment and add more of the same kind of content that came before the ending — another beat, image, or development — and let it wind back down naturally at the very end.
+- Match the exact voice, tense, and rhythm. The seam where your text begins must be invisible.
 
 CURRENT TEXT (continue after the final word):
 """${existing.slice(-2400)}"""`,
@@ -183,26 +188,26 @@ CURRENT TEXT (continue after the final word):
   ];
 }
 
-/** Selection / chapter command catalogue. */
+/** Selection / chapter command catalogue. Each is a forceful, concrete directive. */
 export const COMMANDS: Record<string, string> = {
-  rewrite: "Rewrite this, keeping the meaning but improving the craft.",
-  improve: "Improve the writing quality — word choice, rhythm, precision.",
-  expand: "Expand this with more depth and substance, staying on point.",
-  condense: "Condense this to be tighter and more economical without losing meaning.",
-  humanize: "Make this sound naturally human — warm, varied, never robotic or formulaic.",
-  clarity: "Improve clarity so the meaning is immediately understood.",
-  flow: "Improve the flow and transitions between sentences and ideas.",
-  readability: "Improve readability for the target reader without dumbing it down.",
-  emotion: "Deepen the emotional resonance honestly, without melodrama.",
-  description: "Add vivid, purposeful sensory description.",
-  dialogue: "Add or strengthen natural dialogue that reveals character.",
-  tension: "Increase tension and stakes.",
-  pacing: "Improve the pacing.",
-  examples: "Add concrete, illustrative examples.",
-  persuasive: "Make this more persuasive and convincing.",
-  grammar: "Fix grammar, spelling, and punctuation. Change nothing else.",
-  repetition: "Remove repetition and redundancy.",
-  tone: "Adjust the tone to better match the book's established voice.",
+  rewrite: "Rewrite this passage from scratch in fresh wording, keeping the meaning but clearly improving the craft. The result must read noticeably differently.",
+  improve: "Noticeably improve the writing — sharpen word choice, vary sentence rhythm, cut flab, and strengthen imagery. Make real changes, not cosmetic ones.",
+  expand: "Lengthen this substantially — add new sentences with depth, detail, and development. It must be clearly longer than the original.",
+  condense: "Tighten this significantly — cut redundancy and trim to the essentials. It must be clearly shorter than the original.",
+  humanize: "Rewrite so it sounds unmistakably human — warm, varied sentence lengths, natural rhythm, no formulaic phrasing or AI tells.",
+  clarity: "Rewrite for immediate clarity — restructure confusing sentences so the meaning lands at once.",
+  flow: "Rewrite so the sentences and ideas connect smoothly — add transitions and fix abrupt jumps.",
+  readability: "Rewrite to read more easily for the target reader — simpler structure, cleaner sentences, without dumbing down the ideas.",
+  emotion: "Rewrite to add real emotional interiority — the character's feelings, reactions, and stakes. Add new emotional beats.",
+  description: "Rewrite to add vivid, specific sensory description — sights, sounds, textures. Add at least one or two new descriptive sentences.",
+  dialogue: "Rewrite to add natural spoken dialogue with new lines of speech that reveal character. Add quoted dialogue that isn't there now.",
+  tension: "Rewrite to raise the tension and stakes noticeably — add uncertainty, urgency, or conflict.",
+  pacing: "Rewrite to improve pacing — adjust sentence and paragraph length so the rhythm fits the moment.",
+  examples: "Rewrite to add at least one concrete, specific example that illustrates the point.",
+  persuasive: "Rewrite to be clearly more persuasive — stronger claims, evidence, and a compelling case.",
+  grammar: "Fix every grammar, spelling, and punctuation error. Change wording only where needed for correctness.",
+  repetition: "Rewrite to remove repeated words, phrases, and ideas — vary the language.",
+  tone: "Rewrite to better match the book's established tone and voice.",
 };
 
 export function selectionMessages(
@@ -220,17 +225,25 @@ export function selectionMessages(
     { role: "system", content: QUIRE_SYSTEM },
     {
       role: "user",
-      content: `Revise ONLY the selected passage. Return only the revised passage — same scope, no quotes, no commentary.
-
-${contextBlock(ctx)}
+      content: `You are revising one passage from a book. Apply this change and return the rewritten passage.
 
 TASK: ${directive}
 
-SURROUNDING CONTEXT (for consistency — do not include in your output):
+CRITICAL RULES:
+- You MUST actually change the text. Returning the passage unchanged or only trivially reworded is a failure.
+- When the task says "add", genuinely add new sentences/content. When it says longer/shorter, change the length.
+- Preserve the book's voice, tense, and point of view, and stay in the same scene.
+- Output ONLY the revised passage as plain prose — no quotes, no labels, no commentary, no explanation.
+
+${contextBlock(ctx)}
+
+SURROUNDING CONTEXT (for consistency only — do NOT repeat or include it in your output):
 """${surrounding.slice(0, 1200)}"""
 
-SELECTED PASSAGE TO REVISE:
-"""${selectedText}"""`,
+PASSAGE TO REVISE:
+"""${selectedText}"""
+
+Rewritten passage:`,
     },
   ];
 }

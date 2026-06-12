@@ -213,12 +213,28 @@ export async function runSelectionCommand(
   if (!(await aiChainReady())) return { ok: false, error: "no_key" };
   const chapter = await prisma.chapter.findUniqueOrThrow({ where: { id: chapterId } });
   const ctx = await buildBookContext(chapter.projectId, chapter.order);
+  const norm = (t: string) => t.replace(/\s+/g, " ").trim().toLowerCase();
   try {
-    const { text: proposed, config } = await completeWithFallback(
+    const { text, config } = await completeWithFallback(
       selectionMessages(ctx, command, instruction, selectedText, surrounding),
     );
+    let proposed = stripQuotes(text);
+    // Some models play it safe and echo the input. Retry once, more forcefully.
+    if (norm(proposed) === norm(selectedText)) {
+      const retry = await completeWithFallback([
+        ...selectionMessages(ctx, command, instruction, selectedText, surrounding),
+        { role: "assistant", content: proposed },
+        {
+          role: "user",
+          content:
+            "That returned the passage essentially unchanged, which is not acceptable. Apply the requested change for real this time and output ONLY the rewritten passage.",
+        },
+      ]);
+      const retryText = stripQuotes(retry.text);
+      if (norm(retryText) !== norm(selectedText)) proposed = retryText;
+    }
     await logGen(chapter.projectId, "selection", config, selectedText.length, "ok", command);
-    return { ok: true, data: { proposed: stripQuotes(proposed) } };
+    return { ok: true, data: { proposed } };
   } catch (e) {
     const err = e instanceof AiError ? e.message : "Revision failed.";
     return { ok: false, error: err === "no_key" ? "no_key" : err };
