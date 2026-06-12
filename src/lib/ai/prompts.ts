@@ -167,23 +167,32 @@ from the story so far and set up what comes next. Write the full chapter now.`,
 
 export function continueChapterMessages(ctx: BookContext, existing: string, chapter: { title: string; summary: string; maxWords: number }): AiMessage[] {
   const add = Math.max(300, Math.round(chapter.maxWords / 3));
+  const paras = existing.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  const lastPara = paras[paras.length - 1] ?? existing;
   return [
     { role: "system", content: QUIRE_SYSTEM },
     {
       role: "user",
-      content: `Write roughly ${add} more words to extend this chapter. Your text will be appended to the end, so write only the NEW prose (do not repeat what's already there).
+      content: `Make this chapter longer by about ${add} words AND fix its ending so it doesn't stop abruptly or end twice.
 
 ${contextBlock(ctx)}
 
 CHAPTER: "${chapter.title}" — goal: ${chapter.summary}
 
-IMPORTANT — avoid a double ending:
-- If the current text already ends with a clear conclusion or sign-off (e.g. a character falling asleep, a final reflection, a wrap-up), DO NOT write another ending or repeat that farewell.
-- Instead, gently re-open the moment and add more of the same kind of content that came before the ending — another beat, image, or development — and let it wind back down naturally at the very end.
-- Match the exact voice, tense, and rhythm. The seam where your text begins must be invisible.
+You are REWRITING the chapter from its final paragraph onward. Everything before that paragraph stays exactly as-is and is NOT shown again — do not reproduce it.
 
-CURRENT TEXT (continue after the final word):
-"""${existing.slice(-2400)}"""`,
+THE FINAL PARAGRAPH YOU ARE REPLACING:
+"""${lastPara}"""
+
+What to write:
+- Reopen the moment from where that final paragraph begins, continue the scene with about ${add} words of new material in the same voice and tense, and then bring the chapter to a fresh, natural close.
+- If that final paragraph was a sign-off or conclusion (e.g. drifting off to sleep), do NOT keep its wording or repeat the farewell — your new ending replaces it.
+- The seam must be invisible: your first words should flow naturally from the paragraph that came before.
+
+Output ONLY the replacement text (it will replace that final paragraph). No quotes, labels, or commentary.
+
+FULL CURRENT TEXT (for context only):
+"""${existing.slice(-2600)}"""`,
     },
   ];
 }

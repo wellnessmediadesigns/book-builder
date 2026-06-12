@@ -418,9 +418,17 @@ export function Writer({
   // ——— streaming generation ———
   async function streamGenerate(mode: "generate" | "continue") {
     if (!editor || !active) return;
+    // Continue rewrites the final paragraph (so a finished chapter doesn't get a
+    // second ending), so flush first and keep everything *before* the last paragraph.
+    if (mode === "continue") await flushSave();
     setGeneratingId(active.id);
     setBusy(true);
-    const base = mode === "continue" ? editor.getText() : "";
+    let base = "";
+    if (mode === "continue") {
+      const paras = editor.getText().split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+      paras.pop(); // drop the last paragraph — the AI rewrites it into a longer, properly-ended close
+      base = paras.join("\n\n");
+    }
     if (mode === "generate") editor.commands.setContent(emptyDoc(), false);
 
     try {
