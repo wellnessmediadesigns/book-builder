@@ -21,12 +21,22 @@ import { cn, formatNumber } from "@/lib/utils";
 import { toast } from "@/components/ui/toast";
 import { previewHtml, setBookTheme } from "@/lib/actions/export";
 
-const FORMATS = [
+type Format = {
+  key: string;
+  label: string;
+  ext: string;
+  icon: typeof FileText;
+  real: boolean;
+  badge?: string;
+  desc: string;
+};
+
+const FORMATS: Format[] = [
+  { key: "pdf", label: "PDF", ext: ".pdf", icon: FileType, real: true, badge: "See the pages", desc: "Real paginated 6×9 book — title page, each chapter on its own page. Opens page-by-page on any device (incl. your phone). Print/KDP-ready." },
   { key: "docx", label: "Word", ext: ".docx", icon: FileText, real: true, desc: "Editable Word manuscript — 6×9 trim, styled headings, page breaks, matter." },
   { key: "epub", label: "EPUB", ext: ".epub", icon: BookOpen, real: true, desc: "Reflowable ebook for Kindle & Apple Books, with navigation." },
   { key: "markdown", label: "Markdown", ext: ".md", icon: Code2, real: true, desc: "Clean Markdown with title page, contents, and matter." },
-  { key: "html", label: "HTML", ext: ".html", icon: Globe, real: true, desc: "Styled web page in your chosen theme." },
-  { key: "pdf", label: "PDF", ext: ".pdf", icon: FileType, real: false, desc: "Opens the themed print view — use your browser's Save as PDF." },
+  { key: "html", label: "HTML", ext: ".html", icon: Globe, real: true, desc: "Styled web page in your chosen theme (view in browser / print)." },
 ];
 
 type ThemeMeta = { id: string; name: string; description: string };
@@ -185,12 +195,12 @@ export function ExportView({
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-paper-sunken text-brass">
                   <f.icon className="h-5 w-5" />
                 </div>
-                {f.real ? (
+                {f.badge ? (
+                  <Badge tone="brass">{f.badge}</Badge>
+                ) : (
                   <Badge tone="sage">
                     <Check className="h-3 w-3" /> Ready
                   </Badge>
-                ) : (
-                  <Badge tone="muse">via print</Badge>
                 )}
               </div>
               <h3 className="mt-3 font-display text-lg font-semibold text-ink">
@@ -198,13 +208,13 @@ export function ExportView({
               </h3>
               <p className="mt-1 flex-1 text-sm text-ink-soft">{f.desc}</p>
               <div className="mt-4">
-                {f.real ? (
-                  <Button variant="primary" size="sm" onClick={() => download(f.key)}>
-                    <Download className="h-4 w-4" /> Download {f.label}
+                {f.key === "html" ? (
+                  <Button variant="outline" size="sm" onClick={openPrint}>
+                    <Printer className="h-4 w-4" /> View in browser
                   </Button>
                 ) : (
-                  <Button variant="outline" size="sm" onClick={openPrint}>
-                    <Printer className="h-4 w-4" /> Open print view
+                  <Button variant={f.key === "pdf" ? "brass" : "primary"} size="sm" onClick={() => download(f.key)}>
+                    <Download className="h-4 w-4" /> Download {f.label}
                   </Button>
                 )}
               </div>
@@ -214,9 +224,10 @@ export function ExportView({
       </div>
 
       <p className="mt-8 text-center text-xs text-muted">
-        The formatting style applies to the HTML &amp; PDF. Word, EPUB, and Markdown use
-        clean standard manuscript formatting. Drafted front/back matter is included
-        automatically.
+        <strong className="text-ink-soft">PDF is fully paginated</strong> — open it on your
+        phone to flip through the actual pages. Word &amp; EPUB are paginated too, but phone{" "}
+        <em>preview</em> apps show them as one continuous scroll (they page correctly in
+        Word/Google Docs or an ereader). Drafted front/back matter is included automatically.
       </p>
     </div>
   );

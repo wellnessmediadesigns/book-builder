@@ -3,12 +3,13 @@ import { prisma } from "@/lib/db";
 import { buildMarkdown, buildHtml } from "@/lib/export/manuscript";
 import { buildDocx } from "@/lib/export/docx";
 import { buildEpub } from "@/lib/export/epub";
+import { buildPdf } from "@/lib/export/pdf";
 import { assembleBookPackage } from "@/lib/export/assemble";
 import { slugify } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-const FORMATS = new Set(["markdown", "html", "docx", "epub"]);
+const FORMATS = new Set(["markdown", "html", "docx", "epub", "pdf"]);
 
 export async function GET(
   req: NextRequest,
@@ -54,6 +55,13 @@ export async function GET(
         headers: {
           "Content-Type": "application/epub+zip",
           "Content-Disposition": `attachment; filename="${base}.epub"`,
+        },
+      });
+    case "pdf":
+      return new Response((await buildPdf(pkg)) as BodyInit, {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${base}.pdf"`,
         },
       });
     default:
