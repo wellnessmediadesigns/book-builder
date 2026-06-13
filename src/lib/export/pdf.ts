@@ -157,8 +157,33 @@ export async function buildPdf(pkg: BookPackage): Promise<Uint8Array> {
   if (meta.subtitle) drawRuns([{ text: meta.subtitle, italic: true }], { size: 15, lineHeight: 20, align: "center", color: SOFT, gapAfter: 40 });
   drawRuns([{ text: `by ${meta.authorName}` }], { size: 12, lineHeight: 16, align: "center", color: SOFT });
 
+  // Front/back matter render styles by section. Copyright/disclaimer are quiet
+  // small print with no heading; dedication/epigraph are centered & italic,
+  // sat lower on the page (book convention); everything else gets a real heading.
+  const QUIET = new Set(["copyright", "disclaimer"]);
+  const CENTERED = new Set(["dedication", "epigraph"]);
+
   const matterPage = (s: MatterSectionOut) => {
     newPage();
+    if (CENTERED.has(s.key)) {
+      y = PH * 0.55;
+      for (const p of textToParagraphs(s.text))
+        drawRuns([{ text: winAnsi(p), italic: true }], {
+          size: 12.5,
+          lineHeight: 19,
+          align: "center",
+          color: SOFT,
+          gapAfter: 9,
+        });
+      return;
+    }
+    if (QUIET.has(s.key)) {
+      y -= 10;
+      for (const p of textToParagraphs(s.text))
+        drawRuns([{ text: winAnsi(p) }], { size: 9, lineHeight: 13.5, color: SOFT, gapAfter: 7 });
+      return;
+    }
+    y -= 56; // breathing room above a headed section
     heading(s.title);
     for (const p of textToParagraphs(s.text)) paragraph(winAnsi(p));
   };
@@ -168,14 +193,15 @@ export async function buildPdf(pkg: BookPackage): Promise<Uint8Array> {
 
   // ——— Contents ———
   newPage();
+  y -= 56;
   heading("Contents");
   front
     .filter((f) => !f.preToc && f.inToc)
-    .forEach((s) => drawRuns([{ text: s.title }], { size: 11, lineHeight: 18 }));
+    .forEach((s) => drawRuns([{ text: s.title }], { size: 11, lineHeight: 19 }));
   chapters.forEach((c, i) =>
-    drawRuns([{ text: `${i + 1}.  ${cleanChapterTitle(c.title)}` }], { size: 11, lineHeight: 18 }),
+    drawRuns([{ text: `${i + 1}.  ${cleanChapterTitle(c.title)}` }], { size: 11, lineHeight: 19 }),
   );
-  back.filter((b) => b.inToc).forEach((s) => drawRuns([{ text: s.title }], { size: 11, lineHeight: 18 }));
+  back.filter((b) => b.inToc).forEach((s) => drawRuns([{ text: s.title }], { size: 11, lineHeight: 19 }));
 
   // ——— Post-ToC front matter ———
   for (const s of front.filter((f) => !f.preToc)) matterPage(s);

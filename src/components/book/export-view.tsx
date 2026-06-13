@@ -88,7 +88,9 @@ export function ExportView({
   }
 
   function download(format: string) {
-    window.location.href = `/api/export/${format}?project=${projectId}`;
+    // Open in a new view (not a same-window navigation) so the app/PWA stays put
+    // and the PDF/file viewer has its own Done/Back affordance.
+    window.open(`/api/export/${format}?project=${projectId}`, "_blank");
   }
   function openPrint() {
     window.open(`/api/export/html?project=${projectId}&theme=${theme}`, "_blank");
