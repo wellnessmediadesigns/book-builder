@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { motion } from "framer-motion";
-import { MoreHorizontal, Copy, Trash2, BookOpen } from "lucide-react";
+import { MoreHorizontal, Copy, Trash2, BookOpen, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/primitives";
 import { QuireMark } from "@/components/brand/logo";
 import { deleteProject, duplicateProject } from "@/lib/actions/projects";
-import { formatNumber, relativeTime } from "@/lib/utils";
+import { formatNumber, relativeTime, readingTimeLabel } from "@/lib/utils";
 import { toast } from "@/components/ui/toast";
 
 const ACCENTS: Record<string, string> = {
@@ -79,6 +79,11 @@ export function ProjectCard(p: P) {
               <span>{formatNumber(p.words)} words</span>
               <span className="ml-auto text-muted">{relativeTime(p.updatedAt)}</span>
             </div>
+            {p.words > 0 && (
+              <p className="mt-1 inline-flex items-center gap-1 text-[0.6875rem] text-muted">
+                <Clock className="h-3 w-3" /> {readingTimeLabel(p.words)}
+              </p>
+            )}
             {p.status !== "draft" && (
               <div className="mt-3">
                 <div className="h-1.5 overflow-hidden rounded-full bg-paper-sunken">

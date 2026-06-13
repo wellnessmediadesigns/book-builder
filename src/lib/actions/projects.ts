@@ -32,6 +32,45 @@ export type ProjectInput = {
 
 const ACCENTS = ["brass", "muse", "sage"];
 
+/** The most-recently-touched book + chapter, for a dashboard "Continue" card. */
+export async function getResumeTarget(): Promise<{
+  projectId: string;
+  bookTitle: string;
+  chapterId: string | null;
+  chapterTitle: string | null;
+  href: string;
+  updatedAt: string;
+} | null> {
+  const author = await getAuthor();
+  const project = await prisma.project.findFirst({
+    where: { authorId: author.id, status: { not: "draft" } },
+    orderBy: { updatedAt: "desc" },
+  });
+  if (!project) return null;
+  // Prefer the most recently edited body chapter that has content.
+  const chapter =
+    (await prisma.chapter.findFirst({
+      where: { projectId: project.id, matterType: null, wordCount: { gt: 0 } },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, title: true },
+    })) ??
+    (await prisma.chapter.findFirst({
+      where: { projectId: project.id, matterType: null },
+      orderBy: { order: "asc" },
+      select: { id: true, title: true },
+    }));
+  return {
+    projectId: project.id,
+    bookTitle: project.recommendedTitle || project.title,
+    chapterId: chapter?.id ?? null,
+    chapterTitle: chapter?.title ?? null,
+    href: chapter
+      ? `/studio/book/${project.id}/write?chapter=${chapter.id}`
+      : `/studio/book/${project.id}/write`,
+    updatedAt: project.updatedAt.toISOString(),
+  };
+}
+
 /** Full setup of every existing book, for the "copy from a book" picker. */
 export async function listProjectSetups(): Promise<
   { id: string; label: string; setup: ProjectInput }[]

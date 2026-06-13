@@ -20,6 +20,15 @@ export function formatNumber(n: number): string {
   return new Intl.NumberFormat("en-US").format(n);
 }
 
+/** Book-scale reading time at ~230 wpm: "5 min" / "1 hr 20 min" / "2 hr". */
+export function readingTimeLabel(words: number): string {
+  const mins = Math.max(1, Math.round(words / 230));
+  if (mins < 60) return `${mins} min read`;
+  const hr = Math.floor(mins / 60);
+  const rem = mins % 60;
+  return rem ? `${hr} hr ${rem} min read` : `${hr} hr read`;
+}
+
 export function relativeTime(date: Date | string | number): string {
   const d = new Date(date);
   const diff = Date.now() - d.getTime();

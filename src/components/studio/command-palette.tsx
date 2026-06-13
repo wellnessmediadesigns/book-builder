@@ -17,19 +17,29 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { listProjectsBrief } from "@/lib/actions/projects";
+import { searchChapters } from "@/lib/actions/chapters";
 import { cn } from "@/lib/utils";
 import { Kbd } from "@/components/ui/primitives";
+import { FileText } from "lucide-react";
 
 type Item = {
   id: string;
   label: string;
   hint?: string;
   icon: React.ReactNode;
-  group: "Actions" | "Books" | "Theme";
+  group: "Actions" | "Books" | "Chapters" | "Theme";
   run: () => void;
 };
 
 type Project = { id: string; title: string; status: string };
+type ChapterHit = {
+  id: string;
+  projectId: string;
+  bookTitle: string;
+  title: string;
+  snippet: string;
+  href: string;
+};
 
 export function CommandPalette() {
   const router = useRouter();
@@ -39,6 +49,7 @@ export function CommandPalette() {
   const [active, setActive] = useState(0);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [chapterHits, setChapterHits] = useState<ChapterHit[]>([]);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -68,6 +79,22 @@ export function CommandPalette() {
         .catch(() => {});
     }
   }, [open, loaded]);
+
+  // Debounced full-text chapter search across the library.
+  useEffect(() => {
+    if (!open) return;
+    const q = query.trim();
+    if (q.length < 2) {
+      setChapterHits([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      searchChapters(q)
+        .then(setChapterHits)
+        .catch(() => setChapterHits([]));
+    }, 220);
+    return () => clearTimeout(t);
+  }, [query, open]);
 
   const go = useCallback(
     (href: string) => {
@@ -133,16 +160,30 @@ export function CommandPalette() {
     return [...base, ...books];
   }, [projects, resolvedTheme, go, close, setTheme]);
 
+  const chapterItems = useMemo<Item[]>(
+    () =>
+      chapterHits.map((h) => ({
+        id: `ch-${h.id}`,
+        label: h.title,
+        hint: h.bookTitle,
+        icon: <FileText className="h-4 w-4" />,
+        group: "Chapters" as const,
+        run: () => go(h.href),
+      })),
+    [chapterHits, go],
+  );
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((i) => i.label.toLowerCase().includes(q));
-  }, [items, query]);
+    const base = q ? items.filter((i) => i.label.toLowerCase().includes(q)) : items;
+    // Chapter hits are already server-filtered; always include them.
+    return [...base, ...chapterItems];
+  }, [items, query, chapterItems]);
 
   useEffect(() => setActive(0), [query]);
 
   const groups = useMemo(() => {
-    const order: Item["group"][] = ["Actions", "Books", "Theme"];
+    const order: Item["group"][] = ["Actions", "Books", "Chapters", "Theme"];
     return order
       .map((g) => ({ group: g, items: filtered.filter((i) => i.group === g) }))
       .filter((g) => g.items.length);

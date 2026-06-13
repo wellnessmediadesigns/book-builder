@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { motion } from "framer-motion";
 import { Flame, Target, Check, Pencil } from "lucide-react";
 import { cn, formatNumber } from "@/lib/utils";
+import { celebrateOncePerDay } from "@/lib/confetti";
 import { setDailyGoal, type WritingStats } from "@/lib/actions/stats";
 
 export function WritingStatsCard({ stats }: { stats: WritingStats }) {
@@ -13,6 +14,11 @@ export function WritingStatsCard({ stats }: { stats: WritingStats }) {
 
   const pct = goal > 0 ? Math.min(100, Math.round((stats.today / goal) * 100)) : 0;
   const hitGoal = stats.today >= goal && goal > 0;
+
+  // Celebrate the first time today's goal is reached (once per day).
+  useEffect(() => {
+    if (hitGoal) celebrateOncePerDay("goal", "goal");
+  }, [hitGoal]);
   const R = 30;
   const C = 2 * Math.PI * R;
 

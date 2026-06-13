@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
+import { celebrate } from "@/lib/confetti";
 import { cn, cleanChapterTitle } from "@/lib/utils";
 import { autoWriteChapter } from "@/lib/actions/ai";
 import { listMatter, generateMatter, type MatterRow } from "@/lib/actions/matter";
@@ -161,6 +162,7 @@ export function AutoWritePanel({
     }
     setPhase("done");
     router.refresh();
+    celebrate("book");
     toast.success("Book draft complete", "Every chapter is yours to edit.");
   }
 

@@ -126,6 +126,46 @@ export async function addChapter(projectId: string, afterOrder?: number) {
   return created.id;
 }
 
+/** Searches chapter titles + text across all the author's books (for ⌘K). */
+export async function searchChapters(query: string): Promise<
+  { id: string; projectId: string; bookTitle: string; title: string; snippet: string; href: string }[]
+> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const rows = await prisma.chapter.findMany({
+    where: {
+      matterType: null,
+      OR: [
+        { title: { contains: q } },
+        { contentText: { contains: q } },
+      ],
+    },
+    orderBy: { updatedAt: "desc" },
+    take: 12,
+    select: {
+      id: true,
+      title: true,
+      contentText: true,
+      project: { select: { id: true, title: true, recommendedTitle: true } },
+    },
+  });
+  return rows.map((r) => {
+    const idx = r.contentText.toLowerCase().indexOf(q.toLowerCase());
+    const snippet =
+      idx >= 0
+        ? "…" + r.contentText.slice(Math.max(0, idx - 30), idx + 60).trim() + "…"
+        : "";
+    return {
+      id: r.id,
+      projectId: r.project.id,
+      bookTitle: r.project.recommendedTitle || r.project.title,
+      title: r.title,
+      snippet,
+      href: `/studio/book/${r.project.id}/write?chapter=${r.id}`,
+    };
+  });
+}
+
 export type DeletedChapter = {
   projectId: string;
   order: number;

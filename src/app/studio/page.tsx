@@ -4,6 +4,8 @@ import { prisma, getAuthor } from "@/lib/db";
 import { TopNav } from "@/components/studio/top-nav";
 import { ProjectCard } from "@/components/studio/project-card";
 import { WritingStatsCard } from "@/components/studio/writing-stats";
+import { ResumeCard } from "@/components/studio/resume-card";
+import { getResumeTarget } from "@/lib/actions/projects";
 import { getWritingStats } from "@/lib/actions/stats";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/primitives";
@@ -26,7 +28,7 @@ export default async function DashboardPage() {
     0,
   );
 
-  const stats = await getWritingStats();
+  const [stats, resume] = await Promise.all([getWritingStats(), getResumeTarget()]);
 
   return (
     <>
@@ -72,6 +74,16 @@ export default async function DashboardPage() {
           />
         ) : (
           <>
+            {resume && (
+              <div className="mb-5">
+                <ResumeCard
+                  bookTitle={resume.bookTitle}
+                  chapterTitle={resume.chapterTitle}
+                  href={resume.href}
+                  updatedAt={resume.updatedAt}
+                />
+              </div>
+            )}
             <div className="mb-8">
               <WritingStatsCard stats={stats} />
             </div>
