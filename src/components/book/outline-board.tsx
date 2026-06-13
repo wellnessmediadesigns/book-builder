@@ -12,10 +12,12 @@ import {
   PenLine,
   BookOpen,
   FolderInput,
+  Wand2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
 import { EditableText } from "@/components/book/editable-text";
+import { AutoWritePanel } from "@/components/book/auto-write";
 import { toast } from "@/components/ui/toast";
 import { cn, formatNumber, cleanChapterTitle } from "@/lib/utils";
 import {
@@ -67,6 +69,8 @@ export function OutlineBoard({
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const [menuId, setMenuId] = useState<string | null>(null);
+  const [autoOpen, setAutoOpen] = useState(false);
+  const emptyCount = chapters.filter((c) => c.wordCount === 0 && !c.locked).length;
 
   async function moveToSection(id: string, mt: string, label: string) {
     setMenuId(null);
@@ -138,12 +142,38 @@ export function OutlineBoard({
             Summaries feed Book Memory, keeping the AI consistent.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Badge tone="neutral">{chapters.length} chapters</Badge>
-          <Badge tone="neutral">{drafted} drafted</Badge>
-          <Badge tone="neutral">{formatNumber(totalWords)} words</Badge>
+        <div className="flex flex-col items-stretch gap-2 sm:items-end">
+          {emptyCount > 0 && (
+            <Button variant="brass" onClick={() => setAutoOpen(true)}>
+              <Wand2 className="h-4 w-4" /> Write whole book
+            </Button>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <Badge tone="neutral">{chapters.length} chapters</Badge>
+            <Badge tone="neutral">{drafted} drafted</Badge>
+            <Badge tone="neutral">{formatNumber(totalWords)} words</Badge>
+          </div>
         </div>
       </div>
+
+      {autoOpen && (
+        <AutoWritePanel
+          projectId={projectId}
+          chapters={chapters.map((c) => ({
+            id: c.id,
+            order: c.order,
+            title: c.title,
+            wordCount: c.wordCount,
+            locked: c.locked,
+          }))}
+          onClose={() => setAutoOpen(false)}
+          onChapterWritten={(id, wordCount) =>
+            setChapters((cs) =>
+              cs.map((c) => (c.id === id ? { ...c, wordCount, status: "drafted" } : c)),
+            )
+          }
+        />
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {chapters.map((c, i) => {

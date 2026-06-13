@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { cleanChapterTitle } from "@/lib/utils";
+import { cleanChapterTitle, textToDoc, countWords } from "@/lib/utils";
 import {
   resolveAiConfig,
   resolveFallbackConfig,
@@ -17,7 +17,9 @@ import {
   analysisMessages,
   summaryMessages,
   styleAnalysisMessages,
+  chapterMessages,
 } from "@/lib/ai/prompts";
+import { saveChapterContent } from "@/lib/actions/chapters";
 
 export type StyleAnalysis = {
   kind?: string;
@@ -286,6 +288,47 @@ export async function summarizeChapter(
     return { ok: true, summary };
   } catch {
     return { ok: false };
+  }
+}
+
+/**
+ * Headless generate-one-chapter for the auto-write loop: builds continuity context,
+ * generates the full chapter (with fallback), saves it, and (optionally) updates the
+ * continuity summary so the next chapter stays consistent. One short request per chapter.
+ */
+export async function autoWriteChapter(
+  chapterId: string,
+  options?: { summarize?: boolean },
+): Promise<{ ok: true; wordCount: number } | { ok: false; error: string }> {
+  if (!(await aiChainReady())) return { ok: false, error: "no_key" };
+  const chapter = await prisma.chapter.findUnique({ where: { id: chapterId } });
+  if (!chapter) return { ok: false, error: "Chapter not found." };
+  if (chapter.matterType !== null) return { ok: false, error: "Not a body chapter." };
+  if (chapter.locked) return { ok: false, error: "Chapter is locked." };
+
+  const ctx = await buildBookContext(chapter.projectId, chapter.order);
+  try {
+    const { text } = await completeWithFallback(
+      chapterMessages(ctx, {
+        title: chapter.title,
+        summary: chapter.summary,
+        minWords: chapter.minWords || 1000,
+        maxWords: chapter.maxWords || 2000,
+      }),
+    );
+    if (!text.trim()) return { ok: false, error: "The model returned no text." };
+    await saveChapterContent(chapterId, textToDoc(text), {
+      snapshot: true,
+      source: "generation",
+    });
+    if (options?.summarize !== false) {
+      await summarizeChapter(chapterId).catch(() => {});
+    }
+    revalidatePath(`/studio/book/${chapter.projectId}`, "layout");
+    return { ok: true, wordCount: countWords(text) };
+  } catch (e) {
+    const err = e instanceof AiError ? e.message : "Generation failed.";
+    return { ok: false, error: err === "no_key" ? "no_key" : err };
   }
 }
 
