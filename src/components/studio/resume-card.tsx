@@ -11,11 +11,13 @@ export function ResumeCard({
   chapterTitle,
   href,
   updatedAt,
+  coverUrl,
 }: {
   bookTitle: string;
   chapterTitle: string | null;
   href: string;
   updatedAt: string;
+  coverUrl?: string;
 }) {
   return (
     <motion.div
@@ -33,9 +35,18 @@ export function ResumeCard({
             }}
           />
           <div className="relative flex items-center gap-4">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-paper/10">
-              <QuireMark className="h-6 w-6 text-paper" />
-            </div>
+            {coverUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={coverUrl}
+                alt={`${bookTitle} cover`}
+                className="h-14 w-11 shrink-0 rounded-lg object-cover shadow-soft ring-1 ring-paper/20"
+              />
+            ) : (
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-paper/10">
+                <QuireMark className="h-6 w-6 text-paper" />
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               <p className="text-xs uppercase tracking-wide text-paper/60">
                 Continue where you left off · {relativeTime(updatedAt)}

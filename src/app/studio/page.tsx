@@ -16,12 +16,16 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage() {
   const author = await getAuthor();
   const projects = await prisma.project.findMany({
-    where: { authorId: author.id },
+    where: { authorId: author.id, deletedAt: null },
     orderBy: { updatedAt: "desc" },
     include: {
       chapters: { where: { matterType: null }, select: { wordCount: true } },
+      covers: { where: { type: "front" }, select: { updatedAt: true } },
     },
   });
+
+  const coverFor = (p: { id: string; covers: { updatedAt: Date }[] }) =>
+    p.covers.length ? `/api/covers/${p.id}/front?v=${p.covers[0].updatedAt.getTime()}` : undefined;
 
   const totalWords = projects.reduce(
     (sum, p) => sum + p.chapters.reduce((s, c) => s + c.wordCount, 0),
@@ -32,7 +36,7 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <TopNav author={author.name} />
+      <TopNav author={author.name} email={author.email ?? ""} />
       <main className="mx-auto max-w-6xl px-6 py-10">
         {/* greeting */}
         <div className="mb-10 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
@@ -95,6 +99,9 @@ export default async function DashboardPage() {
                   chapterTitle={resume.chapterTitle}
                   href={resume.href}
                   updatedAt={resume.updatedAt}
+                  coverUrl={coverFor(
+                    projects.find((p) => p.id === resume.projectId) ?? { id: "", covers: [] },
+                  )}
                 />
               </div>
             )}
@@ -117,6 +124,7 @@ export default async function DashboardPage() {
                 chapterCount={p.chapters.length || p.chapterCount}
                 words={p.chapters.reduce((s, c) => s + c.wordCount, 0)}
                 goalWords={p.estTotalWords}
+                coverUrl={coverFor(p)}
               />
             ))}
             </div>

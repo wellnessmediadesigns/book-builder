@@ -66,6 +66,7 @@ model Project {
   status      String   @default("draft") // draft | blueprint | writing | complete
   coverAccent String   @default("brass")  // brass | muse | sage
   formatTheme String   @default("classic") // export/preview formatting style
+  deletedAt   DateTime? // soft-delete: in Trash when set, restorable
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

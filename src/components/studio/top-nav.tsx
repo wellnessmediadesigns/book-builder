@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { QuireLogo } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { AccountMenu } from "@/components/studio/account-menu";
 import { Settings, Palette, Search, Lightbulb } from "lucide-react";
 
-export function TopNav({ author }: { author?: string }) {
+export function TopNav({ author, email }: { author?: string; email?: string }) {
   return (
     <header className="sticky top-0 z-30 border-b border-line/70 bg-paper/80 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
@@ -44,11 +45,7 @@ export function TopNav({ author }: { author?: string }) {
             <Settings className="h-4 w-4" /> Settings
           </Link>
           <ThemeToggle />
-          {author && (
-            <div className="ml-1 flex h-9 w-9 items-center justify-center rounded-xl bg-brass/15 font-display text-sm font-semibold text-brass-deep">
-              {author.slice(0, 1).toUpperCase()}
-            </div>
-          )}
+          <AccountMenu name={author ?? "Author"} email={email ?? ""} />
         </div>
       </div>
     </header>

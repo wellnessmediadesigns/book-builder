@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { MoreHorizontal, Copy, Trash2, BookOpen, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/primitives";
 import { QuireMark } from "@/components/brand/logo";
-import { deleteProject, duplicateProject } from "@/lib/actions/projects";
+import { deleteProject, duplicateProject, restoreProject } from "@/lib/actions/projects";
 import { formatNumber, relativeTime, readingTimeLabel } from "@/lib/utils";
 import { toast } from "@/components/ui/toast";
 
@@ -36,6 +36,7 @@ type P = {
   words: number;
   goalWords: number;
   index: number;
+  coverUrl?: string;
 };
 
 export function ProjectCard(p: P) {
@@ -58,9 +59,16 @@ export function ProjectCard(p: P) {
       <Link href={href}>
         <div className="overflow-hidden rounded-2xl border border-line bg-paper-raised shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-raised">
           {/* spine / cover */}
-          <div className={`relative flex h-32 items-center justify-center bg-gradient-to-br ${accent}`}>
-            <div className="absolute left-0 top-0 h-full w-1.5 bg-gradient-to-b from-black/10 to-transparent" />
-            <QuireMark className="h-9 w-9 opacity-80" />
+          <div className={`relative flex h-32 items-center justify-center overflow-hidden bg-gradient-to-br ${accent}`}>
+            {p.coverUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={p.coverUrl} alt={`${title} cover`} className="absolute inset-0 h-full w-full object-cover" />
+            ) : (
+              <>
+                <div className="absolute left-0 top-0 h-full w-1.5 bg-gradient-to-b from-black/10 to-transparent" />
+                <QuireMark className="h-9 w-9 opacity-80" />
+              </>
+            )}
             <Badge tone={status.tone} className="absolute right-3 top-3 bg-paper-raised/80 backdrop-blur">
               {status.label}
             </Badge>
@@ -129,12 +137,16 @@ export function ProjectCard(p: P) {
             </button>
             <button
               disabled={pending}
-              onClick={() =>
+              onClick={() => {
+                setMenu(false);
                 start(async () => {
                   await deleteProject(p.id);
-                  toast.success("Project deleted");
-                })
-              }
+                  toast.action("Moved to Trash", {
+                    label: "Undo",
+                    onClick: () => restoreProject(p.id),
+                  });
+                });
+              }}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-clay transition-colors hover:bg-clay/10"
             >
               <Trash2 className="h-4 w-4" /> Delete

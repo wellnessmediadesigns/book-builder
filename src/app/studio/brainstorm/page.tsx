@@ -15,7 +15,7 @@ export default async function BrainstormHomePage() {
 
   return (
     <>
-      <TopNav author={author.name} />
+      <TopNav author={author.name} email={author.email ?? ""} />
       <main className="mx-auto max-w-5xl px-6 py-10">
         {/* hero */}
         <div className="relative mb-9 overflow-hidden rounded-3xl border border-line bg-paper-raised p-7 shadow-soft sm:p-9">

@@ -43,7 +43,7 @@ export async function getResumeTarget(): Promise<{
 } | null> {
   const author = await getAuthor();
   const project = await prisma.project.findFirst({
-    where: { authorId: author.id, status: { not: "draft" } },
+    where: { authorId: author.id, status: { not: "draft" }, deletedAt: null },
     orderBy: { updatedAt: "desc" },
   });
   if (!project) return null;
@@ -77,7 +77,7 @@ export async function listProjectSetups(): Promise<
 > {
   const author = await getAuthor();
   const rows = await prisma.project.findMany({
-    where: { authorId: author.id },
+    where: { authorId: author.id, deletedAt: null },
     orderBy: { updatedAt: "desc" },
     take: 60,
   });
@@ -119,7 +119,7 @@ export async function getSeriesInfo(): Promise<{
 }> {
   const author = await getAuthor();
   const rows = await prisma.project.findMany({
-    where: { authorId: author.id, seriesName: { not: "" } },
+    where: { authorId: author.id, seriesName: { not: "" }, deletedAt: null },
     orderBy: { updatedAt: "desc" },
   });
   const names: string[] = [];
@@ -164,7 +164,7 @@ export async function createProject(input: ProjectInput) {
 export async function listProjectsBrief() {
   const author = await getAuthor();
   const projects = await prisma.project.findMany({
-    where: { authorId: author.id },
+    where: { authorId: author.id, deletedAt: null },
     orderBy: { updatedAt: "desc" },
     select: { id: true, title: true, recommendedTitle: true, status: true },
     take: 30,
@@ -203,9 +203,40 @@ export async function updateProjectSetup(id: string, input: Partial<ProjectInput
   return { ok: true };
 }
 
+/** Soft-delete: moves the book to Trash (restorable) rather than erasing it. */
 export async function deleteProject(id: string) {
-  await prisma.project.delete({ where: { id } });
+  await prisma.project.update({ where: { id }, data: { deletedAt: new Date() } });
   revalidatePath("/studio");
+  revalidatePath("/studio/trash");
+}
+
+export async function restoreProject(id: string) {
+  await prisma.project.update({ where: { id }, data: { deletedAt: null } });
+  revalidatePath("/studio");
+  revalidatePath("/studio/trash");
+}
+
+/** Permanently removes a trashed book (cascades to its chapters/memory). */
+export async function purgeProject(id: string) {
+  await prisma.project.delete({ where: { id } });
+  revalidatePath("/studio/trash");
+}
+
+export async function listTrashed() {
+  const author = await getAuthor();
+  const rows = await prisma.project.findMany({
+    where: { authorId: author.id, deletedAt: { not: null } },
+    orderBy: { deletedAt: "desc" },
+    include: { chapters: { where: { matterType: null }, select: { wordCount: true } } },
+  });
+  return rows.map((p) => ({
+    id: p.id,
+    title: p.recommendedTitle || p.title,
+    bookType: p.bookType,
+    deletedAt: (p.deletedAt ?? new Date()).toISOString(),
+    chapterCount: p.chapters.length,
+    words: p.chapters.reduce((s, c) => s + c.wordCount, 0),
+  }));
 }
 
 export async function duplicateProject(id: string) {

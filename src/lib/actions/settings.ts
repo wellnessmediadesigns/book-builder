@@ -57,3 +57,14 @@ export async function updateAuthorName(name: string) {
   await prisma.author.update({ where: { id: author.id }, data: { name } });
   revalidatePath("/studio", "layout");
 }
+
+/** Updates the author profile (name + email) shown in the account menu. */
+export async function updateProfile(input: { name: string; email: string }) {
+  const author = await getAuthor();
+  await prisma.author.update({
+    where: { id: author.id },
+    data: { name: input.name.trim() || "Author", email: input.email.trim() || null },
+  });
+  revalidatePath("/studio", "layout");
+  return { ok: true };
+}

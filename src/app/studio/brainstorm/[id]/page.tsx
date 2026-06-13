@@ -27,7 +27,7 @@ export default async function BrainstormSessionPage({
 
   return (
     <>
-      <TopNav author={author.name} />
+      <TopNav author={author.name} email={author.email ?? ""} />
       <BrainstormBoard
         session={{
           id: session.id,
