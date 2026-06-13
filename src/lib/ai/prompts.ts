@@ -45,6 +45,105 @@ SAMPLE:
   ];
 }
 
+// ————————————————————————————————————————————— Brainstorm
+
+const BRAINSTORM_SYSTEM = `You are Muse, the brainstorming partner inside Quire, a premium book-writing studio.
+You help an author discover what book to write. How you work:
+- Be a generative, encouraging thought partner — warm, sharp, and concrete. Never take over; the author decides.
+- Offer real substance: specific book concepts, angles, hooks, audiences, titles, and "what makes this different".
+- Prefer a few strong, concrete options over vague musing. When useful, give a short numbered list.
+- End most replies with ONE focused question that moves the idea forward (audience? angle? the transformation?).
+- Keep replies tight and skimmable (a few short paragraphs or a short list). No filler, no "AI tells", no markdown headers.`;
+
+/** A turn in the brainstorming chat. `history` is prior messages oldest-first. */
+export function brainstormMessages(
+  history: { role: "user" | "assistant"; content: string }[],
+  userTurn: string,
+): AiMessage[] {
+  const msgs: AiMessage[] = [{ role: "system", content: BRAINSTORM_SYSTEM }];
+  for (const m of history.slice(-20)) msgs.push({ role: m.role, content: m.content });
+  msgs.push({ role: "user", content: userTurn });
+  return msgs;
+}
+
+/** Distills a chunk of conversation into one saveable idea card (strict JSON). */
+export function ideaDistillMessages(text: string): AiMessage[] {
+  const schema = `{
+  "title": "a punchy 3-8 word name for this book idea",
+  "note": "1-2 sentences capturing the concept, angle, or hook",
+  "kind": "concept | theme | title | audience | hook | angle",
+  "tags": ["2-4 short tags, e.g. genre/audience/mood"]
+}`;
+  return [
+    {
+      role: "system",
+      content:
+        "You distill brainstorming into a single crisp book-idea card. Return ONLY minified JSON — no commentary, no fences.",
+    },
+    {
+      role: "user",
+      content: `From the text below, capture the most promising single book idea as JSON matching the schema.
+
+SCHEMA:
+${schema}
+
+TEXT:
+"""${text.slice(0, 6000)}"""`,
+    },
+  ];
+}
+
+/** Turns saved ideas + transcript into a full book setup (strict JSON → ProjectInput). */
+export function brainstormSetupMessages(
+  ideas: { title: string; note: string; starred: boolean }[],
+  transcript: string,
+): AiMessage[] {
+  const schema = `{
+  "title": "working title",
+  "idea": "2-4 sentence description of the book's heart and what it delivers",
+  "theme": "central theme(s)",
+  "kind": "fiction | nonfiction",
+  "genre": "best-fit genre",
+  "bookType": "Novel | Memoir | Self-help | Business | Children's book | Devotional | Educational | Workbook | Short guide",
+  "audience": "who this is written for",
+  "tone": "the tone in a few words",
+  "style": "the prose style in a phrase",
+  "readingLevel": "e.g. General adult",
+  "narrativeStyle": "for fiction e.g. close third; else ''",
+  "pov": "point of view, or ''",
+  "include": "things to include, or ''",
+  "avoid": "things to avoid, or ''",
+  "goals": "what the book should achieve, or ''",
+  "chapterCount": 10,
+  "minWords": 1200,
+  "maxWords": 2500
+}`;
+  const ideaLines = ideas
+    .map((i) => `- ${i.starred ? "★ " : ""}${i.title}${i.note ? `: ${i.note}` : ""}`)
+    .join("\n");
+  return [
+    {
+      role: "system",
+      content:
+        "You turn a brainstorm into a concrete book setup another author could start from. Choose the strongest direction (favor any ★ starred ideas). Return ONLY minified JSON — no commentary, no fences.",
+    },
+    {
+      role: "user",
+      content: `Design a complete book setup from this brainstorm.
+
+SAVED IDEAS:
+${ideaLines || "(none — infer from the conversation)"}
+
+CONVERSATION (for context):
+"""${transcript.slice(-5000)}"""
+
+Pick realistic numbers (chapterCount 6-24; sensible word ranges for the book type). Fill every field; use "" only where truly not applicable.
+Respond with ONLY valid minified JSON matching this schema (no fences):
+${schema}`,
+    },
+  ];
+}
+
 export type BookContext = {
   title: string;
   kind: string;

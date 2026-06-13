@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { QuireLogo } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { Settings, Palette, Search } from "lucide-react";
+import { Settings, Palette, Search, Lightbulb } from "lucide-react";
 
 export function TopNav({ author }: { author?: string }) {
   return (
@@ -25,6 +25,12 @@ export function TopNav({ author }: { author?: string }) {
             <Search className="h-3.5 w-3.5" />
             <span className="font-mono text-xs">⌘K</span>
           </button>
+          <Link
+            href="/studio/brainstorm"
+            className="hidden h-9 items-center gap-2 rounded-xl px-3 text-sm text-ink-soft transition-colors hover:bg-paper-sunken hover:text-ink sm:inline-flex"
+          >
+            <Lightbulb className="h-4 w-4" /> Brainstorm
+          </Link>
           <Link
             href="/studio/style"
             className="hidden h-9 items-center gap-2 rounded-xl px-3 text-sm text-ink-soft transition-colors hover:bg-paper-sunken hover:text-ink sm:inline-flex"

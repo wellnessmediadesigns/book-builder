@@ -19,6 +19,7 @@ model Author {
   createdAt DateTime  @default(now())
   projects  Project[]
   settings  Settings?
+  brainstorms BrainstormSession[]
 }
 
 model Project {
@@ -228,6 +229,57 @@ model CoverImage {
 
   @@unique([projectId, type])
   @@index([projectId])
+}
+
+/** A studio-level brainstorming session: a chat thread + saved idea cards that
+ *  can become a real book. Author-scoped (it exists before any project). */
+model BrainstormSession {
+  id       String @id @default(cuid())
+  authorId String
+  author   Author @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  title          String  @default("New brainstorm")
+  status         String  @default("active") // active | built
+  builtProjectId String? // the project this session produced, once built
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages BrainstormMessage[]
+  ideas    IdeaCard[]
+
+  @@index([authorId, updatedAt])
+}
+
+model BrainstormMessage {
+  id        String  @id @default(cuid())
+  sessionId String
+  session   BrainstormSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  role      String // user | assistant
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([sessionId, createdAt])
+}
+
+/** A promising idea saved to the board (front cover concept / theme / hook…). */
+model IdeaCard {
+  id        String  @id @default(cuid())
+  sessionId String
+  session   BrainstormSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  title    String
+  note     String  @default("")
+  kind     String  @default("concept") // concept | theme | title | audience | hook | angle
+  tagsJson String? // JSON array of short tags
+  starred  Boolean @default(false) // marks the primary direction
+  order    Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sessionId, order])
 }
 
 model Settings {

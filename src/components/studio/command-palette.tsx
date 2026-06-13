@@ -15,9 +15,11 @@ import {
   BookOpen,
   CornerDownLeft,
   ArrowRight,
+  Lightbulb,
 } from "lucide-react";
 import { listProjectsBrief } from "@/lib/actions/projects";
 import { searchChapters } from "@/lib/actions/chapters";
+import { listSessions, type SessionBrief } from "@/lib/actions/brainstorm";
 import { cn } from "@/lib/utils";
 import { Kbd } from "@/components/ui/primitives";
 import { FileText } from "lucide-react";
@@ -27,7 +29,7 @@ type Item = {
   label: string;
   hint?: string;
   icon: React.ReactNode;
-  group: "Actions" | "Books" | "Chapters" | "Theme";
+  group: "Actions" | "Books" | "Brainstorms" | "Chapters" | "Theme";
   run: () => void;
 };
 
@@ -48,6 +50,7 @@ export function CommandPalette() {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [sessions, setSessions] = useState<SessionBrief[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [chapterHits, setChapterHits] = useState<ChapterHit[]>([]);
 
@@ -76,6 +79,9 @@ export function CommandPalette() {
       setLoaded(true);
       listProjectsBrief()
         .then(setProjects)
+        .catch(() => {});
+      listSessions()
+        .then(setSessions)
         .catch(() => {});
     }
   }, [open, loaded]);
@@ -123,6 +129,14 @@ export function CommandPalette() {
         run: () => go("/studio"),
       },
       {
+        id: "brainstorm",
+        label: "Brainstorm",
+        hint: "Find a book idea",
+        icon: <Lightbulb className="h-4 w-4" />,
+        group: "Actions",
+        run: () => go("/studio/brainstorm"),
+      },
+      {
         id: "settings",
         label: "Settings",
         hint: "AI provider, author",
@@ -157,8 +171,16 @@ export function CommandPalette() {
       run: () =>
         go(`/studio/book/${p.id}/${p.status === "draft" ? "blueprint" : "write"}`),
     }));
-    return [...base, ...books];
-  }, [projects, resolvedTheme, go, close, setTheme]);
+    const brainstorms: Item[] = sessions.map((s) => ({
+      id: `bs-${s.id}`,
+      label: s.title,
+      hint: s.status === "built" ? "Built" : `${s.ideaCount} ideas`,
+      icon: <Lightbulb className="h-4 w-4" />,
+      group: "Brainstorms",
+      run: () => go(`/studio/brainstorm/${s.id}`),
+    }));
+    return [...base, ...books, ...brainstorms];
+  }, [projects, sessions, resolvedTheme, go, close, setTheme]);
 
   const chapterItems = useMemo<Item[]>(
     () =>
@@ -183,7 +205,7 @@ export function CommandPalette() {
   useEffect(() => setActive(0), [query]);
 
   const groups = useMemo(() => {
-    const order: Item["group"][] = ["Actions", "Books", "Chapters", "Theme"];
+    const order: Item["group"][] = ["Actions", "Books", "Brainstorms", "Chapters", "Theme"];
     return order
       .map((g) => ({ group: g, items: filtered.filter((i) => i.group === g) }))
       .filter((g) => g.items.length);

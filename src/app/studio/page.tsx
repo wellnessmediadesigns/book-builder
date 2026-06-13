@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, Sparkles, BookMarked } from "lucide-react";
+import { Plus, Sparkles, BookMarked, Lightbulb } from "lucide-react";
 import { prisma, getAuthor } from "@/lib/db";
 import { TopNav } from "@/components/studio/top-nav";
 import { ProjectCard } from "@/components/studio/project-card";
@@ -52,11 +52,18 @@ export default async function DashboardPage() {
               </span>
             </div>
           </div>
-          <Link href="/studio/new">
-            <Button size="lg" variant="primary" className="group">
-              <Plus className="h-4 w-4" /> New book
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/studio/brainstorm">
+              <Button size="lg" variant="museSoft" className="group">
+                <Lightbulb className="h-4 w-4" /> Brainstorm
+              </Button>
+            </Link>
+            <Link href="/studio/new">
+              <Button size="lg" variant="primary" className="group">
+                <Plus className="h-4 w-4" /> New book
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {projects.length === 0 ? (
@@ -65,11 +72,18 @@ export default async function DashboardPage() {
             title="Your first book starts here"
             description="Describe an idea and Quire will draft a complete blueprint — titles, an outline, and a reader journey — all yours to edit."
             action={
-              <Link href="/studio/new">
-                <Button variant="brass">
-                  <Sparkles className="h-4 w-4" /> Start a book
-                </Button>
-              </Link>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <Link href="/studio/brainstorm">
+                  <Button variant="museSoft">
+                    <Lightbulb className="h-4 w-4" /> Brainstorm an idea
+                  </Button>
+                </Link>
+                <Link href="/studio/new">
+                  <Button variant="brass">
+                    <Sparkles className="h-4 w-4" /> Start a book
+                  </Button>
+                </Link>
+              </div>
             }
           />
         ) : (
