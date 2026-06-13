@@ -72,6 +72,7 @@ model Project {
   memory      MemoryEntry[]
   generations GenerationLog[]
   exports     Export[]
+  covers      CoverImage[]
 
   @@index([authorId])
 }
@@ -209,6 +210,23 @@ model Export {
   meta      String  @default("")
   createdAt DateTime @default(now())
 
+  @@index([projectId])
+}
+
+/** A user-uploaded cover file (front / back / full wrap) held in object storage. */
+model CoverImage {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  type        String // front | back | wrap
+  r2Key       String // object key in the COVERS bucket (or local-dev path)
+  contentType String @default("application/octet-stream")
+  fileName    String @default("")
+  size        Int    @default(0)
+  updatedAt   DateTime @updatedAt
+
+  @@unique([projectId, type])
   @@index([projectId])
 }
 

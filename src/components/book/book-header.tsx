@@ -11,6 +11,7 @@ import {
   ScrollText,
   LayoutGrid,
   SlidersHorizontal,
+  Image as ImageIcon,
 } from "lucide-react";
 import { QuireMark } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -23,6 +24,7 @@ const TABS = [
   { key: "write", label: "Write", icon: PenLine },
   { key: "memory", label: "Memory", icon: Brain },
   { key: "matter", label: "Sections", icon: ScrollText },
+  { key: "cover", label: "Cover", icon: ImageIcon },
   { key: "export", label: "Export", icon: Download },
 ];
 

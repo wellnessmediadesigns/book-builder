@@ -38,3 +38,6 @@ yarn-error.log*
 # cloudflare
 /.open-next/
 /.wrangler/
+
+# local cover uploads (dev fallback when R2 isn't bound)
+/.uploads/

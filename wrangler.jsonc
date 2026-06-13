@@ -20,6 +20,13 @@
   "ai": {
     "binding": "AI"
   },
+  // R2 object storage for uploaded book cover files (front / back / full wrap).
+  "r2_buckets": [
+    {
+      "binding": "COVERS",
+      "bucket_name": "quire-covers"
+    }
+  ],
   // Set the login password as a secret instead of a var:
   //   npx wrangler secret put APP_PASSWORD
   "observability": {
