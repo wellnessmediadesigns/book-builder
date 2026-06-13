@@ -61,6 +61,7 @@ export function ExportView({
   const [theme, setTheme] = useState(currentTheme);
   const [html, setHtml] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [runningHeader, setRunningHeader] = useState(false);
   const [, startSave] = useTransition();
 
   useEffect(() => {
@@ -90,7 +91,8 @@ export function ExportView({
   function download(format: string) {
     // Open in a new view (not a same-window navigation) so the app/PWA stays put
     // and the PDF/file viewer has its own Done/Back affordance.
-    window.open(`/api/export/${format}?project=${projectId}`, "_blank");
+    const header = format === "pdf" && runningHeader ? "&header=1" : "";
+    window.open(`/api/export/${format}?project=${projectId}${header}`, "_blank");
   }
   function openPrint() {
     window.open(`/api/export/html?project=${projectId}&theme=${theme}`, "_blank");
@@ -115,31 +117,82 @@ export function ExportView({
           <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted">
             Formatting style
           </p>
-          {themes.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => pickTheme(t.id)}
+
+          {/* Mobile: compact pills (saves vertical space) */}
+          <div className="flex flex-wrap gap-2 lg:hidden">
+            {themes.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => pickTheme(t.id)}
+                aria-pressed={theme === t.id}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-medium transition-all",
+                  theme === t.id
+                    ? "border-brass/50 bg-brass-soft text-brass-deep shadow-soft"
+                    : "border-line bg-paper-raised text-ink-soft hover:border-brass/30",
+                )}
+              >
+                {theme === t.id && <Check className="h-3.5 w-3.5" />}
+                {t.name}
+              </button>
+            ))}
+          </div>
+
+          {/* Desktop: descriptive cards */}
+          <div className="hidden space-y-2 lg:block">
+            {themes.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => pickTheme(t.id)}
+                className={cn(
+                  "w-full rounded-xl border p-3.5 text-left transition-all",
+                  theme === t.id
+                    ? "border-brass/50 bg-brass-soft shadow-soft"
+                    : "border-line bg-paper-raised hover:border-brass/30",
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-display font-semibold text-ink">{t.name}</span>
+                  {theme === t.id && (
+                    <Check className="ml-auto h-4 w-4 text-brass-deep" />
+                  )}
+                  {t.id === "classic" && theme !== t.id && (
+                    <Badge tone="neutral" className="ml-auto text-[0.625rem]">
+                      Most common
+                    </Badge>
+                  )}
+                </div>
+                <p className="mt-1 text-xs leading-relaxed text-ink-soft">{t.description}</p>
+              </button>
+            ))}
+          </div>
+
+          {/* PDF running header toggle */}
+          <button
+            onClick={() => setRunningHeader((v) => !v)}
+            aria-pressed={runningHeader}
+            className={cn(
+              "mt-1 flex w-full items-center gap-2.5 rounded-xl border p-3 text-left transition-all",
+              runningHeader
+                ? "border-brass/50 bg-brass-soft"
+                : "border-line bg-paper-raised hover:border-brass/30",
+            )}
+          >
+            <span
               className={cn(
-                "w-full rounded-xl border p-3.5 text-left transition-all",
-                theme === t.id
-                  ? "border-brass/50 bg-brass-soft shadow-soft"
-                  : "border-line bg-paper-raised hover:border-brass/30",
+                "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors",
+                runningHeader ? "border-brass bg-brass text-paper" : "border-line bg-paper",
               )}
             >
-              <div className="flex items-center gap-2">
-                <span className="font-display font-semibold text-ink">{t.name}</span>
-                {theme === t.id && (
-                  <Check className="ml-auto h-4 w-4 text-brass-deep" />
-                )}
-                {t.id === "classic" && theme !== t.id && (
-                  <Badge tone="neutral" className="ml-auto text-[0.625rem]">
-                    Most common
-                  </Badge>
-                )}
-              </div>
-              <p className="mt-1 text-xs leading-relaxed text-ink-soft">{t.description}</p>
-            </button>
-          ))}
+              {runningHeader && <Check className="h-3.5 w-3.5" />}
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-medium text-ink">PDF running header</span>
+              <span className="block text-xs leading-snug text-muted">
+                Print the book title across the top of each page.
+              </span>
+            </span>
+          </button>
 
           <div className="grid grid-cols-3 gap-2 pt-2 text-center">
             <Stat label="Chapters" value={`${writtenCount}/${chapterCount}`} />

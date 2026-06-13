@@ -46,8 +46,13 @@ function parse(json: string | null): Parameters<typeof docToBlocks>[0] {
 
 type Fonts = { body: PDFFont; bold: PDFFont; italic: PDFFont; boldItalic: PDFFont; sans: PDFFont };
 
-export async function buildPdf(pkg: BookPackage): Promise<Uint8Array> {
+export async function buildPdf(
+  pkg: BookPackage,
+  opts?: { chapterOnly?: boolean; runningHeader?: boolean },
+): Promise<Uint8Array> {
   const { meta, front, chapters, back } = pkg;
+  const chapterOnly = opts?.chapterOnly ?? false;
+  const runningHeader = opts?.runningHeader ?? false;
   const doc = await PDFDocument.create();
   doc.setTitle(meta.displayTitle);
   doc.setAuthor(meta.authorName);
@@ -71,12 +76,20 @@ export async function buildPdf(pkg: BookPackage): Promise<Uint8Array> {
     page.drawText(label, { x: (PW - w) / 2, y: MARGIN - 4, size: 9, font: fonts.body, color: SOFT });
   }
 
-  function newPage(numbered = true) {
+  function headerLine() {
+    if (!runningHeader || pageNo <= 0) return;
+    const label = winAnsi(meta.displayTitle.toUpperCase());
+    const w = fonts.sans.widthOfTextAtSize(label, 7.5);
+    page.drawText(label, { x: (PW - w) / 2, y: PH - MARGIN + 14, size: 7.5, font: fonts.sans, color: SOFT });
+  }
+
+  function newPage(numbered = true, withHeader = true) {
     footer();
     page = doc.addPage([PW, PH]);
     y = TOP;
     if (numbered) pageNo += 1;
     else pageNo = 0;
+    if (withHeader) headerLine();
   }
 
   function ensure(h: number) {
@@ -152,10 +165,16 @@ export async function buildPdf(pkg: BookPackage): Promise<Uint8Array> {
   }
 
   // ——— Title page (page 0, not numbered) ———
-  y = PH * 0.62;
-  drawRuns([{ text: meta.displayTitle, bold: true }], { size: 30, lineHeight: 36, align: "center", color: INK, gapAfter: 14 });
-  if (meta.subtitle) drawRuns([{ text: meta.subtitle, italic: true }], { size: 15, lineHeight: 20, align: "center", color: SOFT, gapAfter: 40 });
-  drawRuns([{ text: `by ${meta.authorName}` }], { size: 12, lineHeight: 16, align: "center", color: SOFT });
+  if (!chapterOnly) {
+    y = PH * 0.62;
+    drawRuns([{ text: meta.displayTitle, bold: true }], { size: 30, lineHeight: 36, align: "center", color: INK, gapAfter: 14 });
+    if (meta.subtitle) drawRuns([{ text: meta.subtitle, italic: true }], { size: 15, lineHeight: 20, align: "center", color: SOFT, gapAfter: 40 });
+    drawRuns([{ text: `by ${meta.authorName}` }], { size: 12, lineHeight: 16, align: "center", color: SOFT });
+  } else {
+    // Chapter-only export: use the initial page as content page 1.
+    pageNo = 1;
+    y = TOP;
+  }
 
   // Front/back matter render styles by section. Copyright/disclaimer are quiet
   // small print with no heading; dedication/epigraph are centered & italic,
@@ -164,7 +183,7 @@ export async function buildPdf(pkg: BookPackage): Promise<Uint8Array> {
   const CENTERED = new Set(["dedication", "epigraph"]);
 
   const matterPage = (s: MatterSectionOut) => {
-    newPage();
+    newPage(true, false);
     if (CENTERED.has(s.key)) {
       y = PH * 0.55;
       for (const p of textToParagraphs(s.text))
@@ -188,33 +207,38 @@ export async function buildPdf(pkg: BookPackage): Promise<Uint8Array> {
     for (const p of textToParagraphs(s.text)) paragraph(winAnsi(p));
   };
 
-  // ——— Pre-ToC front matter ———
-  for (const s of front.filter((f) => f.preToc)) matterPage(s);
+  if (!chapterOnly) {
+    // ——— Pre-ToC front matter ———
+    for (const s of front.filter((f) => f.preToc)) matterPage(s);
 
-  // ——— Contents ———
-  newPage();
-  y -= 56;
-  heading("Contents");
-  front
-    .filter((f) => !f.preToc && f.inToc)
-    .forEach((s) => drawRuns([{ text: s.title }], { size: 11, lineHeight: 19 }));
-  chapters.forEach((c, i) =>
-    drawRuns([{ text: `${i + 1}.  ${cleanChapterTitle(c.title)}` }], { size: 11, lineHeight: 19 }),
-  );
-  back.filter((b) => b.inToc).forEach((s) => drawRuns([{ text: s.title }], { size: 11, lineHeight: 19 }));
+    // ——— Contents ———
+    newPage(true, false);
+    y -= 56;
+    heading("Contents");
+    front
+      .filter((f) => !f.preToc && f.inToc)
+      .forEach((s) => drawRuns([{ text: s.title }], { size: 11, lineHeight: 19 }));
+    chapters.forEach((c, i) =>
+      drawRuns([{ text: `${i + 1}.  ${cleanChapterTitle(c.title)}` }], { size: 11, lineHeight: 19 }),
+    );
+    back.filter((b) => b.inToc).forEach((s) => drawRuns([{ text: s.title }], { size: 11, lineHeight: 19 }));
 
-  // ——— Post-ToC front matter ———
-  for (const s of front.filter((f) => !f.preToc)) matterPage(s);
+    // ——— Post-ToC front matter ———
+    for (const s of front.filter((f) => !f.preToc)) matterPage(s);
+  }
 
   // ——— Chapters (each its own page) ———
   chapters.forEach((c, i) => {
-    newPage();
+    // In chapter-only mode the first chapter uses the initial page.
+    // Chapter-opening pages carry no running header (book convention).
+    if (!(chapterOnly && i === 0)) newPage(true, false);
     y -= 40; // breathe at the top of a chapter
     drawRuns([{ text: `CHAPTER ${i + 1}` }], { size: 9, lineHeight: 16, color: BRASS, gapAfter: 4 });
     drawRuns([{ text: cleanChapterTitle(c.title), bold: true }], { size: 22, lineHeight: 27, gapAfter: 18 });
     renderBlocks(docToBlocks(parse(c.contentJson)));
   });
 
+  if (!chapterOnly)
   // ——— Back matter ———
   for (const s of back) matterPage(s);
 

@@ -68,11 +68,20 @@ function escapeHtml(s: string): string {
 
 // ————————————————————————————————————————————— Markdown
 
-export function buildMarkdown(pkg: BookPackage): string {
+export function buildMarkdown(pkg: BookPackage, opts?: { chapterOnly?: boolean }): string {
   const { meta, front, chapters, back } = pkg;
+  const lines: string[] = [];
+
+  if (opts?.chapterOnly) {
+    chapters.forEach((c) => {
+      lines.push(`# ${cleanChapterTitle(c.title)}`, "");
+      lines.push(docToMarkdown(parse(c.contentJson)) || "_This chapter is not yet written._");
+    });
+    return lines.join("\n");
+  }
+
   const preToc = front.filter((s) => s.preToc);
   const postToc = front.filter((s) => !s.preToc);
-  const lines: string[] = [];
   lines.push(`# ${meta.displayTitle}`);
   if (meta.subtitle) lines.push(`### ${meta.subtitle}`);
   lines.push("", `*by ${meta.authorName}*`, "", "---", "");

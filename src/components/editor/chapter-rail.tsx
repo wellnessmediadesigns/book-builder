@@ -10,6 +10,7 @@ import {
   Trash2,
   Brain,
   Download,
+  FileDown,
   PanelLeftClose,
 } from "lucide-react";
 import Link from "next/link";
@@ -146,6 +147,19 @@ export function ChapterRail({
                   >
                     {gen ? <Spinner className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
                   </button>
+                )}
+                {c.wordCount > 0 && (
+                  <a
+                    href={`/api/export/pdf?project=${projectId}&chapter=${c.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    title="Download this chapter (PDF)"
+                    aria-label="Download this chapter as PDF"
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-paper-sunken hover:text-ink"
+                  >
+                    <FileDown className="h-3.5 w-3.5" />
+                  </a>
                 )}
                 {chapters.length > 1 && (
                   <button

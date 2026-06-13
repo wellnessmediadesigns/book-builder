@@ -4,7 +4,7 @@ import { buildMarkdown, buildHtml } from "@/lib/export/manuscript";
 import { buildDocx } from "@/lib/export/docx";
 import { buildEpub } from "@/lib/export/epub";
 import { buildPdf } from "@/lib/export/pdf";
-import { assembleBookPackage } from "@/lib/export/assemble";
+import { assembleBookPackage, singleChapterPackage } from "@/lib/export/assemble";
 import { slugify } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +17,8 @@ export async function GET(
 ) {
   const { format } = await params;
   const projectId = req.nextUrl.searchParams.get("project");
+  const chapterId = req.nextUrl.searchParams.get("chapter") ?? undefined;
+  const runningHeader = req.nextUrl.searchParams.get("header") === "1";
   const themeOverride = req.nextUrl.searchParams.get("theme") ?? undefined;
   if (!projectId) return new Response("Missing project", { status: 400 });
 
@@ -27,16 +29,27 @@ export async function GET(
     });
   }
 
-  const assembled = await assembleBookPackage(projectId);
+  // Per-chapter export is offered for PDF and Markdown only.
+  const chapterOnly = Boolean(chapterId);
+  if (chapterOnly && format !== "pdf" && format !== "markdown") {
+    return new Response(JSON.stringify({ error: "chapter export supports pdf and markdown only" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const assembled = chapterId
+    ? await singleChapterPackage(projectId, chapterId)
+    : await assembleBookPackage(projectId);
   if (!assembled) return new Response("Not found", { status: 404 });
   const { pkg, theme, title } = assembled;
-  const base = slugify(title) || "manuscript";
+  const base = slugify(title) || (chapterOnly ? "chapter" : "manuscript");
 
   await prisma.export.create({ data: { projectId, format, status: "ready" } }).catch(() => {});
 
   switch (format) {
     case "markdown":
-      return new Response(buildMarkdown(pkg), {
+      return new Response(buildMarkdown(pkg, { chapterOnly }), {
         headers: {
           "Content-Type": "text/markdown; charset=utf-8",
           "Content-Disposition": `attachment; filename="${base}.md"`,
@@ -58,7 +71,7 @@ export async function GET(
         },
       });
     case "pdf":
-      return new Response((await buildPdf(pkg)) as BodyInit, {
+      return new Response((await buildPdf(pkg, { chapterOnly, runningHeader })) as BodyInit, {
         headers: {
           "Content-Type": "application/pdf",
           "Content-Disposition": `attachment; filename="${base}.pdf"`,
