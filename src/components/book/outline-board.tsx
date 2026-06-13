@@ -25,6 +25,7 @@ import {
   reorderChapters,
   addChapter,
   deleteChapter,
+  restoreChapter,
 } from "@/lib/actions/chapters";
 import { convertChapterToMatter } from "@/lib/actions/matter";
 
@@ -123,8 +124,36 @@ export function OutlineBoard({
   }
 
   async function remove(id: string) {
-    await deleteChapter(id);
-    setChapters((cs) => cs.filter((c) => c.id !== id).map((c, i) => ({ ...c, order: i })));
+    const removed = chapters.find((c) => c.id === id);
+    const deleted = await deleteChapter(id);
+    setChapters((cs) => cs.filter((c) => c.id !== id));
+    toast.action(
+      `Deleted "${cleanChapterTitle(removed?.title ?? "chapter")}"`,
+      {
+        label: "Undo",
+        onClick: async () => {
+          const { id: newId } = await restoreChapter(deleted);
+          setChapters((cs) =>
+            [
+              ...cs,
+              {
+                id: newId,
+                order: deleted.order,
+                title: deleted.title,
+                summary: deleted.summary,
+                wordCount: deleted.wordCount,
+                minWords: deleted.minWords,
+                maxWords: deleted.maxWords,
+                status: deleted.status,
+                locked: deleted.locked,
+              },
+            ].sort((a, b) => a.order - b.order),
+          );
+          toast.success("Chapter restored");
+        },
+      },
+      { tone: "info" },
+    );
   }
 
   return (
@@ -278,10 +307,9 @@ export function OutlineBoard({
                 </button>
                 {chapters.length > 1 && (
                   <button
-                    onClick={() => {
-                      if (confirm(`Delete "${c.title}"?`)) remove(c.id);
-                    }}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-clay/10 hover:text-clay"
+                    onClick={() => remove(c.id)}
+                    aria-label={`Delete ${cleanChapterTitle(c.title)}`}
+                    className="flex h-9 w-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-clay/10 hover:text-clay"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>

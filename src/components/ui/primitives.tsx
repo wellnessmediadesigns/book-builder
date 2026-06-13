@@ -42,21 +42,35 @@ export function Badge({
   );
 }
 
-export function Spinner({ className }: { className?: string }) {
+export function Spinner({ className, label = "Loading" }: { className?: string; label?: string }) {
   return (
-    <svg
-      className={cn("h-4 w-4 animate-spin", className)}
-      viewBox="0 0 24 24"
-      fill="none"
-    >
-      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.2" />
-      <path
-        d="M22 12a10 10 0 0 0-10-10"
-        stroke="currentColor"
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
-    </svg>
+    <span role="status" className="inline-flex">
+      <svg
+        className={cn("h-4 w-4 animate-spin", className)}
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.2" />
+        <path
+          d="M22 12a10 10 0 0 0-10-10"
+          stroke="currentColor"
+          strokeWidth="3"
+          strokeLinecap="round"
+        />
+      </svg>
+      <span className="sr-only">{label}…</span>
+    </span>
+  );
+}
+
+/** Shimmering placeholder block for loading states. */
+export function Skeleton({ className }: { className?: string }) {
+  return (
+    <div
+      aria-hidden="true"
+      className={cn("shimmer-bg rounded-md bg-paper-sunken/70", className)}
+    />
   );
 }
 

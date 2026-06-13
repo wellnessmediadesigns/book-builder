@@ -126,10 +126,70 @@ export async function addChapter(projectId: string, afterOrder?: number) {
   return created.id;
 }
 
-export async function deleteChapter(chapterId: string) {
+export type DeletedChapter = {
+  projectId: string;
+  order: number;
+  title: string;
+  summary: string;
+  status: string;
+  contentJson: string | null;
+  contentText: string;
+  wordCount: number;
+  minWords: number;
+  maxWords: number;
+  locked: boolean;
+  matterType: string | null;
+};
+
+/** Deletes a chapter and returns its data so the UI can offer an Undo. */
+export async function deleteChapter(chapterId: string): Promise<DeletedChapter> {
   const c = await prisma.chapter.findUniqueOrThrow({ where: { id: chapterId } });
   await prisma.chapter.delete({ where: { id: chapterId } });
   revalidatePath(`/studio/book/${c.projectId}/write`);
+  return {
+    projectId: c.projectId,
+    order: c.order,
+    title: c.title,
+    summary: c.summary,
+    status: c.status,
+    contentJson: c.contentJson,
+    contentText: c.contentText,
+    wordCount: c.wordCount,
+    minWords: c.minWords,
+    maxWords: c.maxWords,
+    locked: c.locked,
+    matterType: c.matterType,
+  };
+}
+
+/** Re-creates a deleted chapter (for Undo), nudging siblings to make room. */
+export async function restoreChapter(data: DeletedChapter): Promise<{ id: string }> {
+  if (data.matterType === null) {
+    const siblings = await prisma.chapter.findMany({
+      where: { projectId: data.projectId, matterType: null, order: { gte: data.order } },
+    });
+    for (const s of siblings) {
+      await prisma.chapter.update({ where: { id: s.id }, data: { order: s.order + 1 } });
+    }
+  }
+  const created = await prisma.chapter.create({
+    data: {
+      projectId: data.projectId,
+      order: data.order,
+      title: data.title,
+      summary: data.summary,
+      status: data.status,
+      contentJson: data.contentJson,
+      contentText: data.contentText,
+      wordCount: data.wordCount,
+      minWords: data.minWords,
+      maxWords: data.maxWords,
+      locked: data.locked,
+      matterType: data.matterType,
+    },
+  });
+  revalidatePath(`/studio/book/${data.projectId}`, "layout");
+  return { id: created.id };
 }
 
 export async function reorderChapters(projectId: string, orderedIds: string[]) {

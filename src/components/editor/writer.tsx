@@ -39,6 +39,7 @@ import {
   toggleChapterLock,
   addChapter,
   deleteChapter,
+  restoreChapter,
   reorderChapters,
   resolveRevision,
   listChapterVersions,
@@ -544,10 +545,39 @@ export function Writer({
   }
 
   async function handleDelete(id: string) {
-    await deleteChapter(id);
+    const removed = chapters.find((c) => c.id === id);
+    const deleted = await deleteChapter(id);
     const remaining = chapters.filter((c) => c.id !== id);
     setChapters(remaining);
     if (id === activeId && remaining[0]) selectChapter(remaining[0].id);
+    toast.action(
+      `Deleted "${cleanChapterTitle(removed?.title ?? "chapter")}"`,
+      {
+        label: "Undo",
+        onClick: async () => {
+          const { id: newId } = await restoreChapter(deleted);
+          setChapters((cs) =>
+            [
+              ...cs,
+              {
+                id: newId,
+                order: deleted.order,
+                title: deleted.title,
+                summary: deleted.summary,
+                wordCount: deleted.wordCount,
+                minWords: deleted.minWords,
+                maxWords: deleted.maxWords,
+                locked: deleted.locked,
+                status: deleted.status,
+                contentJson: deleted.contentJson,
+              },
+            ].sort((a, b) => a.order - b.order),
+          );
+          toast.success("Chapter restored");
+        },
+      },
+      { tone: "info" },
+    );
   }
 
   async function handleReorder(ids: string[]) {
@@ -941,6 +971,7 @@ export function Writer({
           activeId={activeId}
           generatingId={generatingId}
           busy={busy}
+          saveStatus={save.status}
           onPrev={() => {
             const i = chapters.findIndex((c) => c.id === activeId);
             if (i > 0) selectChapter(chapters[i - 1].id);
@@ -964,6 +995,7 @@ function MobileBottomBar({
   activeId,
   generatingId,
   busy,
+  saveStatus,
   onPrev,
   onNext,
   onList,
@@ -973,6 +1005,7 @@ function MobileBottomBar({
   activeId: string;
   generatingId: string | null;
   busy: boolean;
+  saveStatus: "idle" | "saving" | "saved" | "error";
   onPrev: () => void;
   onNext: () => void;
   onList: () => void;
@@ -983,12 +1016,20 @@ function MobileBottomBar({
   const empty = (active?.wordCount ?? 0) === 0;
   const generating = generatingId === activeId;
   const locked = active?.locked ?? false;
+  const saveText =
+    saveStatus === "saving" ? "Saving…" : saveStatus === "error" ? "Save failed" : "Saved";
+  const saveColor =
+    saveStatus === "error" ? "text-clay" : saveStatus === "saving" ? "text-muted" : "text-sage";
   return (
     <div
       className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-paper/95 backdrop-blur-xl"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      <div className="flex items-center gap-1.5 px-2 py-2">
+      <div className={cn("flex items-center justify-center gap-1 py-1 text-[0.625rem]", saveColor)}>
+        {saveStatus === "saving" ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : saveStatus === "error" ? <CloudOff className="h-2.5 w-2.5" /> : <Check className="h-2.5 w-2.5" />}
+        {saveText}
+      </div>
+      <div className="flex items-center gap-1.5 px-2 pb-2">
         <button
           onClick={onPrev}
           disabled={i <= 0}

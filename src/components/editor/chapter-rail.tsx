@@ -149,11 +149,10 @@ export function ChapterRail({
                 )}
                 {chapters.length > 1 && (
                   <button
-                    onClick={() => {
-                      if (confirm(`Delete "${c.title}"?`)) onDelete(c.id);
-                    }}
+                    onClick={() => onDelete(c.id)}
                     title="Delete chapter"
-                    className="flex h-6 w-6 items-center justify-center rounded-md text-muted transition-colors hover:bg-clay/10 hover:text-clay"
+                    aria-label="Delete chapter"
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-clay/10 hover:text-clay"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
