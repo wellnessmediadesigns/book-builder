@@ -202,14 +202,14 @@ export function BrainstormBoard({
   const showEmpty = messages.length === 0 && !streaming;
 
   return (
-    <div className="grid h-[calc(100dvh-4rem)] grid-cols-1 lg:grid-cols-[230px_1fr_340px]">
+    <div className="grid h-[calc(100dvh-4rem)] grid-cols-1 overflow-x-hidden lg:grid-cols-[230px_1fr_340px]">
       {/* ——— Sessions rail (desktop) ——— */}
       <aside className="hidden border-r border-line bg-paper-sunken/30 lg:block">
         <SessionsRail sessions={sessions} activeId={session.id} />
       </aside>
 
       {/* ——— Chat ——— */}
-      <section className="flex min-h-0 flex-col">
+      <section className="flex min-h-0 min-w-0 flex-col">
         <header className="flex items-center gap-2 border-b border-line px-3 py-2.5 sm:px-4">
           <button
             onClick={() => setRailOpen(true)}
@@ -236,7 +236,7 @@ export function BrainstormBoard({
           )}
           <button
             onClick={() => setSheetOpen(true)}
-            className="flex h-9 items-center gap-1.5 rounded-lg border border-line bg-paper-raised px-2.5 text-sm font-medium text-ink-soft transition-colors hover:bg-paper-sunken hover:text-ink lg:hidden"
+            className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-line bg-paper-raised px-2.5 text-sm font-medium text-ink-soft transition-colors hover:bg-paper-sunken hover:text-ink lg:hidden"
             aria-label="Open direction"
           >
             <Target className="h-4 w-4 text-brass" /> Direction
@@ -313,7 +313,7 @@ export function BrainstormBoard({
               e.preventDefault();
               send(input);
             }}
-            className="mx-auto flex max-w-2xl items-end gap-2"
+            className="mx-auto flex max-w-2xl min-w-0 items-end gap-2"
           >
             <textarea
               value={input}
@@ -327,7 +327,7 @@ export function BrainstormBoard({
               rows={1}
               placeholder={aiReady ? "Bounce an idea…" : "Connect an AI provider to brainstorm"}
               disabled={!aiReady || streaming}
-              className="max-h-40 min-h-[48px] w-full resize-none rounded-xl border border-line bg-paper-raised px-3.5 py-3 text-sm text-ink placeholder:text-ink-soft/70 shadow-sm outline-none transition-all focus:border-muse/40 focus:ring-2 focus:ring-muse/20 disabled:opacity-60"
+              className="max-h-40 min-h-[48px] w-full min-w-0 resize-none rounded-xl border border-line bg-paper-raised px-3.5 py-3 text-sm text-ink placeholder:text-ink-soft/70 shadow-sm outline-none transition-all focus:border-muse/40 focus:ring-2 focus:ring-muse/20 disabled:opacity-60"
             />
             <Button type="submit" variant="muse" disabled={!input.trim() || streaming || !aiReady} aria-label="Send" className="h-12 w-12 shrink-0 rounded-xl p-0">
               {streaming ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
@@ -407,7 +407,7 @@ function Bubble({ msg, streaming }: { msg: Msg; streaming?: boolean }) {
         {isUser ? <span className="text-xs font-semibold">You</span> : <QuireMark className="h-4 w-4" />}
       </div>
       <div className={cn("min-w-0 max-w-[88%] sm:max-w-[85%]", isUser && "text-right")}>
-        <div className={cn("inline-block whitespace-pre-wrap rounded-2xl px-4 py-3 text-left text-sm leading-relaxed", isUser ? "bg-brass-soft text-ink" : "border border-line bg-paper-raised text-ink")}>
+        <div className={cn("inline-block whitespace-pre-wrap break-words rounded-2xl px-4 py-3 text-left text-sm leading-relaxed [overflow-wrap:anywhere]", isUser ? "bg-brass-soft text-ink" : "border border-line bg-paper-raised text-ink")}>
           {renderMarkdown(msg.content)}
           {streaming && <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse-soft bg-muse align-middle" />}
         </div>
