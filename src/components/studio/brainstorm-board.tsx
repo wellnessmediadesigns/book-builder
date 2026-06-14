@@ -215,7 +215,7 @@ export function BrainstormBoard({
         <header className="flex items-center gap-2 border-b border-line px-3 py-2.5 sm:px-4">
           <button
             onClick={() => setRailOpen(true)}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-paper-sunken hover:text-ink lg:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-paper-raised text-ink-soft transition-colors hover:bg-paper-sunken hover:text-ink lg:hidden"
             aria-label="Open sessions"
           >
             <PanelLeft className="h-4 w-4" />
@@ -233,10 +233,11 @@ export function BrainstormBoard({
           )}
           <button
             onClick={() => setSheetOpen(true)}
-            className="relative flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-sm text-ink-soft transition-colors hover:bg-paper-sunken hover:text-ink lg:hidden"
+            className="flex h-9 items-center gap-1.5 rounded-lg border border-line bg-paper-raised px-2.5 text-sm font-medium text-ink-soft transition-colors hover:bg-paper-sunken hover:text-ink lg:hidden"
             aria-label="Open ideas"
           >
-            <Lightbulb className="h-4 w-4 text-brass" /> {ideas.length}
+            <Lightbulb className="h-4 w-4 text-brass" /> Ideas
+            <span className="rounded-full bg-brass-soft px-1.5 text-xs font-semibold text-brass-deep">{ideas.length}</span>
           </button>
         </header>
 
@@ -327,12 +328,18 @@ export function BrainstormBoard({
                 }
               }}
               rows={1}
-              placeholder={aiReady ? "Bounce an idea… (Enter to send, Shift+Enter for a new line)" : "Connect an AI provider to brainstorm"}
+              placeholder={aiReady ? "Bounce an idea…" : "Connect an AI provider to brainstorm"}
               disabled={!aiReady || streaming}
-              className="max-h-40 min-h-[44px] w-full resize-none rounded-xl border border-line bg-paper-raised px-3.5 py-3 text-sm text-ink placeholder:text-ink-soft/70 shadow-sm outline-none transition-all focus:border-muse/40 focus:ring-2 focus:ring-muse/20 disabled:opacity-60"
+              className="max-h-40 min-h-[48px] w-full resize-none rounded-xl border border-line bg-paper-raised px-3.5 py-3 text-sm text-ink placeholder:text-ink-soft/70 shadow-sm outline-none transition-all focus:border-muse/40 focus:ring-2 focus:ring-muse/20 disabled:opacity-60"
             />
-            <Button type="submit" variant="muse" size="icon" disabled={!input.trim() || streaming || !aiReady} aria-label="Send">
-              {streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            <Button
+              type="submit"
+              variant="muse"
+              disabled={!input.trim() || streaming || !aiReady}
+              aria-label="Send"
+              className="h-12 w-12 shrink-0 rounded-xl p-0"
+            >
+              {streaming ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
             </Button>
           </form>
         </div>
@@ -414,6 +421,25 @@ export function BrainstormBoard({
   );
 }
 
+/** Lightweight inline markdown for chat bubbles: **bold**, *italic*, `code`.
+ *  Newlines are preserved by the bubble's whitespace-pre-wrap. */
+function renderMarkdown(text: string): React.ReactNode[] {
+  const nodes: React.ReactNode[] = [];
+  const re = /\*\*([^*]+)\*\*|\*([^*\n]+)\*|`([^`]+)`/g;
+  let last = 0;
+  let k = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    if (m.index > last) nodes.push(text.slice(last, m.index));
+    if (m[1] !== undefined) nodes.push(<strong key={k++} className="font-semibold">{m[1]}</strong>);
+    else if (m[2] !== undefined) nodes.push(<em key={k++}>{m[2]}</em>);
+    else if (m[3] !== undefined) nodes.push(<code key={k++} className="rounded bg-paper-sunken px-1 py-0.5 font-mono text-[0.85em]">{m[3]}</code>);
+    last = re.lastIndex;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes;
+}
+
 function Bubble({
   msg,
   streaming,
@@ -431,7 +457,7 @@ function Bubble({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-      className={cn("flex gap-3", isUser && "flex-row-reverse")}
+      className={cn("flex gap-2.5 sm:gap-3", isUser && "flex-row-reverse")}
     >
       <div
         className={cn(
@@ -441,24 +467,24 @@ function Bubble({
       >
         {isUser ? <span className="text-xs font-semibold">You</span> : <QuireMark className="h-4 w-4" />}
       </div>
-      <div className={cn("group min-w-0 max-w-[85%]", isUser && "text-right")}>
+      <div className={cn("min-w-0 max-w-[88%] sm:max-w-[85%]", isUser && "text-right")}>
         <div
           className={cn(
-            "inline-block whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-left text-sm leading-relaxed",
+            "inline-block whitespace-pre-wrap rounded-2xl px-4 py-3 text-left text-sm leading-relaxed",
             isUser ? "bg-brass-soft text-ink" : "border border-line bg-paper-raised text-ink",
           )}
         >
-          {msg.content}
+          {renderMarkdown(msg.content)}
           {streaming && <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse-soft bg-muse align-middle" />}
         </div>
         {!isUser && !streaming && onSave && (
-          <div className="mt-1">
+          <div className="mt-1.5">
             <button
               onClick={onSave}
               disabled={!canSave}
-              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted opacity-0 transition-all hover:bg-muse-soft hover:text-muse-deep group-hover:opacity-100 disabled:opacity-30"
+              className="inline-flex items-center gap-1.5 rounded-full border border-muse/25 bg-muse-soft/70 px-3 py-1.5 text-xs font-medium text-muse-deep transition-all hover:bg-muse-soft active:scale-95 disabled:opacity-40"
             >
-              <Sparkles className="h-3 w-3" /> Save as idea
+              <Sparkles className="h-3.5 w-3.5" /> Save as idea
             </button>
           </div>
         )}
