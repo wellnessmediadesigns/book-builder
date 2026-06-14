@@ -4,7 +4,7 @@ import Link from "next/link";
 import { QuireLogo } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { AccountMenu } from "@/components/studio/account-menu";
-import { Settings, Palette, Search, Lightbulb } from "lucide-react";
+import { Settings, Palette, Search, Lightbulb, Mail } from "lucide-react";
 
 export function TopNav({ author, email }: { author?: string; email?: string }) {
   return (
@@ -26,6 +26,12 @@ export function TopNav({ author, email }: { author?: string; email?: string }) {
             <Search className="h-3.5 w-3.5" />
             <span className="font-mono text-xs">⌘K</span>
           </button>
+          <Link
+            href="/studio/newsletters"
+            className="hidden h-9 items-center gap-2 rounded-xl px-3 text-sm text-ink-soft transition-colors hover:bg-paper-sunken hover:text-ink lg:inline-flex"
+          >
+            <Mail className="h-4 w-4" /> Newsletters
+          </Link>
           <Link
             href="/studio/brainstorm"
             className="hidden h-9 items-center gap-2 rounded-xl px-3 text-sm text-ink-soft transition-colors hover:bg-paper-sunken hover:text-ink sm:inline-flex"

@@ -22,7 +22,7 @@ export default async function OutlinePage({
 
   return (
     <>
-      <BookHeader projectId={id} title={project.recommendedTitle || project.title} />
+      <BookHeader projectId={id} title={project.recommendedTitle || project.title} workType={project.workType} />
       <OutlineBoard
         projectId={id}
         initial={project.chapters.map((c) => ({

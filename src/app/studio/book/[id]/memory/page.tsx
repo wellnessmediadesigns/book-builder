@@ -19,7 +19,7 @@ export default async function MemoryPage({
 
   return (
     <>
-      <BookHeader projectId={id} title={project.recommendedTitle || project.title} />
+      <BookHeader projectId={id} title={project.recommendedTitle || project.title} workType={project.workType} />
       <MemoryView
         projectId={id}
         entries={project.memory.map((m) => ({

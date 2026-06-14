@@ -66,6 +66,7 @@ model Project {
   readerPromise       String @default("")
 
   status      String   @default("draft") // draft | blueprint | writing | complete
+  workType    String   @default("book")   // book | newsletter (newsletter = a brand/publication)
   coverAccent String   @default("brass")  // brass | muse | sage
   formatTheme String   @default("classic") // export/preview formatting style
   deletedAt   DateTime? // soft-delete: in Trash when set, restorable
@@ -243,6 +244,7 @@ model BrainstormSession {
 
   title          String  @default("New brainstorm")
   status         String  @default("active") // active | built
+  mode           String  @default("book")   // book | newsletter — what we're building toward
   builtProjectId String? // the project this session produced, once built
   directionJson  String  @default("") // agreed direction: { title, bullets[] }
 

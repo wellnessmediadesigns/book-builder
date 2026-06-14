@@ -13,6 +13,8 @@ import {
 import { complete, configIsReady, AiError } from "@/lib/ai/providers";
 import {
   blueprintMessages,
+  contentPlanMessages,
+  newsletterIssueMessages,
   selectionMessages,
   analysisMessages,
   summaryMessages,
@@ -109,9 +111,10 @@ export async function generateBlueprint(
   if (!(await aiChainReady())) return { ok: false, error: "no_key" };
 
   const project = await prisma.project.findUniqueOrThrow({ where: { id: projectId } });
+  const newsletter = project.workType === "newsletter";
   const ctx = await buildBookContext(projectId);
   ctx.priorSummaries = Array.from({ length: project.chapterCount }, (_, i) => ({
-    title: `Chapter ${i + 1}`,
+    title: `${newsletter ? "Issue" : "Chapter"} ${i + 1}`,
     summary: "",
   }));
 
@@ -123,7 +126,10 @@ export async function generateBlueprint(
   let raw = "";
   let config;
   try {
-    const res = await completeWithFallback(blueprintMessages(ctx, project.idea, extras));
+    const messages = newsletter
+      ? contentPlanMessages(ctx, project.idea, extras)
+      : blueprintMessages(ctx, project.idea, extras);
+    const res = await completeWithFallback(messages);
     raw = res.text;
     config = res.config;
   } catch (e) {
@@ -307,14 +313,15 @@ export async function autoWriteChapter(
   if (chapter.locked) return { ok: false, error: "Chapter is locked." };
 
   const ctx = await buildBookContext(chapter.projectId, chapter.order);
+  const unit = {
+    title: chapter.title,
+    summary: chapter.summary,
+    minWords: chapter.minWords || 1000,
+    maxWords: chapter.maxWords || 2000,
+  };
   try {
     const { text } = await completeWithFallback(
-      chapterMessages(ctx, {
-        title: chapter.title,
-        summary: chapter.summary,
-        minWords: chapter.minWords || 1000,
-        maxWords: chapter.maxWords || 2000,
-      }),
+      ctx.workType === "newsletter" ? newsletterIssueMessages(ctx, unit) : chapterMessages(ctx, unit),
     );
     if (!text.trim()) return { ok: false, error: "The model returned no text." };
     await saveChapterContent(chapterId, textToDoc(text), {

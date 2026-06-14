@@ -7,6 +7,7 @@ import { useTheme } from "next-themes";
 import {
   BookMarked,
   Lightbulb,
+  Mail,
   Plus,
   Palette,
   Image as ImageIcon,
@@ -28,6 +29,7 @@ import { logout } from "@/lib/actions/auth";
 
 const NAV = [
   { href: "/studio", label: "Library", icon: BookMarked },
+  { href: "/studio/newsletters", label: "Newsletters", icon: Mail },
   { href: "/studio/brainstorm", label: "Brainstorm", icon: Lightbulb },
   { href: "/studio/covers", label: "Cover Studio", icon: ImageIcon },
   { href: "/studio/new", label: "New book", icon: Plus },

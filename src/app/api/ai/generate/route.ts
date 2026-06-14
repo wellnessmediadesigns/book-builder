@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { buildBookContext, streamWithFallback, aiChainReady } from "@/lib/ai/context";
 import { AiError } from "@/lib/ai/providers";
-import { chapterMessages, continueChapterMessages } from "@/lib/ai/prompts";
+import { chapterMessages, continueChapterMessages, newsletterIssueMessages } from "@/lib/ai/prompts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,12 +37,19 @@ export async function POST(req: NextRequest) {
           summary: chapter.summary,
           maxWords: chapter.maxWords || 2000,
         })
-      : chapterMessages(ctx, {
-          title: chapter.title,
-          summary: chapter.summary,
-          minWords: chapter.minWords || 1000,
-          maxWords: chapter.maxWords || 2000,
-        });
+      : ctx.workType === "newsletter"
+        ? newsletterIssueMessages(ctx, {
+            title: chapter.title,
+            summary: chapter.summary,
+            minWords: chapter.minWords || 1000,
+            maxWords: chapter.maxWords || 2000,
+          })
+        : chapterMessages(ctx, {
+            title: chapter.title,
+            summary: chapter.summary,
+            minWords: chapter.minWords || 1000,
+            maxWords: chapter.maxWords || 2000,
+          });
 
   const encoder = new TextEncoder();
   const body = new ReadableStream({

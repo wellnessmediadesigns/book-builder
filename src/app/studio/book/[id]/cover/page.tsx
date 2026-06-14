@@ -25,7 +25,7 @@ export default async function CoverPage({
 
   return (
     <>
-      <BookHeader projectId={id} title={title} />
+      <BookHeader projectId={id} title={title} workType={project.workType} />
       <CoverView
         projectId={id}
         title={title}

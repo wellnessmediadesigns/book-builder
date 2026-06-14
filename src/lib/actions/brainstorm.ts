@@ -32,9 +32,11 @@ function parseJson(raw: string): Record<string, unknown> {
 
 // ————————————————————————————————————————————— Sessions
 
-export async function createSession(): Promise<void> {
+export async function createSession(mode: string = "book"): Promise<void> {
   const author = await getAuthor();
-  const session = await prisma.brainstormSession.create({ data: { authorId: author.id } });
+  const session = await prisma.brainstormSession.create({
+    data: { authorId: author.id, mode: mode === "newsletter" ? "newsletter" : "book" },
+  });
   revalidatePath("/studio/brainstorm");
   redirect(`/studio/brainstorm/${session.id}`);
 }
@@ -159,19 +161,24 @@ export async function buildBookFromBrainstorm(
     return { ok: false, error: err === "no_key" ? "no_key" : err };
   }
 
+  const newsletter = session.mode === "newsletter";
   const str = (k: string, fallback = "") => String(raw[k] ?? fallback);
   const num = (k: string, fallback: number) => {
     const n = Number(raw[k]);
     return Number.isFinite(n) && n > 0 ? Math.round(n) : fallback;
   };
-  const minWords = num("minWords", 1200);
-  const maxWords = Math.max(minWords, num("maxWords", 2500));
+  const minWords = newsletter ? num("minWords", 600) : num("minWords", 1200);
+  const maxWords = newsletter
+    ? Math.min(1800, Math.max(minWords, num("maxWords", 1100)))
+    : Math.max(minWords, num("maxWords", 2500));
   const input: ProjectInput = {
-    title: str("title", direction.title || "Untitled Book"),
+    title: str("title", direction.title || (newsletter ? "Untitled Newsletter" : "Untitled Book")),
     idea: str("idea"),
     theme: str("theme"),
     genre: str("genre"),
-    kind: str("kind", "nonfiction").toLowerCase().includes("fic") && !str("kind").toLowerCase().includes("non") ? "fiction" : str("kind", "nonfiction"),
+    kind: newsletter
+      ? "nonfiction"
+      : str("kind", "nonfiction").toLowerCase().includes("fic") && !str("kind").toLowerCase().includes("non") ? "fiction" : str("kind", "nonfiction"),
     audience: str("audience"),
     tone: str("tone", "Warm & encouraging"),
     style: str("style"),
@@ -181,15 +188,18 @@ export async function buildBookFromBrainstorm(
     notes: "",
     inspiration: "",
     goals: str("goals"),
-    bookType: str("bookType", "Self-help"),
-    chapterCount: Math.min(40, Math.max(1, num("chapterCount", 10))),
+    bookType: newsletter ? "Newsletter" : str("bookType", "Self-help"),
+    chapterCount: newsletter
+      ? Math.min(24, Math.max(1, num("chapterCount", 6)))
+      : Math.min(40, Math.max(1, num("chapterCount", 10))),
     minWords,
     maxWords,
     narrativeStyle: str("narrativeStyle"),
     pov: str("pov"),
-    publishFormat: "Ebook + Print",
+    publishFormat: newsletter ? "Email" : "Ebook + Print",
     seriesName: "",
     styleNotes: "",
+    workType: newsletter ? "newsletter" : "book",
   };
 
   const count = await prisma.project.count();
@@ -208,6 +218,6 @@ export async function buildBookFromBrainstorm(
     where: { id: sessionId },
     data: { status: "built", builtProjectId: project.id },
   });
-  revalidatePath("/studio");
+  revalidatePath(newsletter ? "/studio/newsletters" : "/studio");
   redirect(`/studio/book/${project.id}/blueprint`);
 }

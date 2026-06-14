@@ -15,14 +15,14 @@ export default async function MatterPage({
   const { id } = await params;
   const project = await prisma.project.findUnique({
     where: { id },
-    select: { id: true, title: true, recommendedTitle: true },
+    select: { id: true, title: true, recommendedTitle: true, workType: true },
   });
   if (!project) notFound();
   const [rows, { ready }] = await Promise.all([listMatter(id), aiStatus()]);
 
   return (
     <>
-      <BookHeader projectId={id} title={project.recommendedTitle || project.title} />
+      <BookHeader projectId={id} title={project.recommendedTitle || project.title} workType={project.workType} />
       <MatterView projectId={id} initial={rows} aiReady={ready} />
     </>
   );

@@ -16,28 +16,41 @@ import {
 import { QuireMark } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { cn } from "@/lib/utils";
-
-const TABS = [
-  { key: "setup", label: "Setup", icon: SlidersHorizontal },
-  { key: "blueprint", label: "Blueprint", icon: Sparkles },
-  { key: "outline", label: "Outline", icon: LayoutGrid },
-  { key: "write", label: "Write", icon: PenLine },
-  { key: "memory", label: "Memory", icon: Brain },
-  { key: "matter", label: "Sections", icon: ScrollText },
-  { key: "cover", label: "Cover", icon: ImageIcon },
-  { key: "export", label: "Export", icon: Download },
-];
+import { workVocab } from "@/lib/work";
 
 export function BookHeader({
   projectId,
   title,
+  workType,
   right,
 }: {
   projectId: string;
   title: string;
+  workType?: string;
   right?: React.ReactNode;
 }) {
   const path = usePathname();
+  const v = workVocab(workType);
+  const TABS =
+    v.type === "newsletter"
+      ? [
+          { key: "setup", label: v.setup, icon: SlidersHorizontal },
+          { key: "blueprint", label: v.plan, icon: Sparkles },
+          { key: "outline", label: v.outline, icon: LayoutGrid },
+          { key: "write", label: "Write", icon: PenLine },
+          { key: "memory", label: v.memory, icon: Brain },
+          { key: "export", label: "Export", icon: Download },
+        ]
+      : [
+          { key: "setup", label: "Setup", icon: SlidersHorizontal },
+          { key: "blueprint", label: "Blueprint", icon: Sparkles },
+          { key: "outline", label: "Outline", icon: LayoutGrid },
+          { key: "write", label: "Write", icon: PenLine },
+          { key: "memory", label: "Memory", icon: Brain },
+          { key: "matter", label: "Sections", icon: ScrollText },
+          { key: "cover", label: "Cover", icon: ImageIcon },
+          { key: "export", label: "Export", icon: Download },
+        ];
   const tabs = (
     <nav className="flex items-center gap-1 rounded-xl bg-paper-sunken/60 p-1">
       {TABS.map((t) => {
@@ -66,7 +79,7 @@ export function BookHeader({
     <header className="sticky top-0 z-30 border-b border-line/70 bg-paper/85 backdrop-blur-xl">
       <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-2 px-3 sm:gap-3 sm:px-4">
         <Link
-          href="/studio"
+          href={v.home}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-ink-soft transition-colors hover:bg-paper-sunken hover:text-ink"
         >
           <ChevronLeft className="h-5 w-5" />

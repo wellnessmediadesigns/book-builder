@@ -77,12 +77,14 @@ export function BrainstormBoard({
   initialDirection,
   aiReady,
 }: {
-  session: { id: string; title: string; status: string; builtProjectId: string | null };
+  session: { id: string; title: string; status: string; builtProjectId: string | null; mode?: string };
   sessions: SessionBrief[];
   initialMessages: Msg[];
   initialDirection: Direction;
   aiReady: boolean;
 }) {
+  const newsletter = session.mode === "newsletter";
+  const buildLabel = newsletter ? "Build this newsletter" : "Build this book";
   const [messages, setMessages] = useState<Msg[]>(initialMessages);
   const [direction, setDirectionLocal] = useState<Direction>(initialDirection);
   const [input, setInput] = useState("");
@@ -230,7 +232,7 @@ export function BrainstormBoard({
           ) : (
             <Button variant="brass" size="sm" onClick={build} disabled={building || !hasDirection} className="shrink-0">
               {building ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Hammer className="h-3.5 w-3.5" />}
-              <span className="hidden sm:inline">Build this book</span>
+              <span className="hidden sm:inline">{buildLabel}</span>
               <span className="sm:hidden">Build</span>
             </Button>
           )}
@@ -345,6 +347,7 @@ export function BrainstormBoard({
           onBuild={build}
           building={building}
           built={built}
+          buildLabel={buildLabel}
         />
       </aside>
 
@@ -368,6 +371,7 @@ export function BrainstormBoard({
               onBuild={build}
               building={building}
               built={built}
+              buildLabel={buildLabel}
             />
           </Overlay>
         )}
@@ -385,8 +389,8 @@ export function BrainstormBoard({
             <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-muse-soft text-muse-deep shadow-glow">
               <Hammer className="h-8 w-8" />
             </div>
-            <p className="mt-4 font-display text-lg font-semibold text-ink">Building your book…</p>
-            <p className="mt-1 text-sm text-ink-soft">Turning your direction into a blueprint.</p>
+            <p className="mt-4 font-display text-lg font-semibold text-ink">{newsletter ? "Building your newsletter…" : "Building your book…"}</p>
+            <p className="mt-1 text-sm text-ink-soft">Turning your direction into a {newsletter ? "content plan" : "blueprint"}.</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -474,6 +478,7 @@ function DirectionPanel({
   onBuild,
   building,
   built,
+  buildLabel,
 }: {
   direction: Direction;
   refreshing: boolean;
@@ -481,6 +486,7 @@ function DirectionPanel({
   onBuild: () => void;
   building: boolean;
   built: boolean;
+  buildLabel: string;
 }) {
   // Local working copy so typing is smooth; persist on blur / structural change.
   const [local, setLocal] = useState<Direction>(direction);
@@ -594,7 +600,7 @@ function DirectionPanel({
       <div className="border-t border-line p-3">
         <Button variant="brass" className="w-full" disabled={!hasContent || building} onClick={onBuild}>
           {building ? <Loader2 className="h-4 w-4 animate-spin" /> : <Hammer className="h-4 w-4" />}
-          {built ? "Build again" : "Build this book"}
+          {built ? "Build again" : buildLabel}
         </Button>
         {!hasContent && <p className="mt-2 text-center text-[0.6875rem] text-muted">Agree on a few details, then build.</p>}
       </div>

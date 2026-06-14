@@ -16,7 +16,7 @@ export default async function SetupPage({
 
   return (
     <>
-      <BookHeader projectId={id} title={p.recommendedTitle || p.title} />
+      <BookHeader projectId={id} title={p.recommendedTitle || p.title} workType={p.workType} />
       <SetupEditor
         projectId={id}
         hasBlueprint={p.status !== "draft"}

@@ -28,6 +28,7 @@ export type ProjectInput = {
   publishFormat: string;
   seriesName: string;
   styleNotes: string;
+  workType?: string; // "book" (default) | "newsletter"
 };
 
 const ACCENTS = ["brass", "muse", "sage"];
@@ -43,7 +44,7 @@ export async function getResumeTarget(): Promise<{
 } | null> {
   const author = await getAuthor();
   const project = await prisma.project.findFirst({
-    where: { authorId: author.id, status: { not: "draft" }, deletedAt: null },
+    where: { authorId: author.id, status: { not: "draft" }, deletedAt: null, workType: "book" },
     orderBy: { updatedAt: "desc" },
   });
   if (!project) return null;
@@ -77,7 +78,7 @@ export async function listProjectSetups(): Promise<
 > {
   const author = await getAuthor();
   const rows = await prisma.project.findMany({
-    where: { authorId: author.id, deletedAt: null },
+    where: { authorId: author.id, deletedAt: null, workType: "book" },
     orderBy: { updatedAt: "desc" },
     take: 60,
   });
@@ -161,10 +162,76 @@ export async function createProject(input: ProjectInput) {
   redirect(`/studio/book/${project.id}/blueprint`);
 }
 
+/** Newsletter publications (brands) for the Newsletters home. */
+export async function listPublications() {
+  const author = await getAuthor();
+  const rows = await prisma.project.findMany({
+    where: { authorId: author.id, deletedAt: null, workType: "newsletter" },
+    orderBy: { updatedAt: "desc" },
+    include: { chapters: { where: { matterType: null }, select: { wordCount: true } } },
+  });
+  return rows.map((p) => ({
+    id: p.id,
+    title: p.recommendedTitle || p.title,
+    status: p.status,
+    coverAccent: p.coverAccent,
+    audience: p.audience,
+    updatedAt: p.updatedAt.toISOString(),
+    issueCount: p.chapters.length,
+    written: p.chapters.filter((c) => c.wordCount > 0).length,
+    words: p.chapters.reduce((s, c) => s + c.wordCount, 0),
+  }));
+}
+
+/** Creates a newsletter brand (a Project with workType "newsletter") + lands on the plan. */
+export async function createNewsletter(input: {
+  name: string;
+  about: string;
+  audience: string;
+  tone: string;
+  styleNotes: string;
+  issueLength: "short" | "standard" | "long";
+  plannedIssues: number;
+}) {
+  const lengths: Record<string, [number, number]> = {
+    short: [300, 600],
+    standard: [600, 1100],
+    long: [1100, 2000],
+  };
+  const [minWords, maxWords] = lengths[input.issueLength] ?? lengths.standard;
+  const full: ProjectInput = {
+    title: input.name.trim() || "Untitled newsletter",
+    idea: input.about,
+    theme: "",
+    genre: "",
+    kind: "nonfiction",
+    audience: input.audience,
+    tone: input.tone || "Warm, clear, direct",
+    style: "",
+    readingLevel: "General adult",
+    include: "",
+    avoid: "",
+    notes: "",
+    inspiration: "",
+    goals: "",
+    bookType: "Newsletter",
+    chapterCount: Math.min(24, Math.max(1, input.plannedIssues || 6)),
+    minWords,
+    maxWords,
+    narrativeStyle: "",
+    pov: "",
+    publishFormat: "Email",
+    seriesName: "",
+    styleNotes: input.styleNotes || "",
+    workType: "newsletter",
+  };
+  return createProject(full); // redirects to the plan tab
+}
+
 export async function listProjectsBrief() {
   const author = await getAuthor();
   const projects = await prisma.project.findMany({
-    where: { authorId: author.id, deletedAt: null },
+    where: { authorId: author.id, deletedAt: null, workType: "book" },
     orderBy: { updatedAt: "desc" },
     select: { id: true, title: true, recommendedTitle: true, status: true },
     take: 30,

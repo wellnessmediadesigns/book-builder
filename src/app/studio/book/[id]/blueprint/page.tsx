@@ -23,9 +23,10 @@ export default async function BlueprintPage({
 
   return (
     <>
-      <BookHeader projectId={id} title={project.recommendedTitle || project.title} />
+      <BookHeader projectId={id} title={project.recommendedTitle || project.title} workType={project.workType} />
       <BlueprintView
         aiReady={ready}
+        workType={project.workType}
         project={{
           id: project.id,
           title: project.title,

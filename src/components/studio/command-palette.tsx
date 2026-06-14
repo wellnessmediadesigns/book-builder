@@ -16,6 +16,7 @@ import {
   CornerDownLeft,
   ArrowRight,
   Lightbulb,
+  Mail,
 } from "lucide-react";
 import { listProjectsBrief } from "@/lib/actions/projects";
 import { searchChapters } from "@/lib/actions/chapters";
@@ -135,6 +136,14 @@ export function CommandPalette() {
         icon: <Lightbulb className="h-4 w-4" />,
         group: "Actions",
         run: () => go("/studio/brainstorm"),
+      },
+      {
+        id: "newsletters",
+        label: "Newsletters",
+        hint: "Brands & issues",
+        icon: <Mail className="h-4 w-4" />,
+        group: "Actions",
+        run: () => go("/studio/newsletters"),
       },
       {
         id: "settings",

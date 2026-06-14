@@ -32,6 +32,7 @@ export default async function BrainstormSessionPage({
           title: session.title,
           status: session.status,
           builtProjectId: session.builtProjectId,
+          mode: session.mode,
         }}
         sessions={sessions}
         aiReady={status.ready}

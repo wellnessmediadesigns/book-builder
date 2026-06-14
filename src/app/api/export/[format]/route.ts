@@ -5,11 +5,13 @@ import { buildDocx } from "@/lib/export/docx";
 import { buildEpub } from "@/lib/export/epub";
 import { buildPdf } from "@/lib/export/pdf";
 import { assembleBookPackage, singleChapterPackage } from "@/lib/export/assemble";
+import { buildEmailHtml, buildPlainText } from "@/lib/export/email";
 import { slugify } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-const FORMATS = new Set(["markdown", "html", "docx", "epub", "pdf"]);
+const FORMATS = new Set(["markdown", "html", "docx", "epub", "pdf", "email", "text"]);
+const CHAPTER_FORMATS = new Set(["pdf", "markdown", "email", "text"]);
 
 export async function GET(
   req: NextRequest,
@@ -29,10 +31,17 @@ export async function GET(
     });
   }
 
-  // Per-chapter export is offered for PDF and Markdown only.
+  // Per-item export is offered for PDF, Markdown, email, and plain text.
   const chapterOnly = Boolean(chapterId);
-  if (chapterOnly && format !== "pdf" && format !== "markdown") {
-    return new Response(JSON.stringify({ error: "chapter export supports pdf and markdown only" }), {
+  if (chapterOnly && !CHAPTER_FORMATS.has(format)) {
+    return new Response(JSON.stringify({ error: "per-item export supports pdf, markdown, email, text" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  // Email + plain text are always a single issue.
+  if ((format === "email" || format === "text") && !chapterId) {
+    return new Response(JSON.stringify({ error: "email/text export requires a single ?chapter=" }), {
       status: 400,
       headers: { "Content-Type": "application/json" },
     });
@@ -76,6 +85,15 @@ export async function GET(
           "Content-Type": "application/pdf",
           "Content-Disposition": `attachment; filename="${base}.pdf"`,
         },
+      });
+    case "email":
+      // A single newsletter issue as email-ready HTML (rendered inline).
+      return new Response(buildEmailHtml(pkg), {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
+    case "text":
+      return new Response(buildPlainText(pkg), {
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
       });
     default:
       // html — also the print-to-PDF path; uses the saved theme (or an override)

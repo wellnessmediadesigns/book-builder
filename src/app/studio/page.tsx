@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage() {
   const author = await getAuthor();
   const projects = await prisma.project.findMany({
-    where: { authorId: author.id, deletedAt: null },
+    where: { authorId: author.id, deletedAt: null, workType: "book" },
     orderBy: { updatedAt: "desc" },
     include: {
       chapters: { where: { matterType: null }, select: { wordCount: true } },

@@ -154,6 +154,7 @@ ${schema}`,
 }
 
 export type BookContext = {
+  workType?: string; // "book" | "newsletter"
   title: string;
   kind: string;
   bookType: string;
@@ -174,8 +175,10 @@ export type BookContext = {
 };
 
 export function contextBlock(ctx: BookContext): string {
+  const news = ctx.workType === "newsletter";
   const lines: string[] = [];
-  lines.push(`BOOK: "${ctx.title}" — ${ctx.bookType} (${ctx.kind})`);
+  if (news) lines.push(`NEWSLETTER BRAND: "${ctx.title}"`);
+  else lines.push(`BOOK: "${ctx.title}" — ${ctx.bookType} (${ctx.kind})`);
   if (ctx.genre) lines.push(`Genre: ${ctx.genre}`);
   if (ctx.audience) lines.push(`Audience: ${ctx.audience}`);
   if (ctx.tone) lines.push(`Tone: ${ctx.tone}`);
@@ -193,13 +196,15 @@ export function contextBlock(ctx: BookContext): string {
   if (ctx.styleNotes) lines.push(`VOICE SIGNATURE (match this style closely): ${ctx.styleNotes}`);
 
   if (ctx.memory.length) {
-    lines.push("\nBOOK MEMORY (keep consistent — never contradict):");
+    lines.push(news
+      ? "\nBRAND KNOWLEDGE (keep consistent — never contradict):"
+      : "\nBOOK MEMORY (keep consistent — never contradict):");
     for (const m of ctx.memory.slice(0, 40)) {
       lines.push(`- [${m.kind}] ${m.title}${m.body ? `: ${m.body}` : ""}`);
     }
   }
   if (ctx.priorSummaries.length) {
-    lines.push("\nSTORY SO FAR (previous chapter summaries):");
+    lines.push(news ? "\nPREVIOUS ISSUES (for consistency):" : "\nSTORY SO FAR (previous chapter summaries):");
     for (const s of ctx.priorSummaries) {
       lines.push(`- ${s.title}: ${s.summary}`);
     }
@@ -269,6 +274,69 @@ Target length: ${chapter.minWords}–${chapter.maxWords} words.
 Open with the prose itself (no "Chapter X" label — Quire handles headings).
 Use blank lines between paragraphs. Use it as part of a continuous book; pick up naturally
 from the story so far and set up what comes next. Write the full chapter now.`,
+    },
+  ];
+}
+
+// ————————————————————————————————————————————— Newsletters
+
+/** Content plan for a newsletter brand — a series of issue ideas (strict JSON). */
+export function contentPlanMessages(ctx: BookContext, idea: string, extras: string): AiMessage[] {
+  const schema = `{
+  "recommendedName": "the single best name for this newsletter",
+  "positioning": "one-sentence positioning — who it's for and the promise",
+  "readerPromise": "what a subscriber consistently gets",
+  "tableOfContents": [{ "title": "issue subject line / title", "summary": "2-3 sentence angle for this issue" }],
+  "keyConcepts": [{ "name": "recurring theme or segment", "description": "" }],
+  "styleGuide": ["concrete voice/style rules for the brand"],
+  "toneGuide": ["concrete tone rules"],
+  "continuityGuide": ["brand facts/offers/links to keep consistent across issues"],
+  "readerJourney": "how a subscriber benefits over time"
+}`;
+  return [
+    { role: "system", content: QUIRE_SYSTEM },
+    {
+      role: "user",
+      content: `Plan a newsletter as a branded series of issues.
+
+${contextBlock(ctx)}
+
+WHAT THIS NEWSLETTER IS ABOUT: ${idea}
+${extras ? `\nBRAND NOTES: ${extras}` : ""}
+
+Generate a content plan: a table of contents of issue ideas (use the planned issue count), each a
+concrete subject line + the angle for that issue. Keep "characters"/"settings" empty.
+Issue "title" must be the subject/title ONLY — no "Issue 1:" prefix.
+
+Respond with ONLY valid minified JSON matching this schema (no markdown fences):
+${schema}`,
+    },
+  ];
+}
+
+/** Generate one newsletter issue (an email), in the brand voice, continuity-aware. */
+export function newsletterIssueMessages(
+  ctx: BookContext,
+  issue: { title: string; summary: string; minWords: number; maxWords: number },
+): AiMessage[] {
+  return [
+    { role: "system", content: QUIRE_SYSTEM },
+    {
+      role: "user",
+      content: `Write ONE newsletter issue — a single email — in this brand's established voice.
+
+${contextBlock(ctx)}
+
+ISSUE TO WRITE: "${issue.title}"
+What this issue should deliver: ${issue.summary || "A valuable, on-brand issue."}
+Target length: ${issue.minWords}–${issue.maxWords} words.
+
+How to write it:
+- Open with a strong hook in the first line — no "Hi everyone" filler and no subject-line label.
+- Make it skimmable: short paragraphs, the occasional short subhead, and lists where they help.
+- Sound exactly like the brand voice above; stay consistent with the brand knowledge and previous issues.
+- End with one clear takeaway or call to action.
+Write the full issue now as clean prose (use a line like a subhead on its own line where useful).`,
     },
   ];
 }

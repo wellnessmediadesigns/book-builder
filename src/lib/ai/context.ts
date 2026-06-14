@@ -110,6 +110,7 @@ export async function buildBookContext(
     }));
 
   return {
+    workType: project.workType,
     title: project.recommendedTitle || project.title,
     kind: project.kind,
     bookType: project.bookType,

@@ -9,6 +9,11 @@ import { listSessions, createSession } from "@/lib/actions/brainstorm";
 
 export const dynamic = "force-dynamic";
 
+async function startBrainstorm() {
+  "use server";
+  await createSession("book");
+}
+
 export default async function BrainstormHomePage() {
   const author = await getAuthor();
   const sessions = await listSessions();
@@ -34,7 +39,7 @@ export default async function BrainstormHomePage() {
                 turn them into a real book in one tap.
               </p>
             </div>
-            <form action={createSession}>
+            <form action={startBrainstorm}>
               <Button size="lg" variant="muse" type="submit">
                 <Plus className="h-4 w-4" /> New brainstorm
               </Button>
@@ -48,7 +53,7 @@ export default async function BrainstormHomePage() {
             title="No brainstorms yet"
             description="Start one and chat your way to a book idea — Muse will help you find the angle, the audience, and the hook."
             action={
-              <form action={createSession}>
+              <form action={startBrainstorm}>
                 <Button variant="brass" type="submit">
                   <Sparkles className="h-4 w-4" /> Start brainstorming
                 </Button>

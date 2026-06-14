@@ -22,6 +22,7 @@ import { generateBlueprint } from "@/lib/actions/ai";
 import { updateProject } from "@/lib/actions/projects";
 import { updateChapterMeta } from "@/lib/actions/chapters";
 import { EditableText } from "@/components/book/editable-text";
+import { workVocab } from "@/lib/work";
 
 type Chapter = { id: string; order: number; title: string; summary: string };
 type Project = {
@@ -42,12 +43,16 @@ export function BlueprintView({
   project,
   chapters,
   aiReady,
+  workType,
 }: {
   project: Project;
   chapters: Chapter[];
   aiReady: boolean;
+  workType?: string;
 }) {
   const router = useRouter();
+  const v = workVocab(workType);
+  const news = v.type === "newsletter";
   const [generating, setGenerating] = useState(false);
 
   const bp = project.blueprintJson ? safeParse(project.blueprintJson) : null;
@@ -79,6 +84,8 @@ export function BlueprintView({
         aiReady={aiReady}
         generating={generating}
         onGenerate={generate}
+        planLabel={v.plan}
+        news={news}
       />
     );
   }
@@ -88,10 +95,10 @@ export function BlueprintView({
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           <Badge tone="muse">
-            <Sparkles className="h-3 w-3" /> Blueprint
+            <Sparkles className="h-3 w-3" /> {v.plan}
           </Badge>
           <h1 className="mt-3 font-display text-display-md font-semibold text-ink">
-            Your book blueprint
+            {news ? "Your content plan" : "Your book blueprint"}
           </h1>
           <p className="mt-2 text-ink-soft">
             Everything below is editable. Refine it, then start writing.
@@ -174,7 +181,7 @@ export function BlueprintView({
       </SectionCard>
 
       {/* Table of contents */}
-      <SectionCard title={`Table of contents · ${chapters.length} chapters`} delay={0.1}>
+      <SectionCard title={news ? `Issues · ${chapters.length}` : `Table of contents · ${chapters.length} chapters`} delay={0.1}>
         <div className="space-y-3">
           {chapters.map((c, i) => (
             <div
@@ -278,12 +285,16 @@ function GeneratePrompt({
   aiReady,
   generating,
   onGenerate,
+  planLabel,
+  news,
 }: {
   projectId: string;
   idea: string;
   aiReady: boolean;
   generating: boolean;
   onGenerate: () => void;
+  planLabel: string;
+  news: boolean;
 }) {
   return (
     <div className="mx-auto flex max-w-xl flex-col items-center px-6 py-24 text-center">
@@ -303,12 +314,14 @@ function GeneratePrompt({
         )}
       </motion.div>
       <h1 className="font-display text-display-md font-semibold text-ink">
-        {generating ? "Drafting your blueprint…" : "Generate your blueprint"}
+        {generating ? `Drafting your ${planLabel.toLowerCase()}…` : `Generate your ${planLabel.toLowerCase()}`}
       </h1>
       <p className="mt-3 max-w-md text-ink-soft">
-        {generating
-          ? "Quire is crafting titles, a positioning, a reader promise, a full chapter outline, and your Book Memory. This takes a moment."
-          : "Quire will turn your idea into a complete, editable plan — titles, an outline, a reader journey, and continuity memory."}
+        {news
+          ? "Quire will turn your idea into a brand + a plan of issue ideas, each with an angle, plus your brand knowledge base."
+          : generating
+            ? "Quire is crafting titles, a positioning, a reader promise, a full chapter outline, and your Book Memory. This takes a moment."
+            : "Quire will turn your idea into a complete, editable plan — titles, an outline, a reader journey, and continuity memory."}
       </p>
 
       <div className="mt-6 w-full rounded-2xl border border-dashed border-muse/30 bg-muse-soft/40 p-5 text-left">
@@ -337,7 +350,7 @@ function GeneratePrompt({
           </>
         ) : (
           <>
-            <Sparkles className="h-4 w-4" /> Generate blueprint
+            <Sparkles className="h-4 w-4" /> Generate {planLabel.toLowerCase()}
           </>
         )}
       </Button>
