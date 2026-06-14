@@ -253,7 +253,7 @@ export function BrainstormBoard({
           </div>
         )}
 
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6">
           <div className="mx-auto max-w-2xl space-y-5">
             {showEmpty ? (
               <div className="pt-6">
@@ -435,7 +435,7 @@ function SessionsRail({
         </Button>
       </div>
       <p className="px-4 pb-1.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">Sessions</p>
-      <div className="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 pb-3">
+      <div className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-2 pb-3">
         {sessions.length === 0 && <p className="px-2 py-3 text-xs text-muted">No sessions yet.</p>}
         {sessions.map((s) => {
           const active = s.id === activeId;
@@ -539,7 +539,7 @@ function DirectionPanel({
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-3">
         {/* working title */}
         <div className="rounded-xl border border-line bg-paper-raised p-3">
           <p className="mb-1 text-[0.625rem] font-semibold uppercase tracking-wide text-muted">Working title</p>
@@ -611,6 +611,21 @@ function Overlay({
   onClose: () => void;
   side: "left" | "bottom";
 }) {
+  // Lock the page behind the sheet so touch-scrolling doesn't fall through.
+  useEffect(() => {
+    const html = document.documentElement;
+    const prevOverflow = html.style.overflow;
+    const prevOverscroll = html.style.overscrollBehavior;
+    html.style.overflow = "hidden";
+    html.style.overscrollBehavior = "none";
+    document.body.style.overflow = "hidden";
+    return () => {
+      html.style.overflow = prevOverflow;
+      html.style.overscrollBehavior = prevOverscroll;
+      document.body.style.overflow = "";
+    };
+  }, []);
+
   return (
     <div className="fixed inset-0 z-[70] lg:hidden">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-ink/30 backdrop-blur-sm" onClick={onClose} />
