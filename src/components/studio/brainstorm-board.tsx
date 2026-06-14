@@ -202,14 +202,14 @@ export function BrainstormBoard({
   const showEmpty = messages.length === 0 && !streaming;
 
   return (
-    <div className="grid h-[calc(100dvh-4rem)] grid-cols-1 overflow-x-hidden lg:grid-cols-[230px_1fr_340px]">
+    <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-x-hidden lg:grid lg:grid-cols-[230px_1fr_340px]">
       {/* ——— Sessions rail (desktop) ——— */}
       <aside className="hidden border-r border-line bg-paper-sunken/30 lg:block">
         <SessionsRail sessions={sessions} activeId={session.id} />
       </aside>
 
       {/* ——— Chat ——— */}
-      <section className="flex min-h-0 min-w-0 flex-col">
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex items-center gap-2 border-b border-line px-3 py-2.5 sm:px-4">
           <button
             onClick={() => setRailOpen(true)}
