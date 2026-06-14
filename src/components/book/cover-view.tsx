@@ -12,6 +12,7 @@ import {
   Package,
   BookOpen,
   Check,
+  Sparkles,
 } from "lucide-react";
 import { Card, Badge, EmptyState, Spinner } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
@@ -67,9 +68,14 @@ export function CoverView({
       </h1>
       <p className="mt-2 max-w-xl text-ink-soft">
         Upload the covers you designed for <span className="font-medium text-ink">{title}</span>,
-        see the whole book come together, then download everything you need to publish on Amazon KDP —
-        no design tools or AI required.
+        see the whole book come together, then download everything you need to publish on Amazon KDP.
       </p>
+      <a
+        href="/studio/covers"
+        className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-muse-soft px-3 py-1.5 text-sm font-medium text-muse-deep transition-colors hover:bg-muse/15"
+      >
+        <Sparkles className="h-3.5 w-3.5" /> Design a cover in Cover Studio
+      </a>
 
       {/* Upload + gallery slots */}
       <div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">

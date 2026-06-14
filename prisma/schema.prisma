@@ -20,6 +20,8 @@ model Author {
   projects  Project[]
   settings  Settings?
   brainstorms BrainstormSession[]
+  coverTemplates CoverTemplate[]
+  coverDesigns   CoverDesign[]
 }
 
 model Project {
@@ -281,6 +283,45 @@ model IdeaCard {
   updatedAt DateTime @updatedAt
 
   @@index([sessionId, order])
+}
+
+/** A reusable, text-free cover/wrap image the author uploads to design from. */
+model CoverTemplate {
+  id       String @id @default(cuid())
+  authorId String
+  author   Author @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  name        String @default("Template")
+  r2Key       String
+  contentType String @default("image/png")
+  width       Int    @default(0)
+  height      Int    @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([authorId])
+}
+
+/** A saved cover design: a base image + stylized text layers, exportable and
+ *  assignable to a book. The original template is never modified. */
+model CoverDesign {
+  id       String @id @default(cuid())
+  authorId String
+  author   Author @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  name        String  @default("Untitled cover")
+  templateId  String? // origin template (kept intact)
+  baseR2Key   String  // the design's own copy of the base image
+  contentType String  @default("image/png")
+  width       Int     @default(0)
+  height      Int     @default(0)
+  layersJson  String  @default("[]") // text layers
+  exportR2Key String? // last rendered full-res composite
+  thumbR2Key  String? // small preview
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([authorId, updatedAt])
 }
 
 model Settings {

@@ -9,6 +9,7 @@ import {
   Lightbulb,
   Plus,
   Palette,
+  Image as ImageIcon,
   Settings,
   Trash2,
   Download,
@@ -28,6 +29,7 @@ import { logout } from "@/lib/actions/auth";
 const NAV = [
   { href: "/studio", label: "Library", icon: BookMarked },
   { href: "/studio/brainstorm", label: "Brainstorm", icon: Lightbulb },
+  { href: "/studio/covers", label: "Cover Studio", icon: ImageIcon },
   { href: "/studio/new", label: "New book", icon: Plus },
   { href: "/studio/style", label: "Style guide", icon: Palette },
   { href: "/studio/settings", label: "Settings", icon: Settings },
