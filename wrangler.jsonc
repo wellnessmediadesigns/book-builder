@@ -24,7 +24,7 @@
   "r2_buckets": [
     {
       "binding": "COVERS",
-      "bucket_name": "quire-covers"
+      "bucket_name": "book-builder-covers"
     }
   ],
   // Set the login password as a secret instead of a var:
