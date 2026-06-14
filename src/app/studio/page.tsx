@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, Sparkles, BookMarked, Lightbulb } from "lucide-react";
+import { Plus, Sparkles, BookMarked, Lightbulb, Mail, ArrowRight } from "lucide-react";
 import { prisma, getAuthor } from "@/lib/db";
 import { TopNav } from "@/components/studio/top-nav";
 import { ProjectCard } from "@/components/studio/project-card";
@@ -54,6 +54,21 @@ export default async function DashboardPage() {
                 <Sparkles className="h-4 w-4 text-muse" />
                 {formatNumber(totalWords)} words written
               </span>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Link
+                href="/studio/newsletters"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-brass-soft px-3 py-1.5 text-sm font-medium text-brass-deep transition-colors hover:bg-brass/15"
+              >
+                <Mail className="h-3.5 w-3.5" /> Newsletters
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+              <Link
+                href="/studio/brainstorm/new?mode=newsletter"
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-ink-soft transition-colors hover:bg-paper-sunken hover:text-ink"
+              >
+                <Lightbulb className="h-3.5 w-3.5 text-muse" /> Brainstorm a newsletter
+              </Link>
             </div>
           </div>
           <div className="flex items-center gap-2">
