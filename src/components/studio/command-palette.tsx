@@ -174,7 +174,7 @@ export function CommandPalette() {
     const brainstorms: Item[] = sessions.map((s) => ({
       id: `bs-${s.id}`,
       label: s.title,
-      hint: s.status === "built" ? "Built" : `${s.ideaCount} ideas`,
+      hint: s.status === "built" ? "Built" : `${s.directionCount} points`,
       icon: <Lightbulb className="h-4 w-4" />,
       group: "Brainstorms",
       run: () => go(`/studio/brainstorm/${s.id}`),

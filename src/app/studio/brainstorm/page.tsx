@@ -72,7 +72,7 @@ export default async function BrainstormHomePage() {
                       <BookOpen className="h-3 w-3" /> Built
                     </Badge>
                   ) : (
-                    <Badge tone="neutral">{s.ideaCount} ideas</Badge>
+                    <Badge tone="neutral">{s.directionCount} points</Badge>
                   )}
                 </div>
                 <h3 className="mt-3 line-clamp-2 font-display text-base font-semibold text-ink">

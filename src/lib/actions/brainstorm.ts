@@ -5,28 +5,19 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { completeWithFallback, aiChainReady } from "@/lib/ai/context";
 import { AiError } from "@/lib/ai/providers";
-import { ideaDistillMessages, brainstormSetupMessages } from "@/lib/ai/prompts";
+import { directionMessages, brainstormSetupMessages } from "@/lib/ai/prompts";
 import { generateBlueprint } from "@/lib/actions/ai";
 import type { ProjectInput } from "@/lib/actions/projects";
+import { parseDirection, bulletId, type Direction } from "@/lib/brainstorm";
 
 const ACCENTS = ["brass", "muse", "sage"];
-
-export type IdeaCardData = {
-  id: string;
-  title: string;
-  note: string;
-  kind: string;
-  tags: string[];
-  starred: boolean;
-  order: number;
-};
 
 export type SessionBrief = {
   id: string;
   title: string;
   status: string;
   builtProjectId: string | null;
-  ideaCount: number;
+  directionCount: number;
   snippet: string;
   updatedAt: string;
 };
@@ -43,9 +34,7 @@ function parseJson(raw: string): Record<string, unknown> {
 
 export async function createSession(): Promise<void> {
   const author = await getAuthor();
-  const session = await prisma.brainstormSession.create({
-    data: { authorId: author.id },
-  });
+  const session = await prisma.brainstormSession.create({ data: { authorId: author.id } });
   revalidatePath("/studio/brainstorm");
   redirect(`/studio/brainstorm/${session.id}`);
 }
@@ -55,17 +44,14 @@ export async function listSessions(): Promise<SessionBrief[]> {
   const rows = await prisma.brainstormSession.findMany({
     where: { authorId: author.id },
     orderBy: { updatedAt: "desc" },
-    include: {
-      _count: { select: { ideas: true } },
-      messages: { orderBy: { createdAt: "desc" }, take: 1 },
-    },
+    include: { messages: { orderBy: { createdAt: "desc" }, take: 1 } },
   });
   return rows.map((s) => ({
     id: s.id,
     title: s.title,
     status: s.status,
     builtProjectId: s.builtProjectId,
-    ideaCount: s._count.ideas,
+    directionCount: parseDirection(s.directionJson).bullets.length,
     snippet: s.messages[0]?.content.slice(0, 120) ?? "",
     updatedAt: s.updatedAt.toISOString(),
   }));
@@ -84,161 +70,89 @@ export async function deleteSession(id: string): Promise<void> {
   revalidatePath("/studio/brainstorm");
 }
 
-// ————————————————————————————————————————————— Ideas
+// ————————————————————————————————————————————— Direction
 
-function toIdeaData(c: {
-  id: string;
-  title: string;
-  note: string;
-  kind: string;
-  tagsJson: string | null;
-  starred: boolean;
-  order: number;
-}): IdeaCardData {
-  let tags: string[] = [];
-  if (c.tagsJson) {
-    try {
-      const parsed = JSON.parse(c.tagsJson);
-      if (Array.isArray(parsed)) tags = parsed.map(String).slice(0, 6);
-    } catch {
-      /* ignore */
-    }
-  }
-  return { id: c.id, title: c.title, note: c.note, kind: c.kind, tags, starred: c.starred, order: c.order };
-}
-
-async function nextOrder(sessionId: string): Promise<number> {
-  const max = await prisma.ideaCard.aggregate({ where: { sessionId }, _max: { order: true } });
-  return (max._max.order ?? -1) + 1;
-}
-
-async function touch(sessionId: string) {
-  await prisma.brainstormSession.update({ where: { id: sessionId }, data: { updatedAt: new Date() } });
-}
-
-/** Distills a chunk of conversation text into a saved idea card via the AI. */
-export async function saveIdeaFromText(
+/** Re-derives the agreed direction from the conversation (AI), persists, returns it. */
+export async function refreshDirection(
   sessionId: string,
-  text: string,
-): Promise<{ ok: true; idea: IdeaCardData } | { ok: false; error: string }> {
-  if (!text.trim()) return { ok: false, error: "Nothing to save." };
+): Promise<{ ok: true; direction: Direction } | { ok: false; error: string }> {
+  const author = await getAuthor();
+  const session = await prisma.brainstormSession.findUnique({
+    where: { id: sessionId },
+    include: { messages: { orderBy: { createdAt: "asc" } } },
+  });
+  if (!session || session.authorId !== author.id) return { ok: false, error: "Session not found." };
+  if (session.messages.length === 0) return { ok: true, direction: parseDirection(session.directionJson) };
   if (!(await aiChainReady())) return { ok: false, error: "no_key" };
 
-  let data: { title?: string; note?: string; kind?: string; tags?: unknown };
+  const existing = parseDirection(session.directionJson);
+  const transcript = session.messages
+    .map((m) => `${m.role === "user" ? "Author" : "Muse"}: ${m.content}`)
+    .join("\n");
+
   try {
-    const { text: out } = await completeWithFallback(ideaDistillMessages(text));
-    data = parseJson(out);
+    const { text } = await completeWithFallback(
+      directionMessages({ title: existing.title, bullets: existing.bullets.map((b) => b.text) }, transcript),
+    );
+    const raw = parseJson(text) as { title?: string; bullets?: unknown };
+    const bullets = Array.isArray(raw.bullets)
+      ? raw.bullets.map((b) => ({ id: bulletId(), text: String(b).slice(0, 240) })).filter((b) => b.text.trim()).slice(0, 12)
+      : existing.bullets;
+    const direction: Direction = { title: String(raw.title ?? existing.title).slice(0, 140), bullets };
+    await prisma.brainstormSession.update({
+      where: { id: sessionId },
+      data: { directionJson: JSON.stringify(direction) },
+    });
+    revalidatePath(`/studio/brainstorm/${sessionId}`);
+    return { ok: true, direction };
   } catch (e) {
-    const err = e instanceof AiError ? e.message : "Couldn't save that idea. Try again.";
-    return { ok: false, error: err === "no_key" ? "no_key" : err };
+    const err = e instanceof AiError ? e.message : "Couldn't update the direction.";
+    // Keep the previous direction on failure.
+    return err === "no_key" ? { ok: false, error: "no_key" } : { ok: false, error: err };
   }
-
-  const tags = Array.isArray(data.tags) ? data.tags.map(String).slice(0, 6) : [];
-  const card = await prisma.ideaCard.create({
-    data: {
-      sessionId,
-      title: String(data.title || "Untitled idea").slice(0, 120),
-      note: String(data.note || "").slice(0, 600),
-      kind: String(data.kind || "concept"),
-      tagsJson: JSON.stringify(tags),
-      order: await nextOrder(sessionId),
-    },
-  });
-  await touch(sessionId);
-  revalidatePath(`/studio/brainstorm/${sessionId}`);
-  return { ok: true, idea: toIdeaData(card) };
 }
 
-export async function addIdea(
-  sessionId: string,
-  input: { title: string; note?: string; kind?: string },
-): Promise<IdeaCardData> {
-  const card = await prisma.ideaCard.create({
-    data: {
-      sessionId,
-      title: input.title.trim().slice(0, 120) || "Untitled idea",
-      note: (input.note ?? "").slice(0, 600),
-      kind: input.kind ?? "concept",
-      tagsJson: "[]",
-      order: await nextOrder(sessionId),
-    },
-  });
-  await touch(sessionId);
-  revalidatePath(`/studio/brainstorm/${sessionId}`);
-  return toIdeaData(card);
-}
-
-export async function updateIdea(
-  id: string,
-  data: { title?: string; note?: string; kind?: string },
-): Promise<void> {
-  const card = await prisma.ideaCard.update({ where: { id }, data });
-  revalidatePath(`/studio/brainstorm/${card.sessionId}`);
-}
-
-export async function toggleStar(id: string): Promise<void> {
-  const card = await prisma.ideaCard.findUnique({ where: { id } });
-  if (!card) return;
-  await prisma.ideaCard.update({ where: { id }, data: { starred: !card.starred } });
-  revalidatePath(`/studio/brainstorm/${card.sessionId}`);
-}
-
-export async function deleteIdea(id: string): Promise<{ ok: boolean }> {
-  const card = await prisma.ideaCard.delete({ where: { id } });
-  revalidatePath(`/studio/brainstorm/${card.sessionId}`);
-  return { ok: true };
-}
-
-/** Re-creates a deleted idea (for the Undo toast). */
-export async function restoreIdea(sessionId: string, data: IdeaCardData): Promise<IdeaCardData> {
-  const card = await prisma.ideaCard.create({
-    data: {
-      sessionId,
-      title: data.title,
-      note: data.note,
-      kind: data.kind,
-      tagsJson: JSON.stringify(data.tags ?? []),
-      starred: data.starred,
-      order: data.order,
-    },
-  });
-  revalidatePath(`/studio/brainstorm/${sessionId}`);
-  return toIdeaData(card);
-}
-
-export async function reorderIdeas(sessionId: string, ids: string[]): Promise<void> {
-  await Promise.all(
-    ids.map((id, i) => prisma.ideaCard.update({ where: { id }, data: { order: i } })),
-  );
+/** Persists the author's manual edits to the direction. */
+export async function setDirection(sessionId: string, direction: Direction): Promise<void> {
+  const author = await getAuthor();
+  const session = await prisma.brainstormSession.findUnique({ where: { id: sessionId }, select: { authorId: true } });
+  if (!session || session.authorId !== author.id) return;
+  const clean: Direction = {
+    title: (direction.title ?? "").slice(0, 140),
+    bullets: (direction.bullets ?? [])
+      .map((b) => ({ id: String(b.id || bulletId()), text: String(b.text ?? "").slice(0, 240) }))
+      .filter((b) => b.text.trim())
+      .slice(0, 20),
+  };
+  await prisma.brainstormSession.update({ where: { id: sessionId }, data: { directionJson: JSON.stringify(clean) } });
   revalidatePath(`/studio/brainstorm/${sessionId}`);
 }
 
 // ————————————————————————————————————————————— Build this book
 
-/** Turns the session's saved ideas + transcript into a real project, generates
- *  its blueprint, and redirects into the normal book flow. */
+/** Turns the session's agreed direction (+ transcript) into a real project,
+ *  generates its blueprint, and redirects into the normal book flow. */
 export async function buildBookFromBrainstorm(
   sessionId: string,
 ): Promise<{ ok: false; error: string } | void> {
   const author = await getAuthor();
   const session = await prisma.brainstormSession.findUnique({
     where: { id: sessionId },
-    include: {
-      ideas: { orderBy: [{ starred: "desc" }, { order: "asc" }] },
-      messages: { orderBy: { createdAt: "asc" } },
-    },
+    include: { messages: { orderBy: { createdAt: "asc" } } },
   });
-  if (!session) return { ok: false, error: "Session not found." };
+  if (!session || session.authorId !== author.id) return { ok: false, error: "Session not found." };
   if (!(await aiChainReady())) return { ok: false, error: "no_key" };
 
+  const direction = parseDirection(session.directionJson);
   const transcript = session.messages
     .map((m) => `${m.role === "user" ? "Author" : "Muse"}: ${m.content}`)
     .join("\n");
-  const ideas = session.ideas.map((i) => ({ title: i.title, note: i.note, starred: i.starred }));
 
   let raw: Record<string, unknown>;
   try {
-    const { text } = await completeWithFallback(brainstormSetupMessages(ideas, transcript));
+    const { text } = await completeWithFallback(
+      brainstormSetupMessages({ title: direction.title, bullets: direction.bullets.map((b) => b.text) }, transcript),
+    );
     raw = parseJson(text);
   } catch (e) {
     const err = e instanceof AiError ? e.message : "Couldn't build the book. Try again.";
@@ -253,7 +167,7 @@ export async function buildBookFromBrainstorm(
   const minWords = num("minWords", 1200);
   const maxWords = Math.max(minWords, num("maxWords", 2500));
   const input: ProjectInput = {
-    title: str("title", session.ideas[0]?.title || "Untitled Book"),
+    title: str("title", direction.title || "Untitled Book"),
     idea: str("idea"),
     theme: str("theme"),
     genre: str("genre"),
@@ -288,7 +202,6 @@ export async function buildBookFromBrainstorm(
     },
   });
 
-  // Best-effort blueprint so the author lands on a populated page.
   await generateBlueprint(project.id).catch(() => {});
 
   await prisma.brainstormSession.update({

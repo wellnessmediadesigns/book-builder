@@ -244,6 +244,7 @@ model BrainstormSession {
   title          String  @default("New brainstorm")
   status         String  @default("active") // active | built
   builtProjectId String? // the project this session produced, once built
+  directionJson  String  @default("") // agreed direction: { title, bullets[] }
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

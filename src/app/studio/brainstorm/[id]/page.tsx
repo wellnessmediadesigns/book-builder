@@ -3,6 +3,7 @@ import { prisma, getAuthor } from "@/lib/db";
 import { TopNav } from "@/components/studio/top-nav";
 import { BrainstormBoard } from "@/components/studio/brainstorm-board";
 import { listSessions } from "@/lib/actions/brainstorm";
+import { parseDirection } from "@/lib/brainstorm";
 import { aiStatus } from "@/lib/actions/ai";
 
 export const dynamic = "force-dynamic";
@@ -16,10 +17,7 @@ export default async function BrainstormSessionPage({
   const author = await getAuthor();
   const session = await prisma.brainstormSession.findUnique({
     where: { id },
-    include: {
-      messages: { orderBy: { createdAt: "asc" } },
-      ideas: { orderBy: [{ starred: "desc" }, { order: "asc" }] },
-    },
+    include: { messages: { orderBy: { createdAt: "asc" } } },
   });
   if (!session || session.authorId !== author.id) notFound();
 
@@ -42,15 +40,7 @@ export default async function BrainstormSessionPage({
           role: m.role as "user" | "assistant",
           content: m.content,
         }))}
-        initialIdeas={session.ideas.map((c) => ({
-          id: c.id,
-          title: c.title,
-          note: c.note,
-          kind: c.kind,
-          tags: c.tagsJson ? (JSON.parse(c.tagsJson) as string[]) : [],
-          starred: c.starred,
-          order: c.order,
-        }))}
+        initialDirection={parseDirection(session.directionJson)}
       />
     </>
   );

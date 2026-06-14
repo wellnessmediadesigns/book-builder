@@ -7,9 +7,8 @@ import {
   Sparkles,
   Send,
   Plus,
-  Star,
   Trash2,
-  Lightbulb,
+  Target,
   PanelLeft,
   X,
   Hammer,
@@ -18,6 +17,7 @@ import {
   BookOpen,
   ArrowRight,
   Settings,
+  Lightbulb,
 } from "lucide-react";
 import Link from "next/link";
 import { QuireMark } from "@/components/brand/logo";
@@ -28,17 +28,12 @@ import { celebrate } from "@/lib/confetti";
 import { cn, relativeTime } from "@/lib/utils";
 import {
   createSession,
-  saveIdeaFromText,
-  addIdea,
-  updateIdea,
-  toggleStar,
-  deleteIdea,
-  restoreIdea,
-  reorderIdeas,
+  refreshDirection,
+  setDirection as saveDirection,
   buildBookFromBrainstorm,
-  type IdeaCardData,
   type SessionBrief,
 } from "@/lib/actions/brainstorm";
+import type { Direction, Bullet } from "@/lib/brainstorm";
 
 type Msg = { id: string; role: "user" | "assistant"; content: string };
 
@@ -51,47 +46,82 @@ const STARTERS = [
 
 const FOLLOWUPS = ["Give me 3 title options", "Who exactly is this for?", "What's the hook?", "Make it bolder"];
 
-const KIND_TONE: Record<string, "brass" | "muse" | "sage" | "neutral" | "clay"> = {
-  concept: "muse",
-  theme: "brass",
-  title: "sage",
-  audience: "neutral",
-  hook: "clay",
-  angle: "neutral",
-};
+let tmpSeq = 0;
+function tmpId() {
+  tmpSeq += 1;
+  return `t${Date.now().toString(36)}${tmpSeq}`;
+}
+
+/** Lightweight inline markdown for chat bubbles: **bold**, *italic*, `code`. */
+function renderMarkdown(text: string): React.ReactNode[] {
+  const nodes: React.ReactNode[] = [];
+  const re = /\*\*([^*]+)\*\*|\*([^*\n]+)\*|`([^`]+)`/g;
+  let last = 0;
+  let k = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    if (m.index > last) nodes.push(text.slice(last, m.index));
+    if (m[1] !== undefined) nodes.push(<strong key={k++} className="font-semibold">{m[1]}</strong>);
+    else if (m[2] !== undefined) nodes.push(<em key={k++}>{m[2]}</em>);
+    else if (m[3] !== undefined) nodes.push(<code key={k++} className="rounded bg-paper-sunken px-1 py-0.5 font-mono text-[0.85em]">{m[3]}</code>);
+    last = re.lastIndex;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes;
+}
 
 export function BrainstormBoard({
   session,
   sessions,
   initialMessages,
-  initialIdeas,
+  initialDirection,
   aiReady,
 }: {
   session: { id: string; title: string; status: string; builtProjectId: string | null };
   sessions: SessionBrief[];
   initialMessages: Msg[];
-  initialIdeas: IdeaCardData[];
+  initialDirection: Direction;
   aiReady: boolean;
 }) {
-  const router = useRouter();
   const [messages, setMessages] = useState<Msg[]>(initialMessages);
-  const [ideas, setIdeas] = useState<IdeaCardData[]>(initialIdeas);
+  const [direction, setDirectionLocal] = useState<Direction>(initialDirection);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [partial, setPartial] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   const [building, setBuilding] = useState(false);
   const [, startNav] = useTransition();
 
   const [railOpen, setRailOpen] = useState(false); // mobile sessions drawer
-  const [sheetOpen, setSheetOpen] = useState(false); // mobile ideas sheet
+  const [sheetOpen, setSheetOpen] = useState(false); // mobile direction sheet
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const built = session.status === "built";
+  const hasDirection = Boolean(direction.title.trim() || direction.bullets.length);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, partial]);
 
+  // ——— direction persistence ———
+  function commitDirection(next: Direction) {
+    setDirectionLocal(next);
+    saveDirection(session.id, next).catch(() => {});
+  }
+
+  async function updateDirectionFromAI() {
+    setRefreshing(true);
+    try {
+      const r = await refreshDirection(session.id);
+      if (r.ok) setDirectionLocal(r.direction);
+    } catch {
+      /* keep previous */
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  // ——— chat ———
   async function send(text: string) {
     const message = text.trim();
     if (!message || streaming) return;
@@ -100,7 +130,7 @@ export function BrainstormBoard({
       return;
     }
     setInput("");
-    setMessages((m) => [...m, { id: crypto.randomUUID(), role: "user", content: message }]);
+    setMessages((m) => [...m, { id: tmpId(), role: "user", content: message }]);
     setStreaming(true);
     setPartial("");
 
@@ -140,7 +170,9 @@ export function BrainstormBoard({
       cancelAnimationFrame(raf);
       const finalText = acc.trim();
       if (finalText) {
-        setMessages((m) => [...m, { id: crypto.randomUUID(), role: "assistant", content: finalText }]);
+        setMessages((m) => [...m, { id: tmpId(), role: "assistant", content: finalText }]);
+        // Re-derive the agreed direction in the background.
+        updateDirectionFromAI();
       }
     } catch {
       toast.error("Brainstorm failed", "Check your connection and try again.");
@@ -150,49 +182,16 @@ export function BrainstormBoard({
     }
   }
 
-  async function saveIdea(text: string) {
-    const res = await saveIdeaFromText(session.id, text);
-    if (!res.ok) {
-      toast.error(res.error === "no_key" ? "Add your AI key first" : "Couldn't save idea", res.error === "no_key" ? "Open Settings to connect a provider." : res.error);
+  // ——— build ———
+  function build() {
+    if (!hasDirection || building) {
+      if (!hasDirection) toast.info("Keep chatting", "Agree on a few details with Muse first, then build.");
       return;
     }
-    setIdeas((i) => [...i, res.idea]);
-    celebrate("goal");
-    toast.success("Idea saved to the board");
-    setSheetOpen(true);
-  }
-
-  async function addManual() {
-    const title = window.prompt("Name this idea");
-    if (!title?.trim()) return;
-    const card = await addIdea(session.id, { title: title.trim() });
-    setIdeas((i) => [...i, card]);
-  }
-
-  function removeIdea(card: IdeaCardData) {
-    setIdeas((i) => i.filter((c) => c.id !== card.id));
-    deleteIdea(card.id).catch(() => {});
-    toast.action("Idea removed", {
-      label: "Undo",
-      onClick: async () => {
-        const restored = await restoreIdea(session.id, card);
-        setIdeas((i) => [...i, restored].sort((a, b) => a.order - b.order));
-      },
-    });
-  }
-
-  function star(card: IdeaCardData) {
-    setIdeas((i) => i.map((c) => (c.id === card.id ? { ...c, starred: !c.starred } : c)));
-    toggleStar(card.id).catch(() => {});
-  }
-
-  function build() {
-    if (ideas.length === 0 || building) return;
     setBuilding(true);
     celebrate("book");
     startNav(async () => {
       const res = await buildBookFromBrainstorm(session.id);
-      // On success the action redirects; only a failure returns here.
       if (res && !res.ok) {
         toast.error(res.error === "no_key" ? "Add your AI key first" : "Couldn't build the book", res.error === "no_key" ? "Open Settings to connect a provider." : res.error);
         setBuilding(false);
@@ -211,7 +210,6 @@ export function BrainstormBoard({
 
       {/* ——— Chat ——— */}
       <section className="flex min-h-0 flex-col">
-        {/* board header */}
         <header className="flex items-center gap-2 border-b border-line px-3 py-2.5 sm:px-4">
           <button
             onClick={() => setRailOpen(true)}
@@ -221,23 +219,28 @@ export function BrainstormBoard({
             <PanelLeft className="h-4 w-4" />
           </button>
           <Sparkles className="hidden h-4 w-4 text-muse sm:block" />
-          <span className="min-w-0 flex-1 truncate font-display text-sm font-semibold text-ink">
-            {session.title}
-          </span>
-          {built && session.builtProjectId && (
+          <span className="min-w-0 flex-1 truncate font-display text-sm font-semibold text-ink">{session.title}</span>
+
+          {built && session.builtProjectId ? (
             <Link href={`/studio/book/${session.builtProjectId}/blueprint`}>
               <Badge tone="sage">
                 <BookOpen className="h-3 w-3" /> Built
               </Badge>
             </Link>
+          ) : (
+            <Button variant="brass" size="sm" onClick={build} disabled={building || !hasDirection} className="shrink-0">
+              {building ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Hammer className="h-3.5 w-3.5" />}
+              <span className="hidden sm:inline">Build this book</span>
+              <span className="sm:hidden">Build</span>
+            </Button>
           )}
           <button
             onClick={() => setSheetOpen(true)}
             className="flex h-9 items-center gap-1.5 rounded-lg border border-line bg-paper-raised px-2.5 text-sm font-medium text-ink-soft transition-colors hover:bg-paper-sunken hover:text-ink lg:hidden"
-            aria-label="Open ideas"
+            aria-label="Open direction"
           >
-            <Lightbulb className="h-4 w-4 text-brass" /> Ideas
-            <span className="rounded-full bg-brass-soft px-1.5 text-xs font-semibold text-brass-deep">{ideas.length}</span>
+            <Target className="h-4 w-4 text-brass" /> Direction
+            <span className="rounded-full bg-brass-soft px-1.5 text-xs font-semibold text-brass-deep">{direction.bullets.length}</span>
           </button>
         </header>
 
@@ -245,9 +248,7 @@ export function BrainstormBoard({
           <div className="flex items-center gap-2 border-b border-line bg-brass-soft/60 px-4 py-2 text-xs text-brass-deep">
             <Settings className="h-3.5 w-3.5" />
             Connect an AI provider in{" "}
-            <Link href="/studio/settings" className="font-medium underline">
-              Settings
-            </Link>{" "}
+            <Link href="/studio/settings" className="font-medium underline">Settings</Link>{" "}
             to brainstorm.
           </div>
         )}
@@ -262,7 +263,8 @@ export function BrainstormBoard({
                   </div>
                   <h2 className="font-display text-xl font-semibold text-ink">Let&apos;s find your next book</h2>
                   <p className="mt-1.5 max-w-sm text-sm text-ink-soft">
-                    Bounce ideas around with Muse. Save the ones that spark, then build your book.
+                    Chat with Muse. As you agree on the concept, title, and key points, they collect in your
+                    Direction — then build the book in one tap.
                   </p>
                 </div>
                 <div className="flex flex-col gap-2">
@@ -283,14 +285,9 @@ export function BrainstormBoard({
             ) : (
               <>
                 {messages.map((m) => (
-                  <Bubble key={m.id} msg={m} onSave={() => saveIdea(m.content)} canSave={aiReady} />
+                  <Bubble key={m.id} msg={m} />
                 ))}
-                {streaming && (
-                  <Bubble
-                    msg={{ id: "streaming", role: "assistant", content: partial }}
-                    streaming
-                  />
-                )}
+                {streaming && <Bubble msg={{ id: "streaming", role: "assistant", content: partial }} streaming />}
                 {!streaming && messages.length > 0 && messages[messages.length - 1].role === "assistant" && (
                   <div className="flex flex-wrap gap-2 pl-11">
                     {FOLLOWUPS.map((f) => (
@@ -332,34 +329,19 @@ export function BrainstormBoard({
               disabled={!aiReady || streaming}
               className="max-h-40 min-h-[48px] w-full resize-none rounded-xl border border-line bg-paper-raised px-3.5 py-3 text-sm text-ink placeholder:text-ink-soft/70 shadow-sm outline-none transition-all focus:border-muse/40 focus:ring-2 focus:ring-muse/20 disabled:opacity-60"
             />
-            <Button
-              type="submit"
-              variant="muse"
-              disabled={!input.trim() || streaming || !aiReady}
-              aria-label="Send"
-              className="h-12 w-12 shrink-0 rounded-xl p-0"
-            >
+            <Button type="submit" variant="muse" disabled={!input.trim() || streaming || !aiReady} aria-label="Send" className="h-12 w-12 shrink-0 rounded-xl p-0">
               {streaming ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
             </Button>
           </form>
         </div>
       </section>
 
-      {/* ——— Ideas rail (desktop) ——— */}
+      {/* ——— Direction rail (desktop) ——— */}
       <aside className="hidden border-l border-line bg-paper-sunken/20 lg:flex lg:flex-col">
-        <IdeasRail
-          ideas={ideas}
-          onStar={star}
-          onRemove={removeIdea}
-          onAdd={addManual}
-          onUpdate={(id, data) => {
-            setIdeas((i) => i.map((c) => (c.id === id ? { ...c, ...data } : c)));
-            updateIdea(id, data).catch(() => {});
-          }}
-          onReorder={(next) => {
-            setIdeas(next);
-            reorderIdeas(session.id, next.map((c) => c.id)).catch(() => {});
-          }}
+        <DirectionPanel
+          direction={direction}
+          refreshing={refreshing}
+          onCommit={commitDirection}
           onBuild={build}
           building={building}
           built={built}
@@ -375,23 +357,14 @@ export function BrainstormBoard({
         )}
       </AnimatePresence>
 
-      {/* ——— Mobile: ideas sheet ——— */}
+      {/* ——— Mobile: direction sheet ——— */}
       <AnimatePresence>
         {sheetOpen && (
           <Overlay onClose={() => setSheetOpen(false)} side="bottom">
-            <IdeasRail
-              ideas={ideas}
-              onStar={star}
-              onRemove={removeIdea}
-              onAdd={addManual}
-              onUpdate={(id, data) => {
-                setIdeas((i) => i.map((c) => (c.id === id ? { ...c, ...data } : c)));
-                updateIdea(id, data).catch(() => {});
-              }}
-              onReorder={(next) => {
-                setIdeas(next);
-                reorderIdeas(session.id, next.map((c) => c.id)).catch(() => {});
-              }}
+            <DirectionPanel
+              direction={direction}
+              refreshing={refreshing}
+              onCommit={commitDirection}
               onBuild={build}
               building={building}
               built={built}
@@ -413,7 +386,7 @@ export function BrainstormBoard({
               <Hammer className="h-8 w-8" />
             </div>
             <p className="mt-4 font-display text-lg font-semibold text-ink">Building your book…</p>
-            <p className="mt-1 text-sm text-ink-soft">Turning your ideas into a blueprint.</p>
+            <p className="mt-1 text-sm text-ink-soft">Turning your direction into a blueprint.</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -421,36 +394,7 @@ export function BrainstormBoard({
   );
 }
 
-/** Lightweight inline markdown for chat bubbles: **bold**, *italic*, `code`.
- *  Newlines are preserved by the bubble's whitespace-pre-wrap. */
-function renderMarkdown(text: string): React.ReactNode[] {
-  const nodes: React.ReactNode[] = [];
-  const re = /\*\*([^*]+)\*\*|\*([^*\n]+)\*|`([^`]+)`/g;
-  let last = 0;
-  let k = 0;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(text))) {
-    if (m.index > last) nodes.push(text.slice(last, m.index));
-    if (m[1] !== undefined) nodes.push(<strong key={k++} className="font-semibold">{m[1]}</strong>);
-    else if (m[2] !== undefined) nodes.push(<em key={k++}>{m[2]}</em>);
-    else if (m[3] !== undefined) nodes.push(<code key={k++} className="rounded bg-paper-sunken px-1 py-0.5 font-mono text-[0.85em]">{m[3]}</code>);
-    last = re.lastIndex;
-  }
-  if (last < text.length) nodes.push(text.slice(last));
-  return nodes;
-}
-
-function Bubble({
-  msg,
-  streaming,
-  onSave,
-  canSave,
-}: {
-  msg: Msg;
-  streaming?: boolean;
-  onSave?: () => void;
-  canSave?: boolean;
-}) {
+function Bubble({ msg, streaming }: { msg: Msg; streaming?: boolean }) {
   const isUser = msg.role === "user";
   return (
     <motion.div
@@ -459,35 +403,14 @@ function Bubble({
       transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
       className={cn("flex gap-2.5 sm:gap-3", isUser && "flex-row-reverse")}
     >
-      <div
-        className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl",
-          isUser ? "bg-brass/15 text-brass-deep" : "bg-muse-soft text-muse-deep",
-        )}
-      >
+      <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-xl", isUser ? "bg-brass/15 text-brass-deep" : "bg-muse-soft text-muse-deep")}>
         {isUser ? <span className="text-xs font-semibold">You</span> : <QuireMark className="h-4 w-4" />}
       </div>
       <div className={cn("min-w-0 max-w-[88%] sm:max-w-[85%]", isUser && "text-right")}>
-        <div
-          className={cn(
-            "inline-block whitespace-pre-wrap rounded-2xl px-4 py-3 text-left text-sm leading-relaxed",
-            isUser ? "bg-brass-soft text-ink" : "border border-line bg-paper-raised text-ink",
-          )}
-        >
+        <div className={cn("inline-block whitespace-pre-wrap rounded-2xl px-4 py-3 text-left text-sm leading-relaxed", isUser ? "bg-brass-soft text-ink" : "border border-line bg-paper-raised text-ink")}>
           {renderMarkdown(msg.content)}
           {streaming && <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse-soft bg-muse align-middle" />}
         </div>
-        {!isUser && !streaming && onSave && (
-          <div className="mt-1.5">
-            <button
-              onClick={onSave}
-              disabled={!canSave}
-              className="inline-flex items-center gap-1.5 rounded-full border border-muse/25 bg-muse-soft/70 px-3 py-1.5 text-xs font-medium text-muse-deep transition-all hover:bg-muse-soft active:scale-95 disabled:opacity-40"
-            >
-              <Sparkles className="h-3.5 w-3.5" /> Save as idea
-            </button>
-          </div>
-        )}
       </div>
     </motion.div>
   );
@@ -507,17 +430,11 @@ function SessionsRail({
   return (
     <div className="flex h-full flex-col">
       <div className="p-3">
-        <Button
-          variant="muse"
-          className="w-full"
-          onClick={() => start(() => createSession())}
-        >
+        <Button variant="muse" className="w-full" onClick={() => start(() => createSession())}>
           <Plus className="h-4 w-4" /> New brainstorm
         </Button>
       </div>
-      <p className="px-4 pb-1.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">
-        Sessions
-      </p>
+      <p className="px-4 pb-1.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">Sessions</p>
       <div className="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 pb-3">
         {sessions.length === 0 && <p className="px-2 py-3 text-xs text-muted">No sessions yet.</p>}
         {sessions.map((s) => {
@@ -529,20 +446,15 @@ function SessionsRail({
                 onNavigate?.();
                 router.push(`/studio/brainstorm/${s.id}`);
               }}
-              className={cn(
-                "group w-full rounded-xl px-3 py-2.5 text-left transition-colors",
-                active ? "bg-paper-raised shadow-soft" : "hover:bg-paper-raised/60",
-              )}
+              className={cn("group w-full rounded-xl px-3 py-2.5 text-left transition-colors", active ? "bg-paper-raised shadow-soft" : "hover:bg-paper-raised/60")}
             >
               <div className="flex items-center gap-1.5">
-                <span className={cn("truncate text-sm", active ? "font-medium text-ink" : "text-ink-soft")}>
-                  {s.title}
-                </span>
+                <span className={cn("truncate text-sm", active ? "font-medium text-ink" : "text-ink-soft")}>{s.title}</span>
                 {s.status === "built" && <BookOpen className="ml-auto h-3 w-3 shrink-0 text-sage" />}
               </div>
               <div className="mt-0.5 flex items-center gap-2 text-[0.6875rem] text-muted">
                 <span className="inline-flex items-center gap-0.5">
-                  <Lightbulb className="h-3 w-3" /> {s.ideaCount}
+                  <Target className="h-3 w-3" /> {s.directionCount}
                 </span>
                 <span>·</span>
                 <span>{relativeTime(s.updatedAt)}</span>
@@ -555,37 +467,62 @@ function SessionsRail({
   );
 }
 
-function IdeasRail({
-  ideas,
-  onStar,
-  onRemove,
-  onAdd,
-  onUpdate,
-  onReorder,
+function DirectionPanel({
+  direction,
+  refreshing,
+  onCommit,
   onBuild,
   building,
   built,
 }: {
-  ideas: IdeaCardData[];
-  onStar: (c: IdeaCardData) => void;
-  onRemove: (c: IdeaCardData) => void;
-  onAdd: () => void;
-  onUpdate: (id: string, data: { title?: string; note?: string }) => void;
-  onReorder: (next: IdeaCardData[]) => void;
+  direction: Direction;
+  refreshing: boolean;
+  onCommit: (d: Direction) => void;
   onBuild: () => void;
   building: boolean;
   built: boolean;
 }) {
+  // Local working copy so typing is smooth; persist on blur / structural change.
+  const [local, setLocal] = useState<Direction>(direction);
   const [dragId, setDragId] = useState<string | null>(null);
 
+  // Sync when the AI refreshes the direction (id list changes).
+  useEffect(() => {
+    setLocal(direction);
+  }, [direction]);
+
+  const hasContent = Boolean(local.title.trim() || local.bullets.length);
+
+  function setTitle(title: string) {
+    setLocal((d) => ({ ...d, title }));
+  }
+  function setBulletText(id: string, text: string) {
+    setLocal((d) => ({ ...d, bullets: d.bullets.map((b) => (b.id === id ? { ...b, text } : b)) }));
+  }
+  function commit(next?: Direction) {
+    onCommit(next ?? local);
+  }
+  function addBullet() {
+    const b: Bullet = { id: `u${Date.now().toString(36)}`, text: "" };
+    const next = { ...local, bullets: [...local.bullets, b] };
+    setLocal(next);
+    onCommit(next);
+  }
+  function removeBullet(id: string) {
+    const next = { ...local, bullets: local.bullets.filter((b) => b.id !== id) };
+    setLocal(next);
+    onCommit(next);
+  }
   function handleDrop(targetId: string) {
     if (!dragId || dragId === targetId) return;
-    const ids = ideas.map((c) => c.id);
+    const ids = local.bullets.map((b) => b.id);
     const from = ids.indexOf(dragId);
     const to = ids.indexOf(targetId);
-    const next = [...ideas];
-    next.splice(to, 0, next.splice(from, 1)[0]);
-    onReorder(next.map((c, i) => ({ ...c, order: i })));
+    const bullets = [...local.bullets];
+    bullets.splice(to, 0, bullets.splice(from, 1)[0]);
+    const next = { ...local, bullets };
+    setLocal(next);
+    onCommit(next);
     setDragId(null);
   }
 
@@ -593,107 +530,73 @@ function IdeasRail({
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-line px-4 py-3">
         <div className="flex items-center gap-2">
-          <Lightbulb className="h-4 w-4 text-brass" />
-          <span className="font-display text-sm font-semibold text-ink">Ideas</span>
-          <Badge tone="neutral">{ideas.length}</Badge>
+          <Target className="h-4 w-4 text-brass" />
+          <span className="font-display text-sm font-semibold text-ink">Direction</span>
+          {refreshing && <Loader2 className="h-3.5 w-3.5 animate-spin text-muse" />}
         </div>
-        <button
-          onClick={onAdd}
-          className="flex h-7 w-7 items-center justify-center rounded-lg text-muted transition-colors hover:bg-paper-sunken hover:text-ink"
-          aria-label="Add idea"
-        >
+        <button onClick={addBullet} className="flex h-7 w-7 items-center justify-center rounded-lg text-muted transition-colors hover:bg-paper-sunken hover:text-ink" aria-label="Add point">
           <Plus className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-3">
-        {ideas.length === 0 ? (
-          <div className="px-2 pt-8">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+        {/* working title */}
+        <div className="rounded-xl border border-line bg-paper-raised p-3">
+          <p className="mb-1 text-[0.625rem] font-semibold uppercase tracking-wide text-muted">Working title</p>
+          <input
+            value={local.title}
+            onChange={(e) => setTitle(e.target.value)}
+            onBlur={() => commit()}
+            placeholder="Untitled — agree on one with Muse"
+            className="w-full bg-transparent font-display text-base font-semibold text-ink outline-none placeholder:text-ink-soft/50 placeholder:font-normal placeholder:font-sans placeholder:text-sm"
+          />
+        </div>
+
+        <p className="px-1 text-[0.625rem] font-semibold uppercase tracking-wide text-muted">What we&apos;re agreeing on</p>
+
+        {local.bullets.length === 0 ? (
+          <div className="px-1 pt-2">
             <EmptyState
-              icon={<Lightbulb className="h-5 w-5" />}
-              title="No ideas saved yet"
-              description="Tap “Save as idea” on a reply, or add your own. They collect here."
+              icon={<Target className="h-5 w-5" />}
+              title="Nothing locked in yet"
+              description="As you and Muse agree on the concept, audience, and key points, they collect here. Add your own with ＋."
             />
           </div>
         ) : (
-          <AnimatePresence initial={false}>
-            {ideas.map((c) => (
-              <motion.div
-                key={c.id}
-                layout
-                initial={{ opacity: 0, scale: 0.9, y: -6 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+          <div className="space-y-1.5">
+            {local.bullets.map((b) => (
+              <div
+                key={b.id}
                 draggable
-                onDragStart={() => setDragId(c.id)}
+                onDragStart={() => setDragId(b.id)}
                 onDragOver={(e) => e.preventDefault()}
-                onDrop={() => handleDrop(c.id)}
-                className={cn(
-                  "group rounded-xl border bg-paper-raised p-3 shadow-soft transition-all",
-                  c.starred ? "border-brass/40 ring-1 ring-brass/20" : "border-line",
-                  dragId === c.id && "opacity-40",
-                )}
+                onDrop={() => handleDrop(b.id)}
+                className={cn("group flex items-start gap-1.5 rounded-xl border border-line bg-paper-raised p-2 transition-all", dragId === b.id && "opacity-40")}
               >
-                <div className="flex items-start gap-2">
-                  <GripVertical className="mt-0.5 h-3.5 w-3.5 shrink-0 cursor-grab text-muted opacity-0 group-hover:opacity-100" />
-                  <div className="min-w-0 flex-1">
-                    <input
-                      defaultValue={c.title}
-                      onBlur={(e) => e.target.value.trim() && e.target.value !== c.title && onUpdate(c.id, { title: e.target.value.trim() })}
-                      className="w-full bg-transparent text-sm font-medium text-ink outline-none"
-                    />
-                    {c.note && <p className="mt-0.5 text-xs leading-relaxed text-ink-soft">{c.note}</p>}
-                    <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                      <Badge tone={KIND_TONE[c.kind] ?? "neutral"} className="text-[0.625rem]">
-                        {c.kind}
-                      </Badge>
-                      {c.tags.map((t) => (
-                        <span key={t} className="rounded-full bg-paper-sunken px-1.5 py-0.5 text-[0.625rem] text-muted">
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 flex-col gap-0.5">
-                    <button
-                      onClick={() => onStar(c)}
-                      aria-label={c.starred ? "Unstar" : "Mark as primary"}
-                      className={cn(
-                        "flex h-6 w-6 items-center justify-center rounded-md transition-colors",
-                        c.starred ? "text-brass" : "text-muted hover:bg-paper-sunken hover:text-brass",
-                      )}
-                    >
-                      <Star className={cn("h-3.5 w-3.5", c.starred && "fill-brass")} />
-                    </button>
-                    <button
-                      onClick={() => onRemove(c)}
-                      aria-label="Remove idea"
-                      className="flex h-6 w-6 items-center justify-center rounded-md text-muted transition-colors hover:bg-clay/10 hover:text-clay"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
+                <GripVertical className="mt-1.5 h-3.5 w-3.5 shrink-0 cursor-grab text-muted opacity-0 group-hover:opacity-100" />
+                <textarea
+                  value={b.text}
+                  onChange={(e) => setBulletText(b.id, e.target.value)}
+                  onBlur={() => commit()}
+                  rows={1}
+                  className="min-h-[28px] w-full resize-none bg-transparent text-sm leading-snug text-ink outline-none"
+                  placeholder="A point…"
+                />
+                <button onClick={() => removeBullet(b.id)} aria-label="Remove point" className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-clay/10 hover:text-clay">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
             ))}
-          </AnimatePresence>
+          </div>
         )}
       </div>
 
       <div className="border-t border-line p-3">
-        <Button
-          variant="brass"
-          className="w-full"
-          disabled={ideas.length === 0 || building}
-          onClick={onBuild}
-        >
+        <Button variant="brass" className="w-full" disabled={!hasContent || building} onClick={onBuild}>
           {building ? <Loader2 className="h-4 w-4 animate-spin" /> : <Hammer className="h-4 w-4" />}
           {built ? "Build again" : "Build this book"}
         </Button>
-        {ideas.length === 0 && (
-          <p className="mt-2 text-center text-[0.6875rem] text-muted">Save at least one idea to build.</p>
-        )}
+        {!hasContent && <p className="mt-2 text-center text-[0.6875rem] text-muted">Agree on a few details, then build.</p>}
       </div>
     </div>
   );
@@ -710,29 +613,20 @@ function Overlay({
 }) {
   return (
     <div className="fixed inset-0 z-[70] lg:hidden">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-ink/30 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-ink/30 backdrop-blur-sm" onClick={onClose} />
       <motion.div
         initial={side === "left" ? { x: "-100%" } : { y: "100%" }}
         animate={side === "left" ? { x: 0 } : { y: 0 }}
         exit={side === "left" ? { x: "-100%" } : { y: "100%" }}
         transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-        className={cn(
-          "absolute border-line bg-paper shadow-float",
-          side === "left" ? "inset-y-0 left-0 w-[82%] max-w-xs border-r" : "inset-x-0 bottom-0 max-h-[80dvh] rounded-t-3xl border-t",
-        )}
+        className={cn("absolute border-line bg-paper shadow-float", side === "left" ? "inset-y-0 left-0 w-[82%] max-w-xs border-r" : "inset-x-0 bottom-0 flex max-h-[80dvh] flex-col rounded-t-3xl border-t")}
       >
         <div className="flex items-center justify-end p-2">
           <button onClick={onClose} aria-label="Close" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-paper-sunken hover:text-ink">
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className={cn(side === "bottom" && "max-h-[70dvh] overflow-hidden")}>{children}</div>
+        <div className={cn(side === "bottom" && "min-h-0 flex-1 overflow-hidden")}>{children}</div>
       </motion.div>
     </div>
   );

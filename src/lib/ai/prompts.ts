@@ -48,11 +48,12 @@ SAMPLE:
 // ————————————————————————————————————————————— Brainstorm
 
 const BRAINSTORM_SYSTEM = `You are Muse, the brainstorming partner inside Quire, a premium book-writing studio.
-You help an author discover what book to write. How you work:
+You help an author discover what book to write, then steadily converge on a single clear direction. How you work:
 - Be a generative, encouraging thought partner — warm, sharp, and concrete. Never take over; the author decides.
 - Offer real substance: specific book concepts, angles, hooks, audiences, titles, and "what makes this different".
 - Prefer a few strong, concrete options over vague musing. When useful, give a short numbered list.
-- End most replies with ONE focused question that moves the idea forward (audience? angle? the transformation?).
+- CONVERGE: as the author shows interest in an option, build on it and help lock in the concept, title, audience, key points, and tone. Reflect back what you both seem to be agreeing on.
+- End most replies with ONE focused question that moves the chosen direction forward (the audience? the angle? the title? the chapters?).
 - Keep replies tight and skimmable (a few short paragraphs or a short list). No filler, no "AI tells", no markdown headers.`;
 
 /** A turn in the brainstorming chat. `history` is prior messages oldest-first. */
@@ -66,36 +67,44 @@ export function brainstormMessages(
   return msgs;
 }
 
-/** Distills a chunk of conversation into one saveable idea card (strict JSON). */
-export function ideaDistillMessages(text: string): AiMessage[] {
+/** Re-derives the session's agreed "direction" (working title + bullets) from the
+ *  conversation, merging with the existing direction. Strict JSON. */
+export function directionMessages(
+  existing: { title: string; bullets: string[] },
+  transcript: string,
+): AiMessage[] {
   const schema = `{
-  "title": "a punchy 3-8 word name for this book idea",
-  "note": "1-2 sentences capturing the concept, angle, or hook",
-  "kind": "concept | theme | title | audience | hook | angle",
-  "tags": ["2-4 short tags, e.g. genre/audience/mood"]
+  "title": "the current working title, or '' if not chosen yet",
+  "bullets": ["5-10 short bullets of what the author has agreed on / shown clear interest in: the concept, audience, key points/chapters, hook, tone, angle"]
 }`;
+  const cur = existing.bullets.length || existing.title
+    ? `${existing.title ? `Title: ${existing.title}\n` : ""}${existing.bullets.map((b) => `- ${b}`).join("\n")}`
+    : "(empty so far)";
   return [
     {
       role: "system",
       content:
-        "You distill brainstorming into a single crisp book-idea card. Return ONLY minified JSON — no commentary, no fences.",
+        "You maintain a running 'book direction' from a brainstorming chat — only the details the author has agreed on or shown clear interest in, never every idea raised. Refine and de-dupe; keep bullets short and concrete. Return ONLY minified JSON — no commentary, no fences.",
     },
     {
       role: "user",
-      content: `From the text below, capture the most promising single book idea as JSON matching the schema.
+      content: `Update the book direction from the conversation. Keep only what the author actually liked or agreed to; drop options they passed on. Merge with the current direction below.
 
-SCHEMA:
-${schema}
+CURRENT DIRECTION:
+${cur}
 
-TEXT:
-"""${text.slice(0, 6000)}"""`,
+CONVERSATION (most recent is most important):
+"""${transcript.slice(-6000)}"""
+
+Respond with ONLY valid minified JSON matching this schema (no fences):
+${schema}`,
     },
   ];
 }
 
-/** Turns saved ideas + transcript into a full book setup (strict JSON → ProjectInput). */
+/** Turns the agreed direction + transcript into a full book setup (strict JSON → ProjectInput). */
 export function brainstormSetupMessages(
-  ideas: { title: string; note: string; starred: boolean }[],
+  direction: { title: string; bullets: string[] },
   transcript: string,
 ): AiMessage[] {
   const schema = `{
@@ -118,24 +127,24 @@ export function brainstormSetupMessages(
   "minWords": 1200,
   "maxWords": 2500
 }`;
-  const ideaLines = ideas
-    .map((i) => `- ${i.starred ? "★ " : ""}${i.title}${i.note ? `: ${i.note}` : ""}`)
-    .join("\n");
+  const dir = direction.bullets.length || direction.title
+    ? `${direction.title ? `Title: ${direction.title}\n` : ""}${direction.bullets.map((b) => `- ${b}`).join("\n")}`
+    : "(none — infer from the conversation)";
   return [
     {
       role: "system",
       content:
-        "You turn a brainstorm into a concrete book setup another author could start from. Choose the strongest direction (favor any ★ starred ideas). Return ONLY minified JSON — no commentary, no fences.",
+        "You turn an author's agreed brainstorm direction into a concrete book setup they can start from. Honor the agreed direction above all; use the conversation only for extra flavor. Return ONLY minified JSON — no commentary, no fences.",
     },
     {
       role: "user",
-      content: `Design a complete book setup from this brainstorm.
+      content: `Design a complete book setup from this agreed direction.
 
-SAVED IDEAS:
-${ideaLines || "(none — infer from the conversation)"}
+AGREED DIRECTION (the source of truth):
+${dir}
 
-CONVERSATION (for context):
-"""${transcript.slice(-5000)}"""
+CONVERSATION (extra context only):
+"""${transcript.slice(-4000)}"""
 
 Pick realistic numbers (chapterCount 6-24; sensible word ranges for the book type). Fill every field; use "" only where truly not applicable.
 Respond with ONLY valid minified JSON matching this schema (no fences):
