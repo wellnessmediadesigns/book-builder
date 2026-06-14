@@ -92,6 +92,7 @@ export function BrainstormBoard({
   const [partial, setPartial] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [building, setBuilding] = useState(false);
+  const [confirmBuild, setConfirmBuild] = useState(false);
   const [, startNav] = useTransition();
 
   const [railOpen, setRailOpen] = useState(false); // mobile sessions drawer
@@ -185,11 +186,17 @@ export function BrainstormBoard({
   }
 
   // ——— build ———
-  function build() {
-    if (!hasDirection || building) {
-      if (!hasDirection) toast.info("Keep chatting", "Agree on a few details with Muse first, then build.");
+  function requestBuild() {
+    if (building) return;
+    if (!hasDirection) {
+      toast.info("Keep chatting", "Agree on a few details with Muse first, then build.");
       return;
     }
+    setConfirmBuild(true);
+  }
+
+  function doBuild() {
+    setConfirmBuild(false);
     setBuilding(true);
     celebrate("book");
     startNav(async () => {
@@ -230,7 +237,7 @@ export function BrainstormBoard({
               </Badge>
             </Link>
           ) : (
-            <Button variant="brass" size="sm" onClick={build} disabled={building || !hasDirection} className="shrink-0">
+            <Button variant="brass" size="sm" onClick={requestBuild} disabled={building || !hasDirection} className="shrink-0">
               {building ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Hammer className="h-3.5 w-3.5" />}
               <span className="hidden sm:inline">{buildLabel}</span>
               <span className="sm:hidden">Build</span>
@@ -344,7 +351,7 @@ export function BrainstormBoard({
           direction={direction}
           refreshing={refreshing}
           onCommit={commitDirection}
-          onBuild={build}
+          onBuild={requestBuild}
           building={building}
           built={built}
           buildLabel={buildLabel}
@@ -368,12 +375,51 @@ export function BrainstormBoard({
               direction={direction}
               refreshing={refreshing}
               onCommit={commitDirection}
-              onBuild={build}
+              onBuild={requestBuild}
               building={building}
               built={built}
               buildLabel={buildLabel}
             />
           </Overlay>
+        )}
+      </AnimatePresence>
+
+      {/* confirm build */}
+      <AnimatePresence>
+        {confirmBuild && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[88] flex items-center justify-center p-4"
+          >
+            <div className="absolute inset-0 bg-ink/30 backdrop-blur-sm" onClick={() => setConfirmBuild(false)} />
+            <motion.div
+              initial={{ opacity: 0, y: 10, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.97 }}
+              className="relative w-full max-w-sm rounded-2xl border border-line bg-paper-raised p-5 shadow-float"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brass-soft text-brass-deep">
+                  <Hammer className="h-5 w-5" />
+                </div>
+                <h3 className="font-display text-lg font-semibold text-ink">
+                  {built ? `Build another ${newsletter ? "newsletter" : "book"}?` : `${buildLabel}?`}
+                </h3>
+              </div>
+              <p className="mt-3 text-sm text-ink-soft">
+                This creates a new {newsletter ? "newsletter" : "book"} from your current direction
+                {built ? " — the one you already built stays untouched." : ", and takes you to its blueprint."}
+              </p>
+              <div className="mt-5 flex justify-end gap-2">
+                <Button variant="soft" onClick={() => setConfirmBuild(false)}>Keep brainstorming</Button>
+                <Button variant="brass" onClick={doBuild}>
+                  <Hammer className="h-4 w-4" /> {built ? "Build another" : "Build it"}
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -580,12 +626,11 @@ function DirectionPanel({
                 className={cn("group flex items-start gap-1.5 rounded-xl border border-line bg-paper-raised p-2 transition-all", dragId === b.id && "opacity-40")}
               >
                 <GripVertical className="mt-1.5 h-3.5 w-3.5 shrink-0 cursor-grab text-muted opacity-40 sm:opacity-0 sm:group-hover:opacity-100" />
-                <textarea
+                <AutoTextarea
                   value={b.text}
                   onChange={(e) => setBulletText(b.id, e.target.value)}
                   onBlur={() => commit()}
-                  rows={1}
-                  className="min-h-[28px] w-full resize-none bg-transparent text-sm leading-snug text-ink outline-none"
+                  className="min-h-[24px] w-full resize-none bg-transparent text-sm leading-snug text-ink outline-none"
                   placeholder="A point…"
                 />
                 <button onClick={() => removeBullet(b.id)} aria-label="Remove point" className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-clay/10 hover:text-clay">
@@ -606,6 +651,23 @@ function DirectionPanel({
       </div>
     </div>
   );
+}
+
+/** A textarea that grows to fit its content so every point is fully readable. */
+function AutoTextarea({
+  value,
+  ...props
+}: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { value: string }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const resize = () => {
+    const el = ref.current;
+    if (el) {
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    }
+  };
+  useEffect(resize, [value]);
+  return <textarea ref={ref} rows={1} value={value} onInput={resize} {...props} />;
 }
 
 function Overlay({
