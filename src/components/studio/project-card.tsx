@@ -115,7 +115,7 @@ export function ProjectCard(p: P) {
           setMenu((m) => !m);
         }}
         aria-label="Book options"
-        className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg bg-paper-raised/90 text-ink-soft opacity-100 shadow-soft backdrop-blur transition-opacity hover:text-ink sm:opacity-0 sm:group-hover:opacity-100"
+        className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-lg bg-paper-raised/90 text-ink-soft opacity-100 shadow-soft backdrop-blur transition-opacity hover:text-ink sm:opacity-0 sm:group-hover:opacity-100"
       >
         <MoreHorizontal className="h-4 w-4" />
       </button>

@@ -134,7 +134,7 @@ export function FloatingToolbar({
               onChange={(e) => setAsk(e.target.value)}
               onKeyDown={(e) => e.key === "Escape" && setAsking(false)}
               placeholder="Ask AI to… add suspense, simplify, make it human"
-              className="w-72 bg-transparent text-sm text-ink outline-none placeholder:text-muted"
+              className="w-72 min-w-0 max-w-full bg-transparent text-sm text-ink outline-none placeholder:text-muted"
             />
             <button
               type="submit"

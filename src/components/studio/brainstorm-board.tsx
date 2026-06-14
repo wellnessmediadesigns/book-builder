@@ -307,7 +307,7 @@ export function BrainstormBoard({
         </div>
 
         {/* composer */}
-        <div className="border-t border-line px-3 py-3 sm:px-6">
+        <div className="border-t border-line px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-6">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -573,7 +573,7 @@ function DirectionPanel({
                 onDrop={() => handleDrop(b.id)}
                 className={cn("group flex items-start gap-1.5 rounded-xl border border-line bg-paper-raised p-2 transition-all", dragId === b.id && "opacity-40")}
               >
-                <GripVertical className="mt-1.5 h-3.5 w-3.5 shrink-0 cursor-grab text-muted opacity-0 group-hover:opacity-100" />
+                <GripVertical className="mt-1.5 h-3.5 w-3.5 shrink-0 cursor-grab text-muted opacity-40 sm:opacity-0 sm:group-hover:opacity-100" />
                 <textarea
                   value={b.text}
                   onChange={(e) => setBulletText(b.id, e.target.value)}
@@ -619,7 +619,7 @@ function Overlay({
         animate={side === "left" ? { x: 0 } : { y: 0 }}
         exit={side === "left" ? { x: "-100%" } : { y: "100%" }}
         transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-        className={cn("absolute border-line bg-paper shadow-float", side === "left" ? "inset-y-0 left-0 w-[82%] max-w-xs border-r" : "inset-x-0 bottom-0 flex max-h-[80dvh] flex-col rounded-t-3xl border-t")}
+        className={cn("absolute border-line bg-paper shadow-float", side === "left" ? "inset-y-0 left-0 w-[82%] max-w-xs border-r" : "inset-x-0 bottom-0 flex max-h-[80dvh] flex-col rounded-t-3xl border-t pb-[env(safe-area-inset-bottom)]")}
       >
         <div className="flex items-center justify-end p-2">
           <button onClick={onClose} aria-label="Close" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-paper-sunken hover:text-ink">

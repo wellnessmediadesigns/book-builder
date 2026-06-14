@@ -99,7 +99,7 @@ export function CoverStudio({
                 <div className="relative aspect-[2/3] bg-paper-sunken">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={`/api/images/templates/${t.id}`} alt={t.name} className="absolute inset-0 h-full w-full object-cover" />
-                  <button onClick={() => removeTemplate(t.id)} aria-label="Delete template" className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-lg bg-paper-raised/90 text-ink-soft opacity-0 shadow-soft backdrop-blur transition-opacity hover:text-clay group-hover:opacity-100">
+                  <button onClick={() => removeTemplate(t.id)} aria-label="Delete template" className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-lg bg-paper-raised/90 text-ink-soft opacity-100 shadow-soft backdrop-blur transition-opacity hover:text-clay sm:opacity-0 sm:group-hover:opacity-100">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>

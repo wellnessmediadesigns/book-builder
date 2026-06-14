@@ -442,7 +442,7 @@ export function CoverEditor({
         </div>
 
         {/* right: properties */}
-        <aside className="order-3 max-h-[42vh] overflow-y-auto border-t border-line bg-paper lg:max-h-none lg:w-72 lg:border-l lg:border-t-0">
+        <aside className="order-3 max-h-[55vh] overflow-y-auto border-t border-line bg-paper lg:max-h-none lg:w-72 lg:border-l lg:border-t-0">
           {selected ? (
             <Properties
               key={selected.id}
