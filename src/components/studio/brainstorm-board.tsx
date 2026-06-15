@@ -112,14 +112,45 @@ export function BrainstormBoard({
 
   const [railOpen, setRailOpen] = useState(false); // mobile sessions drawer
   const [sheetOpen, setSheetOpen] = useState(false); // mobile direction sheet
+  const [atBottom, setAtBottom] = useState(true);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const didInit = useRef(false);
   const built = session.status === "built";
   const hasDirection = Boolean(direction.title.trim() || direction.bullets.length);
 
+  function jumpToBottom(smooth = false) {
+    const el = scrollRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" });
+  }
+
+  // On open, land at the latest message. The fixed shell sizes its height
+  // after mount, so re-assert the jump across a few frames until it sticks.
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, partial]);
+    jumpToBottom(false);
+    const r = requestAnimationFrame(() => jumpToBottom(false));
+    const t1 = setTimeout(() => jumpToBottom(false), 120);
+    const t2 = setTimeout(() => {
+      jumpToBottom(false);
+      didInit.current = true;
+    }, 350);
+    return () => {
+      cancelAnimationFrame(r);
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, []);
+
+  // New messages / streaming: follow to the bottom only if already near it.
+  useEffect(() => {
+    if (didInit.current && atBottom) jumpToBottom(true);
+  }, [messages, partial, atBottom]);
+
+  function onScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 80);
+  }
 
   // ——— direction persistence ———
   function commitDirection(next: Direction) {
@@ -277,8 +308,9 @@ export function BrainstormBoard({
           </div>
         )}
 
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6">
-          <div className="mx-auto max-w-2xl space-y-5">
+        <div className="relative min-h-0 flex-1">
+          <div ref={scrollRef} onScroll={onScroll} className="h-full overflow-y-auto overscroll-contain px-4 py-5 sm:px-6">
+            <div className="mx-auto max-w-2xl space-y-5">
             {showEmpty ? (
               <div className="pt-6">
                 <div className="mb-5 flex flex-col items-center text-center">
@@ -330,7 +362,17 @@ export function BrainstormBoard({
                 )}
               </>
             )}
+            </div>
           </div>
+          {!atBottom && !showEmpty && (
+            <button
+              onClick={() => jumpToBottom(true)}
+              aria-label="Scroll to latest"
+              className="absolute bottom-3 right-3 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-line bg-paper-raised text-ink-soft shadow-float transition-colors hover:text-ink"
+            >
+              <ChevronDown className="h-5 w-5" />
+            </button>
+          )}
         </div>
 
         {/* composer */}
