@@ -44,7 +44,11 @@ export function buildEmailHtml(pkg: BookPackage): string {
       ${body}
     </div>
     <div style="border-top:1px solid #ece7dd;margin-top:32px;padding-top:16px;font-size:13px;color:#9aa0a6;">
-      <p style="margin:0;">You're reading <strong>${esc(brand)}</strong>.</p>
+      <p style="margin:0 0 6px;">You're reading <strong>${esc(brand)}</strong>. Thanks for being here.</p>
+      <p style="margin:0;">
+        <a href="#" style="color:#9aa0a6;text-decoration:underline;">Unsubscribe</a>
+        &nbsp;·&nbsp; Sent with care.
+      </p>
     </div>
   </div>
   <style>

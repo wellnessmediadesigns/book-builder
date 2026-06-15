@@ -4,6 +4,7 @@ import { prisma, getAuthor } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { NEWSLETTER_LENGTHS } from "@/lib/newsletter";
+import { generateBlueprint, autoWriteChapter } from "@/lib/actions/ai";
 
 export type ProjectInput = {
   title: string;
@@ -224,7 +225,30 @@ export async function createNewsletter(input: {
     workType: "newsletter",
     cadence: input.cadence || "weekly",
   };
-  return createProject(full); // redirects to the plan tab
+
+  const author = await getAuthor();
+  const count = await prisma.project.count();
+  const project = await prisma.project.create({
+    data: {
+      authorId: author.id,
+      ...full,
+      estTotalWords: Math.round(((full.minWords + full.maxWords) / 2) * full.chapterCount),
+      coverAccent: ACCENTS[count % ACCENTS.length],
+    },
+  });
+
+  // Hand back a finished, send-ready newsletter: build the plan, then write the
+  // first issue so the author lands on real content, not an empty outline.
+  await generateBlueprint(project.id).catch(() => {});
+  const first = await prisma.chapter.findFirst({
+    where: { projectId: project.id, matterType: null },
+    orderBy: { order: "asc" },
+    select: { id: true },
+  });
+  if (first) await autoWriteChapter(first.id, { summarize: true }).catch(() => {});
+
+  revalidatePath("/studio/newsletters");
+  redirect(first ? `/studio/book/${project.id}/write?chapter=${first.id}` : `/studio/book/${project.id}/blueprint`);
 }
 
 export async function listProjectsBrief() {

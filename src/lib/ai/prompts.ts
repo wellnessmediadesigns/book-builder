@@ -377,12 +377,13 @@ ISSUE TO WRITE: "${issue.title}"${subject ? `\nEmail subject line: "${subject}" 
 What this issue should deliver: ${issue.summary || "A valuable, on-brand issue."}
 Target length: ${issue.minWords}–${issue.maxWords} words. Keep it brief and skimmable — an email, not a chapter.
 
-How to write it:
-- Open with a strong hook in the first line — no "Hi everyone" filler and no subject-line label.
-- Make it skimmable: short paragraphs, the occasional short subhead, and lists where they help.
-- Sound exactly like the brand voice above; stay consistent with the brand knowledge and previous issues.
-- End with one clear takeaway or call to action.
-Write the full issue now as clean prose (use a line like a subhead on its own line where useful).`,
+Structure it like a real newsletter — a complete, ready-to-send email — with this shape:
+- A strong one-line HOOK to open (no "Hi everyone" filler, no subject-line label).
+- 2–3 short SEGMENTS, each introduced by its own short subhead on its own line (these become headings). Keep each segment tight — a few short paragraphs, with a list where it genuinely helps.
+- A clear CALL TO ACTION near the end — tell the reader the one thing to do next.
+- A brief, warm SIGN-OFF line to close.
+Sound exactly like the brand voice above; stay consistent with the brand knowledge and previous issues. Keep the whole thing skimmable and within the word target — an email, not a chapter.
+Write the full issue now as clean prose, with each segment's subhead on its own line.`,
     },
   ];
 }

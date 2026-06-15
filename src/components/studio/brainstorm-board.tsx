@@ -506,8 +506,8 @@ export function BrainstormBoard({
             <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-muse-soft text-muse-deep shadow-glow">
               <Hammer className="h-8 w-8" />
             </div>
-            <p className="mt-4 font-display text-lg font-semibold text-ink">{newsletter ? "Building your newsletter…" : "Building your book…"}</p>
-            <p className="mt-1 text-sm text-ink-soft">Turning your direction into a {newsletter ? "content plan" : "blueprint"}.</p>
+            <p className="mt-4 font-display text-lg font-semibold text-ink">{newsletter ? "Writing your newsletter…" : "Building your book…"}</p>
+            <p className="mt-1 text-sm text-ink-soft">{newsletter ? "Turning your direction into a complete, ready-to-send issue." : "Turning your direction into a blueprint."}</p>
           </motion.div>
         )}
       </AnimatePresence>

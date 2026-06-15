@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { completeWithFallback, aiChainReady } from "@/lib/ai/context";
 import { AiError } from "@/lib/ai/providers";
 import { directionMessages, brainstormSetupMessages } from "@/lib/ai/prompts";
-import { generateBlueprint } from "@/lib/actions/ai";
+import { generateBlueprint, autoWriteChapter } from "@/lib/actions/ai";
 import type { ProjectInput } from "@/lib/actions/projects";
 import { parseDirection, parseDismissed, bulletId, type Direction } from "@/lib/brainstorm";
 import { NEWSLETTER_LENGTHS, NEWSLETTER_DEFAULTS } from "@/lib/newsletter";
@@ -329,5 +329,22 @@ export async function buildBookFromBrainstorm(
     data: { status: "built", builtProjectId: projectId },
   });
   revalidatePath(newsletter ? "/studio/newsletters" : "/studio");
+
+  // A newsletter should hand back a finished, send-ready issue — not an empty
+  // plan. Write any still-empty issue inline, then land on it in the editor.
+  if (newsletter) {
+    const issues = await prisma.chapter.findMany({
+      where: { projectId, matterType: null },
+      orderBy: { order: "asc" },
+      select: { id: true, wordCount: true },
+    });
+    for (const issue of issues) {
+      if (issue.wordCount === 0) {
+        await autoWriteChapter(issue.id, { summarize: true }).catch(() => {});
+      }
+    }
+    const landing = issues[0]?.id;
+    redirect(`/studio/book/${projectId}/write${landing ? `?chapter=${landing}` : ""}`);
+  }
   redirect(`/studio/book/${projectId}/blueprint`);
 }

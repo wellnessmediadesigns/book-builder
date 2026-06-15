@@ -22,7 +22,7 @@ export function NewsletterSetup({ aiReady }: { aiReady: boolean }) {
   const [audience, setAudience] = useState("");
   const [tone, setTone] = useState("");
   const [styleNotes, setStyleNotes] = useState("");
-  const [plannedIssues, setPlannedIssues] = useState(5);
+  const [plannedIssues, setPlannedIssues] = useState(1);
   const [issueLength, setIssueLength] = useState<"short" | "standard" | "long">("short");
   const [cadence, setCadence] = useState<string>("weekly");
 
@@ -150,9 +150,9 @@ export function NewsletterSetup({ aiReady }: { aiReady: boolean }) {
           </div>
         </div>
         <div>
-          <Label>Plan this many issue ideas to start</Label>
+          <Label>Issues to start with</Label>
           <Input type="number" min={1} max={24} value={plannedIssues} onChange={(e) => setPlannedIssues(Number(e.target.value))} className="w-32" />
-          <FieldHint>Quire drafts this many issue ideas in your content plan. Add or remove anytime.</FieldHint>
+          <FieldHint>Quire writes your first issue in full and plans any extras. Add more anytime.</FieldHint>
         </div>
       </Card>
 

@@ -13,10 +13,10 @@ export type IssueLength = keyof typeof NEWSLETTER_LENGTHS;
 export const CADENCES = ["weekly", "biweekly", "monthly"] as const;
 export type Cadence = (typeof CADENCES)[number];
 
-/** A brainstorm-built newsletter starts FEW + SHORT. */
+/** A brainstorm-built newsletter starts as ONE complete, short issue. */
 export const NEWSLETTER_DEFAULTS = {
-  issueCount: 5,
-  minIssues: 4,
-  maxIssues: 6,
+  issueCount: 1,
+  minIssues: 1,
+  maxIssues: 1,
   length: "short" as IssueLength,
 };
