@@ -21,7 +21,7 @@ export default async function BrainstormSessionPage({
   });
   if (!session || session.authorId !== author.id) notFound();
 
-  const [sessions, status] = await Promise.all([listSessions(), aiStatus()]);
+  const [sessions, status] = await Promise.all([listSessions(session.mode), aiStatus()]);
 
   return (
     <>

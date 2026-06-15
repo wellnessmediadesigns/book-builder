@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { Mail, Plus, Lightbulb, Sparkles, ArrowRight } from "lucide-react";
+import { Mail, Plus, Lightbulb, Sparkles, ArrowRight, BookOpen } from "lucide-react";
 import { getAuthor } from "@/lib/db";
 import { TopNav } from "@/components/studio/top-nav";
 import { Button } from "@/components/ui/button";
 import { Badge, EmptyState } from "@/components/ui/primitives";
 import { relativeTime, formatNumber } from "@/lib/utils";
 import { listPublications } from "@/lib/actions/projects";
+import { listSessions } from "@/lib/actions/brainstorm";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ const ACCENT: Record<string, string> = {
 
 export default async function NewslettersPage() {
   const author = await getAuthor();
-  const pubs = await listPublications();
+  const [pubs, brainstorms] = await Promise.all([listPublications(), listSessions("newsletter")]);
 
   return (
     <>
@@ -99,6 +100,51 @@ export default async function NewslettersPage() {
               );
             })}
           </div>
+        )}
+
+        {/* Newsletter brainstorms */}
+        {brainstorms.length > 0 && (
+          <section className="mt-12">
+            <div className="mb-4 flex items-end justify-between">
+              <div>
+                <h2 className="font-display text-lg font-semibold text-ink">Brainstorms</h2>
+                <p className="text-sm text-ink-soft">Newsletter ideas in progress — pick one back up.</p>
+              </div>
+              <Link href="/studio/brainstorm/new?mode=newsletter">
+                <Button variant="museSoft" size="sm">
+                  <Lightbulb className="h-3.5 w-3.5" /> New
+                </Button>
+              </Link>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {brainstorms.map((s) => (
+                <Link
+                  key={s.id}
+                  href={`/studio/brainstorm/${s.id}`}
+                  className="group flex flex-col rounded-2xl border border-line bg-paper-raised p-5 shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-raised"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muse-soft text-muse-deep">
+                      <Lightbulb className="h-5 w-5" />
+                    </div>
+                    {s.status === "built" ? (
+                      <Badge tone="sage">
+                        <BookOpen className="h-3 w-3" /> Built
+                      </Badge>
+                    ) : (
+                      <Badge tone="neutral">{s.directionCount} points</Badge>
+                    )}
+                  </div>
+                  <h3 className="mt-3 line-clamp-2 font-display text-base font-semibold text-ink">{s.title}</h3>
+                  {s.snippet && <p className="mt-1 line-clamp-2 flex-1 text-sm text-ink-soft">{s.snippet}</p>}
+                  <div className="mt-3 flex items-center justify-between text-xs text-muted">
+                    <span>{relativeTime(s.updatedAt)}</span>
+                    <ArrowRight className="h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
         )}
       </main>
     </>

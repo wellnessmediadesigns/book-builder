@@ -16,6 +16,7 @@ export type SessionBrief = {
   id: string;
   title: string;
   status: string;
+  mode: string;
   builtProjectId: string | null;
   directionCount: number;
   snippet: string;
@@ -41,10 +42,10 @@ export async function createSession(mode: string = "book"): Promise<void> {
   redirect(`/studio/brainstorm/${session.id}`);
 }
 
-export async function listSessions(): Promise<SessionBrief[]> {
+export async function listSessions(mode?: string): Promise<SessionBrief[]> {
   const author = await getAuthor();
   const rows = await prisma.brainstormSession.findMany({
-    where: { authorId: author.id },
+    where: { authorId: author.id, ...(mode ? { mode } : {}) },
     orderBy: { updatedAt: "desc" },
     include: { messages: { orderBy: { createdAt: "desc" }, take: 1 } },
   });
@@ -52,6 +53,7 @@ export async function listSessions(): Promise<SessionBrief[]> {
     id: s.id,
     title: s.title,
     status: s.status,
+    mode: s.mode,
     builtProjectId: s.builtProjectId,
     directionCount: parseDirection(s.directionJson).bullets.length,
     snippet: s.messages[0]?.content.slice(0, 120) ?? "",

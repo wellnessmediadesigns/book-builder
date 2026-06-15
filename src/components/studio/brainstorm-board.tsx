@@ -225,7 +225,7 @@ export function BrainstormBoard({
     <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-x-hidden lg:grid lg:grid-cols-[230px_1fr_340px]">
       {/* ——— Sessions rail (desktop) ——— */}
       <aside className="hidden border-r border-line bg-paper-sunken/30 lg:block">
-        <SessionsRail sessions={sessions} activeId={session.id} />
+        <SessionsRail sessions={sessions} activeId={session.id} mode={session.mode} />
       </aside>
 
       {/* ——— Chat ——— */}
@@ -376,7 +376,7 @@ export function BrainstormBoard({
       <AnimatePresence>
         {railOpen && (
           <Overlay onClose={() => setRailOpen(false)} side="left">
-            <SessionsRail sessions={sessions} activeId={session.id} onNavigate={() => setRailOpen(false)} />
+            <SessionsRail sessions={sessions} activeId={session.id} mode={session.mode} onNavigate={() => setRailOpen(false)} />
           </Overlay>
         )}
       </AnimatePresence>
@@ -483,10 +483,12 @@ function Bubble({ msg, streaming }: { msg: Msg; streaming?: boolean }) {
 function SessionsRail({
   sessions,
   activeId,
+  mode,
   onNavigate,
 }: {
   sessions: SessionBrief[];
   activeId: string;
+  mode?: string;
   onNavigate?: () => void;
 }) {
   const router = useRouter();
@@ -494,8 +496,8 @@ function SessionsRail({
   return (
     <div className="flex h-full flex-col">
       <div className="p-3">
-        <Button variant="muse" className="w-full" onClick={() => start(() => createSession())}>
-          <Plus className="h-4 w-4" /> New brainstorm
+        <Button variant="muse" className="w-full" onClick={() => start(() => createSession(mode))}>
+          <Plus className="h-4 w-4" /> {mode === "newsletter" ? "New newsletter brainstorm" : "New brainstorm"}
         </Button>
       </div>
       <p className="px-4 pb-1.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">Sessions</p>

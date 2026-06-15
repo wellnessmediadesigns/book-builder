@@ -16,7 +16,7 @@ async function startBrainstorm() {
 
 export default async function BrainstormHomePage() {
   const author = await getAuthor();
-  const sessions = await listSessions();
+  const sessions = await listSessions("book");
 
   return (
     <>
