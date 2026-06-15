@@ -396,7 +396,7 @@ export function BrainstormBoard({
               rows={1}
               placeholder={aiReady ? "Bounce an idea…" : "Connect an AI provider to brainstorm"}
               disabled={!aiReady || streaming}
-              className="max-h-40 min-h-[48px] w-full min-w-0 resize-none rounded-xl border border-line bg-paper-raised px-3.5 py-3 text-sm text-ink placeholder:text-ink-soft/70 shadow-sm outline-none transition-all focus:border-muse/40 focus:ring-2 focus:ring-muse/20 disabled:opacity-60"
+              className="max-h-40 min-h-[48px] min-w-0 flex-1 resize-none rounded-xl border border-line bg-paper-raised px-3.5 py-3 text-sm text-ink placeholder:text-ink-soft/70 shadow-sm outline-none transition-all focus:border-muse/40 focus:ring-2 focus:ring-muse/20 disabled:opacity-60"
             />
             <Button type="submit" variant="muse" disabled={!input.trim() || streaming || !aiReady} aria-label="Send" className="h-12 w-12 shrink-0 rounded-xl p-0">
               {streaming ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
