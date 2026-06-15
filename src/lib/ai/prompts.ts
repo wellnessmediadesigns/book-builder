@@ -117,6 +117,7 @@ ${schema}`,
 export function brainstormSetupMessages(
   direction: { title: string; bullets: string[] },
   transcript: string,
+  dismissed: string[] = [],
 ): AiMessage[] {
   const schema = `{
   "title": "working title",
@@ -141,21 +142,24 @@ export function brainstormSetupMessages(
   const dir = direction.bullets.length || direction.title
     ? `${direction.title ? `Title: ${direction.title}\n` : ""}${direction.bullets.map((b) => `- ${b}`).join("\n")}`
     : "(none — infer from the conversation)";
+  const excludeBlock = dismissed.length
+    ? `\n\nEXCLUDE these topics entirely — the author removed them on purpose. Do NOT mention or build around them, and add them to "avoid":\n${dismissed.map((d) => `- ${d}`).join("\n")}`
+    : "";
   return [
     {
       role: "system",
       content:
-        "You turn an author's agreed brainstorm direction into a concrete book setup they can start from. Honor the agreed direction above all; use the conversation only for extra flavor. Return ONLY minified JSON — no commentary, no fences.",
+        "You turn an author's agreed brainstorm direction into a concrete book setup they can start from. The agreed direction is the source of truth: build ONLY from it, never introduce topics outside it, and never include anything the author has removed. Use the conversation only for voice/tone. Return ONLY minified JSON — no commentary, no fences.",
     },
     {
       role: "user",
       content: `Design a complete book setup from this agreed direction.
 
-AGREED DIRECTION (the source of truth):
-${dir}
+AGREED DIRECTION (the source of truth — base the setup ONLY on these points; do NOT introduce topics that aren't among them):
+${dir}${excludeBlock}
 
-CONVERSATION (extra context only):
-"""${transcript.slice(-4000)}"""
+CONVERSATION (voice/tone flavor only — do NOT pull in topics that aren't in the agreed direction):
+"""${transcript.slice(-3000)}"""
 
 Pick realistic numbers (chapterCount 6-24; sensible word ranges for the book type). Fill every field; use "" only where truly not applicable.
 Respond with ONLY valid minified JSON matching this schema (no fences):

@@ -28,3 +28,18 @@ export function parseDirection(json: string | null | undefined): Direction {
     return { title: "", bullets: [] };
   }
 }
+
+/** Parses a stored dismissedJson (topics the author removed) into a string array. */
+export function parseDismissed(json: string | null | undefined): string[] {
+  if (!json) return [];
+  try {
+    const a = JSON.parse(json);
+    if (!Array.isArray(a)) return [];
+    return a
+      .map((t) => String(t ?? "").trim())
+      .filter(Boolean)
+      .filter((t, i, arr) => arr.findIndex((x) => x.toLowerCase() === t.toLowerCase()) === i);
+  } catch {
+    return [];
+  }
+}

@@ -8,7 +8,7 @@ import { AiError } from "@/lib/ai/providers";
 import { directionMessages, brainstormSetupMessages } from "@/lib/ai/prompts";
 import { generateBlueprint } from "@/lib/actions/ai";
 import type { ProjectInput } from "@/lib/actions/projects";
-import { parseDirection, bulletId, type Direction } from "@/lib/brainstorm";
+import { parseDirection, parseDismissed, bulletId, type Direction } from "@/lib/brainstorm";
 
 const ACCENTS = ["brass", "muse", "sage"];
 
@@ -111,6 +111,8 @@ export async function refreshDirection(
   if (!(await aiChainReady())) return { ok: false, error: "no_key" };
 
   const existing = parseDirection(session.directionJson);
+  const dismissed = parseDismissed(session.dismissedJson);
+  const dismissedSet = new Set(dismissed.map((d) => d.toLowerCase()));
   const transcript = session.messages
     .map((m) => `${m.role === "user" ? "Author" : "Muse"}: ${m.content}`)
     .join("\n");
@@ -130,7 +132,8 @@ export async function refreshDirection(
     const seen = new Set(existing.bullets.map((b) => b.text.trim().toLowerCase()));
     const additions = candidates
       .map((p) => String(p).slice(0, 240).trim())
-      .filter((t) => t && !seen.has(t.toLowerCase()))
+      // never re-add a point the author deliberately removed
+      .filter((t) => t && !seen.has(t.toLowerCase()) && !dismissedSet.has(t.toLowerCase()))
       // de-dupe within the batch too
       .filter((t, i, a) => a.findIndex((x) => x.toLowerCase() === t.toLowerCase()) === i)
       .map((t) => ({ id: bulletId(), text: t }));
@@ -174,6 +177,27 @@ export async function setDirection(sessionId: string, direction: Direction): Pro
   revalidatePath(`/studio/brainstorm/${sessionId}`);
 }
 
+/** Records a topic the author removed so it never returns: it's filtered out of
+ *  the additive refresh and excluded (added to `avoid`) from the built work. */
+export async function dismissPoint(sessionId: string, text: string): Promise<void> {
+  const author = await getAuthor();
+  const session = await prisma.brainstormSession.findUnique({
+    where: { id: sessionId },
+    select: { authorId: true, dismissedJson: true },
+  });
+  if (!session || session.authorId !== author.id) return;
+  const clean = String(text ?? "").slice(0, 240).trim();
+  if (!clean) return;
+  const dismissed = parseDismissed(session.dismissedJson);
+  if (dismissed.some((d) => d.toLowerCase() === clean.toLowerCase())) return;
+  const next = [...dismissed, clean].slice(-40);
+  await prisma.brainstormSession.update({
+    where: { id: sessionId },
+    data: { dismissedJson: JSON.stringify(next) },
+  });
+  revalidatePath(`/studio/brainstorm/${sessionId}`);
+}
+
 // ————————————————————————————————————————————— Build this book
 
 /** Turns the session's agreed direction (+ transcript) into a real project,
@@ -190,6 +214,7 @@ export async function buildBookFromBrainstorm(
   if (!(await aiChainReady())) return { ok: false, error: "no_key" };
 
   const direction = parseDirection(session.directionJson);
+  const dismissed = parseDismissed(session.dismissedJson);
   const transcript = session.messages
     .map((m) => `${m.role === "user" ? "Author" : "Muse"}: ${m.content}`)
     .join("\n");
@@ -197,7 +222,11 @@ export async function buildBookFromBrainstorm(
   let raw: Record<string, unknown>;
   try {
     const { text } = await completeWithFallback(
-      brainstormSetupMessages({ title: direction.title, bullets: direction.bullets.map((b) => b.text) }, transcript),
+      brainstormSetupMessages(
+        { title: direction.title, bullets: direction.bullets.map((b) => b.text) },
+        transcript,
+        dismissed,
+      ),
     );
     raw = parseJson(text);
   } catch (e) {
@@ -215,6 +244,13 @@ export async function buildBookFromBrainstorm(
   const maxWords = newsletter
     ? Math.min(1800, Math.max(minWords, num("maxWords", 1100)))
     : Math.max(minWords, num("maxWords", 2500));
+  // Always carry the author's removed topics into `avoid` so generation steers
+  // clear of them (contextBlock injects "Must avoid: …" into every prompt).
+  const avoid = [str("avoid"), ...dismissed]
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .filter((s, i, a) => a.findIndex((x) => x.toLowerCase() === s.toLowerCase()) === i)
+    .join("; ");
   const input: ProjectInput = {
     title: str("title", direction.title || (newsletter ? "Untitled Newsletter" : "Untitled Book")),
     idea: str("idea"),
@@ -228,7 +264,7 @@ export async function buildBookFromBrainstorm(
     style: str("style"),
     readingLevel: str("readingLevel", "General adult"),
     include: str("include"),
-    avoid: str("avoid"),
+    avoid,
     notes: "",
     inspiration: "",
     goals: str("goals"),
@@ -246,22 +282,44 @@ export async function buildBookFromBrainstorm(
     workType: newsletter ? "newsletter" : "book",
   };
 
-  const count = await prisma.project.count();
-  const project = await prisma.project.create({
-    data: {
-      authorId: author.id,
-      ...input,
-      estTotalWords: Math.round(((minWords + maxWords) / 2) * input.chapterCount),
-      coverAccent: ACCENTS[count % ACCENTS.length],
-    },
-  });
+  const estTotalWords = Math.round(((minWords + maxWords) / 2) * input.chapterCount);
 
-  await generateBlueprint(project.id).catch(() => {});
+  // Rebuild the SAME project in place when this session already produced one
+  // that's still live — never create a duplicate. Otherwise create a new one.
+  const existing = session.builtProjectId
+    ? await prisma.project.findFirst({
+        where: { id: session.builtProjectId, authorId: author.id, deletedAt: null },
+        select: { id: true },
+      })
+    : null;
+
+  let projectId: string;
+  if (existing) {
+    await prisma.project.update({
+      where: { id: existing.id },
+      data: { ...input, estTotalWords },
+    });
+    projectId = existing.id;
+    // Preserve anything the author has already written; refresh the plan around it.
+    await generateBlueprint(projectId, { preserveWritten: true }).catch(() => {});
+  } else {
+    const count = await prisma.project.count();
+    const project = await prisma.project.create({
+      data: {
+        authorId: author.id,
+        ...input,
+        estTotalWords,
+        coverAccent: ACCENTS[count % ACCENTS.length],
+      },
+    });
+    projectId = project.id;
+    await generateBlueprint(projectId).catch(() => {});
+  }
 
   await prisma.brainstormSession.update({
     where: { id: sessionId },
-    data: { status: "built", builtProjectId: project.id },
+    data: { status: "built", builtProjectId: projectId },
   });
   revalidatePath(newsletter ? "/studio/newsletters" : "/studio");
-  redirect(`/studio/book/${project.id}/blueprint`);
+  redirect(`/studio/book/${projectId}/blueprint`);
 }

@@ -32,6 +32,7 @@ import {
   createSession,
   refreshDirection,
   setDirection as saveDirection,
+  dismissPoint,
   buildBookFromBrainstorm,
   reorderSessions,
   deleteSession,
@@ -156,6 +157,13 @@ export function BrainstormBoard({
   function commitDirection(next: Direction) {
     setDirectionLocal(next);
     saveDirection(session.id, next).catch(() => {});
+  }
+
+  // Removing a point is "sticky": remember it so it never returns on a refresh
+  // and is excluded from the built book/newsletter.
+  function dismissDirectionPoint(text: string) {
+    const t = text.trim();
+    if (t) dismissPoint(session.id, t).catch(() => {});
   }
 
   async function updateDirectionFromAI() {
@@ -411,6 +419,7 @@ export function BrainstormBoard({
           direction={direction}
           refreshing={refreshing}
           onCommit={commitDirection}
+          onDismiss={dismissDirectionPoint}
           onBuild={requestBuild}
           building={building}
           built={built}
@@ -435,6 +444,7 @@ export function BrainstormBoard({
               direction={direction}
               refreshing={refreshing}
               onCommit={commitDirection}
+              onDismiss={dismissDirectionPoint}
               onBuild={requestBuild}
               building={building}
               built={built}
@@ -465,17 +475,18 @@ export function BrainstormBoard({
                   <Hammer className="h-5 w-5" />
                 </div>
                 <h3 className="font-display text-lg font-semibold text-ink">
-                  {built ? `Build another ${newsletter ? "newsletter" : "book"}?` : `${buildLabel}?`}
+                  {built ? `Rebuild this ${newsletter ? "newsletter" : "book"}?` : `${buildLabel}?`}
                 </h3>
               </div>
               <p className="mt-3 text-sm text-ink-soft">
-                This creates a new {newsletter ? "newsletter" : "book"} from your current direction
-                {built ? " — the one you already built stays untouched." : ", and takes you to its blueprint."}
+                {built
+                  ? `This updates the same ${newsletter ? "newsletter" : "book"} from your refined direction and keeps anything you've written.`
+                  : `This creates a new ${newsletter ? "newsletter" : "book"} from your current direction, and takes you to its blueprint.`}
               </p>
               <div className="mt-5 flex justify-end gap-2">
                 <Button variant="soft" onClick={() => setConfirmBuild(false)}>Keep brainstorming</Button>
                 <Button variant="brass" onClick={doBuild}>
-                  <Hammer className="h-4 w-4" /> {built ? "Build another" : "Build it"}
+                  <Hammer className="h-4 w-4" /> {built ? "Rebuild" : "Build it"}
                 </Button>
               </div>
             </motion.div>
@@ -644,6 +655,7 @@ function DirectionPanel({
   direction,
   refreshing,
   onCommit,
+  onDismiss,
   onBuild,
   building,
   built,
@@ -652,6 +664,7 @@ function DirectionPanel({
   direction: Direction;
   refreshing: boolean;
   onCommit: (d: Direction) => void;
+  onDismiss: (text: string) => void;
   onBuild: () => void;
   building: boolean;
   built: boolean;
@@ -684,9 +697,12 @@ function DirectionPanel({
     onCommit(next);
   }
   function removeBullet(id: string) {
+    const removed = local.bullets.find((b) => b.id === id);
     const next = { ...local, bullets: local.bullets.filter((b) => b.id !== id) };
     setLocal(next);
     onCommit(next);
+    // Remember the removal so it stays out of refreshes and the built work.
+    if (removed?.text.trim()) onDismiss(removed.text);
   }
   function handleDrop(targetId: string) {
     if (!dragId || dragId === targetId) return;
@@ -768,7 +784,7 @@ function DirectionPanel({
       <div className="border-t border-line p-3">
         <Button variant="brass" className="w-full" disabled={!hasContent || building} onClick={onBuild}>
           {building ? <Loader2 className="h-4 w-4 animate-spin" /> : <Hammer className="h-4 w-4" />}
-          {built ? "Build again" : buildLabel}
+          {built ? "Rebuild" : buildLabel}
         </Button>
         {!hasContent && <p className="mt-2 text-center text-[0.6875rem] text-muted">Agree on a few details, then build.</p>}
       </div>

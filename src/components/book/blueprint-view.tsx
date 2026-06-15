@@ -44,11 +44,13 @@ export function BlueprintView({
   chapters,
   aiReady,
   workType,
+  brainstormHref,
 }: {
   project: Project;
   chapters: Chapter[];
   aiReady: boolean;
   workType?: string;
+  brainstormHref?: string | null;
 }) {
   const router = useRouter();
   const v = workVocab(workType);
@@ -103,6 +105,15 @@ export function BlueprintView({
           <p className="mt-2 text-ink-soft">
             Everything below is editable. Refine it, then start writing.
           </p>
+          {brainstormHref && (
+            <Link
+              href={brainstormHref}
+              className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-muse-deep transition-colors hover:text-muse"
+            >
+              <Sparkles className="h-4 w-4" /> Continue brainstorming
+              <span className="text-ink-soft">— refine the direction and rebuild this {news ? "newsletter" : "book"}</span>
+            </Link>
+          )}
         </div>
         <Link href={`/studio/book/${project.id}/write`}>
           <Button variant="brass" className="group shrink-0">

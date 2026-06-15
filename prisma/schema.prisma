@@ -248,6 +248,7 @@ model BrainstormSession {
   order          Int     @default(0)         // manual sort within a mode
   builtProjectId String? // the project this session produced, once built
   directionJson  String  @default("") // agreed direction: { title, bullets[] }
+  dismissedJson  String  @default("[]") // topics the author removed — never re-add / always avoid
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

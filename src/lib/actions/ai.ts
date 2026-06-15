@@ -107,7 +107,9 @@ function parseBlueprint(raw: string): Record<string, unknown> {
 
 export async function generateBlueprint(
   projectId: string,
+  opts: { preserveWritten?: boolean } = {},
 ): Promise<ActionResult<null>> {
+  const preserveWritten = opts.preserveWritten ?? false;
   if (!(await aiChainReady())) return { ok: false, error: "no_key" };
 
   const project = await prisma.project.findUniqueOrThrow({ where: { id: projectId } });
@@ -164,24 +166,66 @@ export async function generateBlueprint(
     },
   });
 
-  // Rebuild chapters from the table of contents.
-  await prisma.chapter.deleteMany({ where: { projectId, matterType: null } });
-  await prisma.chapter.createMany({
-    data: toc.map((c, i) => {
-      const ch = c as { title?: string; summary?: string };
-      return {
-        projectId,
-        order: i,
-        title: ch.title ? cleanChapterTitle(ch.title) : `Chapter ${i + 1}`,
-        summary: ch.summary || "",
-        minWords: project.minWords,
-        maxWords: project.maxWords,
-      };
-    }),
+  // Normalize the table of contents into plan items.
+  const tocItems = toc.map((c, i) => {
+    const ch = c as { title?: string; summary?: string };
+    return {
+      title: ch.title ? cleanChapterTitle(ch.title) : `${newsletter ? "Issue" : "Chapter"} ${i + 1}`,
+      summary: ch.summary || "",
+    };
   });
 
-  // Seed Book Memory.
-  await prisma.memoryEntry.deleteMany({ where: { projectId } });
+  if (preserveWritten) {
+    // Rebuild around the author's work: keep body chapters/issues that have been
+    // written, drop only the empty/planned ones, and append the fresh plan items
+    // (skipping any whose title already matches a kept written chapter).
+    const written = await prisma.chapter.findMany({
+      where: { projectId, matterType: null, wordCount: { gt: 0 } },
+      orderBy: { order: "asc" },
+    });
+    const writtenTitles = new Set(written.map((c) => c.title.trim().toLowerCase()));
+    await prisma.chapter.deleteMany({
+      where: { projectId, matterType: null, wordCount: { lte: 0 } },
+    });
+    // Re-anchor the kept chapters to the front, preserving their relative order.
+    const reorders: Promise<unknown>[] = [];
+    written.forEach((c, i) => {
+      if (c.order !== i)
+        reorders.push(prisma.chapter.update({ where: { id: c.id }, data: { order: i } }));
+    });
+    await Promise.all(reorders);
+    const additions = tocItems.filter((t) => !writtenTitles.has(t.title.trim().toLowerCase()));
+    if (additions.length)
+      await prisma.chapter.createMany({
+        data: additions.map((t, i) => ({
+          projectId,
+          order: written.length + i,
+          title: t.title,
+          summary: t.summary,
+          minWords: project.minWords,
+          maxWords: project.maxWords,
+        })),
+      });
+  } else {
+    // Rebuild chapters from the table of contents.
+    await prisma.chapter.deleteMany({ where: { projectId, matterType: null } });
+    await prisma.chapter.createMany({
+      data: tocItems.map((t, i) => ({
+        projectId,
+        order: i,
+        title: t.title,
+        summary: t.summary,
+        minWords: project.minWords,
+        maxWords: project.maxWords,
+      })),
+    });
+  }
+
+  // Seed Book Memory. On a preserving rebuild, keep `chapter-summary` entries so
+  // written chapters/issues retain their continuity.
+  await prisma.memoryEntry.deleteMany({
+    where: { projectId, ...(preserveWritten ? { kind: { not: "chapter-summary" } } : {}) },
+  });
   const mem: { kind: string; title: string; body: string; order: number }[] = [];
   let order = 0;
   const push = (kind: string, title: string, body: string) =>

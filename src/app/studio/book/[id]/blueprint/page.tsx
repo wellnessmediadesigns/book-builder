@@ -21,12 +21,20 @@ export default async function BlueprintPage({
   if (!project) notFound();
   const { ready } = await aiStatus();
 
+  // If this project came from a brainstorm, offer a way back to refine + rebuild it.
+  const source = await prisma.brainstormSession.findFirst({
+    where: { builtProjectId: project.id },
+    select: { id: true },
+  });
+  const brainstormHref = source ? `/studio/brainstorm/${source.id}` : null;
+
   return (
     <>
       <BookHeader projectId={id} title={project.recommendedTitle || project.title} workType={project.workType} />
       <BlueprintView
         aiReady={ready}
         workType={project.workType}
+        brainstormHref={brainstormHref}
         project={{
           id: project.id,
           title: project.title,
