@@ -67,30 +67,30 @@ export function brainstormMessages(
   return msgs;
 }
 
-/** Re-derives the session's agreed "direction" (working title + bullets) from the
- *  conversation, merging with the existing direction. Strict JSON. */
+/** Extends the session's agreed "direction" with NEW points only — it never
+ *  rewrites or removes existing points, so saved points always stick. JSON. */
 export function directionMessages(
   existing: { title: string; bullets: string[] },
   transcript: string,
 ): AiMessage[] {
   const schema = `{
-  "title": "the current working title, or '' if not chosen yet",
-  "bullets": ["5-10 short bullets of what the author has agreed on / shown clear interest in: the concept, audience, key points/chapters, hook, tone, angle"]
+  "title": "a working title if one is emerging from the chat, else ''",
+  "newPoints": ["ONLY points the author just agreed on or clearly liked that are NOT already in the list below; [] if nothing new"]
 }`;
-  const cur = existing.bullets.length || existing.title
-    ? `${existing.title ? `Title: ${existing.title}\n` : ""}${existing.bullets.map((b) => `- ${b}`).join("\n")}`
-    : "(empty so far)";
+  const cur = existing.bullets.length
+    ? existing.bullets.map((b) => `- ${b}`).join("\n")
+    : "(none yet)";
   return [
     {
       role: "system",
       content:
-        "You maintain a running 'book direction' from a brainstorming chat — only the details the author has agreed on or shown clear interest in, never every idea raised. Refine and de-dupe; keep bullets short and concrete. Return ONLY minified JSON — no commentary, no fences.",
+        "You extend a running list of agreed points from a brainstorming chat. You ONLY add brand-new points the author has just agreed on or clearly liked; you NEVER repeat a point already in the list and you NEVER remove or reword existing points. Keep new points short and concrete. Return ONLY minified JSON — no commentary, no fences.",
     },
     {
       role: "user",
-      content: `Update the book direction from the conversation. Keep only what the author actually liked or agreed to; drop options they passed on. Merge with the current direction below.
+      content: `From the latest conversation, return only NEW agreed points to ADD — nothing that's already captured below, and nothing the author passed on. If nothing new was agreed, return an empty list.
 
-CURRENT DIRECTION:
+POINTS ALREADY CAPTURED (do not repeat these):
 ${cur}
 
 CONVERSATION (most recent is most important):
@@ -101,6 +101,7 @@ ${schema}`,
     },
   ];
 }
+
 
 /** Turns the agreed direction + transcript into a full book setup (strict JSON → ProjectInput). */
 export function brainstormSetupMessages(

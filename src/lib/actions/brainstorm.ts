@@ -96,11 +96,32 @@ export async function refreshDirection(
     const { text } = await completeWithFallback(
       directionMessages({ title: existing.title, bullets: existing.bullets.map((b) => b.text) }, transcript),
     );
-    const raw = parseJson(text) as { title?: string; bullets?: unknown };
-    const bullets = Array.isArray(raw.bullets)
-      ? raw.bullets.map((b) => ({ id: bulletId(), text: String(b).slice(0, 240) })).filter((b) => b.text.trim()).slice(0, 12)
-      : existing.bullets;
-    const direction: Direction = { title: String(raw.title ?? existing.title).slice(0, 140), bullets };
+    const raw = parseJson(text) as { title?: string; newPoints?: unknown; bullets?: unknown };
+    // Accept either the new `newPoints` shape or a legacy `bullets` array — both
+    // are treated as points to ADD. We never remove or rewrite existing points.
+    const candidates = Array.isArray(raw.newPoints)
+      ? raw.newPoints
+      : Array.isArray(raw.bullets)
+        ? raw.bullets
+        : [];
+    const seen = new Set(existing.bullets.map((b) => b.text.trim().toLowerCase()));
+    const additions = candidates
+      .map((p) => String(p).slice(0, 240).trim())
+      .filter((t) => t && !seen.has(t.toLowerCase()))
+      // de-dupe within the batch too
+      .filter((t, i, a) => a.findIndex((x) => x.toLowerCase() === t.toLowerCase()) === i)
+      .map((t) => ({ id: bulletId(), text: t }));
+
+    const merged = [...existing.bullets, ...additions].slice(0, 24);
+    // Title sticks once set; only fill it in when we don't have one yet.
+    const title = existing.title.trim() || String(raw.title ?? "").slice(0, 140);
+    const direction: Direction = { title, bullets: merged };
+
+    // Safety: never write an empty direction over a non-empty saved one.
+    if (merged.length === 0 && existing.bullets.length > 0) {
+      return { ok: true, direction: existing };
+    }
+
     await prisma.brainstormSession.update({
       where: { id: sessionId },
       data: { directionJson: JSON.stringify(direction) },
