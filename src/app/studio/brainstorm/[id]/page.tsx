@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma, getAuthor } from "@/lib/db";
 import { TopNav } from "@/components/studio/top-nav";
 import { BrainstormBoard } from "@/components/studio/brainstorm-board";
+import { MobileChatShell } from "@/components/studio/mobile-chat-shell";
 import { listSessions } from "@/lib/actions/brainstorm";
 import { parseDirection } from "@/lib/brainstorm";
 import { aiStatus } from "@/lib/actions/ai";
@@ -24,7 +25,7 @@ export default async function BrainstormSessionPage({
   const [sessions, status] = await Promise.all([listSessions(session.mode), aiStatus()]);
 
   return (
-    <>
+    <MobileChatShell>
       <TopNav author={author.name} email={author.email ?? ""} />
       <BrainstormBoard
         session={{
@@ -43,6 +44,6 @@ export default async function BrainstormSessionPage({
         }))}
         initialDirection={parseDirection(session.directionJson)}
       />
-    </>
+    </MobileChatShell>
   );
 }

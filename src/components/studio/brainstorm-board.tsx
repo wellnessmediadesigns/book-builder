@@ -226,7 +226,7 @@ export function BrainstormBoard({
   const showEmpty = messages.length === 0 && !streaming;
 
   return (
-    <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-x-hidden lg:grid lg:grid-cols-[230px_1fr_340px]">
+    <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden lg:grid lg:grid-cols-[230px_1fr_340px]">
       {/* ——— Sessions rail (desktop) ——— */}
       <aside className="hidden border-r border-line bg-paper-sunken/30 lg:block">
         <SessionsRail sessions={sessions} activeId={session.id} mode={session.mode} />
