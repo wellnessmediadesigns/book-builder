@@ -56,12 +56,22 @@ You help an author discover what book to write, then steadily converge on a sing
 - End most replies with ONE focused question that moves the chosen direction forward (the audience? the angle? the title? the chapters?).
 - Keep replies tight and skimmable (a few short paragraphs or a short list). No filler, no "AI tells", no markdown headers.`;
 
+const NEWSLETTER_BRAINSTORM_SYSTEM = `You are Muse, the brainstorming partner inside Quire, helping an author shape a NEWSLETTER — a branded series of email issues, not a book. How you work:
+- Be a generative, encouraging thought partner — warm, sharp, concrete. Never take over; the author decides.
+- Think in newsletter terms: the brand/publication concept and name, the specific subscriber and what they get each issue, the voice/tone, the recurring segments or formats, the hook, and concrete ISSUE ideas (subject lines + angles). Never frame this as a book or chapters.
+- Offer a few strong, concrete options over vague musing. When useful, give a short numbered list.
+- CONVERGE: as the author shows interest, build on it and help lock in the brand name, audience, voice, and a starter set of issue ideas. Reflect back what you both seem to be agreeing on.
+- End most replies with ONE focused question that moves the newsletter forward (who's the subscriber? the cadence? the angle? the first few issues?).
+- Keep replies tight and skimmable. No filler, no "AI tells", no markdown headers.`;
+
 /** A turn in the brainstorming chat. `history` is prior messages oldest-first. */
 export function brainstormMessages(
   history: { role: "user" | "assistant"; content: string }[],
   userTurn: string,
+  mode: string = "book",
 ): AiMessage[] {
-  const msgs: AiMessage[] = [{ role: "system", content: BRAINSTORM_SYSTEM }];
+  const system = mode === "newsletter" ? NEWSLETTER_BRAINSTORM_SYSTEM : BRAINSTORM_SYSTEM;
+  const msgs: AiMessage[] = [{ role: "system", content: system }];
   for (const m of history.slice(-20)) msgs.push({ role: m.role, content: m.content });
   msgs.push({ role: "user", content: userTurn });
   return msgs;

@@ -44,7 +44,16 @@ const STARTERS = [
   "Find a fresh angle on personal finance nobody's done",
 ];
 
+const NEWSLETTER_STARTERS = [
+  "Help me come up with a newsletter for indie founders",
+  "I want to start a newsletter but need to find the angle",
+  "Brainstorm 5 weekly issue ideas in my niche",
+  "What recurring segments could my newsletter have?",
+];
+
 const FOLLOWUPS = ["Give me 3 title options", "Who exactly is this for?", "What's the hook?", "Make it bolder"];
+
+const NEWSLETTER_FOLLOWUPS = ["Give me 3 name ideas", "Who's the subscriber?", "Draft 5 issue ideas", "What's the cadence?"];
 
 let tmpSeq = 0;
 function tmpId() {
@@ -85,6 +94,8 @@ export function BrainstormBoard({
 }) {
   const newsletter = session.mode === "newsletter";
   const buildLabel = newsletter ? "Build this newsletter" : "Build this book";
+  const starters = newsletter ? NEWSLETTER_STARTERS : STARTERS;
+  const followups = newsletter ? NEWSLETTER_FOLLOWUPS : FOLLOWUPS;
   const [messages, setMessages] = useState<Msg[]>(initialMessages);
   const [direction, setDirectionLocal] = useState<Direction>(initialDirection);
   const [input, setInput] = useState("");
@@ -270,14 +281,17 @@ export function BrainstormBoard({
                   <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-muse-soft text-muse-deep shadow-soft">
                     <Lightbulb className="h-7 w-7" />
                   </div>
-                  <h2 className="font-display text-xl font-semibold text-ink">Let&apos;s find your next book</h2>
+                  <h2 className="font-display text-xl font-semibold text-ink">
+                    {newsletter ? "Let’s shape your newsletter" : "Let’s find your next book"}
+                  </h2>
                   <p className="mt-1.5 max-w-sm text-sm text-ink-soft">
-                    Chat with Muse. As you agree on the concept, title, and key points, they collect in your
-                    Direction — then build the book in one tap.
+                    {newsletter
+                      ? "Chat with Muse about your brand, audience, and issue ideas. As you agree, they collect in your Direction — then build the newsletter in one tap."
+                      : "Chat with Muse. As you agree on the concept, title, and key points, they collect in your Direction — then build the book in one tap."}
                   </p>
                 </div>
                 <div className="flex flex-col gap-2">
-                  {STARTERS.map((s) => (
+                  {starters.map((s) => (
                     <button
                       key={s}
                       onClick={() => send(s)}
@@ -299,7 +313,7 @@ export function BrainstormBoard({
                 {streaming && <Bubble msg={{ id: "streaming", role: "assistant", content: partial }} streaming />}
                 {!streaming && messages.length > 0 && messages[messages.length - 1].role === "assistant" && (
                   <div className="flex flex-wrap gap-2 pl-11">
-                    {FOLLOWUPS.map((f) => (
+                    {followups.map((f) => (
                       <button
                         key={f}
                         onClick={() => send(f)}

@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const messages = brainstormMessages(history, message.trim());
+  const messages = brainstormMessages(history, message.trim(), session.mode);
   const encoder = new TextEncoder();
   let full = "";
 
