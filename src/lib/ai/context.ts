@@ -121,6 +121,7 @@ export async function buildBookContext(
     readingLevel: project.readingLevel,
     pov: project.pov,
     narrativeStyle: project.narrativeStyle,
+    cadence: project.cadence,
     readerPromise: project.readerPromise,
     include: project.include,
     avoid: project.avoid,

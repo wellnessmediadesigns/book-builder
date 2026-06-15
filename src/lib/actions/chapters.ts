@@ -85,10 +85,19 @@ export async function restoreVersion(versionId: string) {
 
 export async function updateChapterMeta(
   chapterId: string,
-  data: { title?: string; summary?: string; minWords?: number; maxWords?: number; status?: string },
+  data: {
+    title?: string;
+    summary?: string;
+    minWords?: number;
+    maxWords?: number;
+    status?: string;
+    subjectLine?: string;
+    publishDate?: Date | null;
+  },
 ) {
   const c = await prisma.chapter.update({ where: { id: chapterId }, data });
   revalidatePath(`/studio/book/${c.projectId}/write`);
+  revalidatePath(`/studio/book/${c.projectId}/outline`);
 }
 
 export async function toggleChapterLock(chapterId: string) {

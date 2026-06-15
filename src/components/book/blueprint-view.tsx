@@ -211,8 +211,8 @@ export function BlueprintView({
               </div>
               <EditableText
                 value={c.summary}
-                onSave={(v) => updateChapterMeta(c.id, { summary: v })}
-                placeholder="Add a chapter summary…"
+                onSave={(val) => updateChapterMeta(c.id, { summary: val })}
+                placeholder={`Add ${news ? "an issue" : "a chapter"} summary…`}
                 multiline
                 className="mt-1.5 pl-6 text-sm text-ink-soft"
               />
@@ -221,8 +221,8 @@ export function BlueprintView({
         </div>
       </SectionCard>
 
-      {/* Fiction: characters & settings */}
-      {project.kind === "fiction" && (
+      {/* Fiction: characters & settings (books only) */}
+      {!news && project.kind === "fiction" && (
         <>
           {arr(bp.characters).length > 0 && (
             <SectionCard title="Characters" delay={0.12}>
@@ -253,25 +253,27 @@ export function BlueprintView({
         </div>
       </SectionCard>
 
-      {/* Front/back matter */}
-      <SectionCard title="Recommended front & back matter" delay={0.18}>
-        <div className="grid gap-5 sm:grid-cols-2">
-          <GuideList title="Front matter" items={arr(bp.frontMatter)} tone="brass" />
-          <GuideList title="Back matter" items={arr(bp.backMatter)} tone="muse" />
-        </div>
-      </SectionCard>
+      {/* Front/back matter — books only */}
+      {!news && (
+        <SectionCard title="Recommended front & back matter" delay={0.18}>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <GuideList title="Front matter" items={arr(bp.frontMatter)} tone="brass" />
+            <GuideList title="Back matter" items={arr(bp.backMatter)} tone="muse" />
+          </div>
+        </SectionCard>
+      )}
 
       <div className="mt-8 flex items-center justify-between rounded-2xl border border-line bg-paper-sunken/40 p-5">
         <div>
-          <p className="font-display font-semibold text-ink">Happy with the blueprint?</p>
-          <p className="text-sm text-ink-soft">Head to the editor and write chapter one.</p>
+          <p className="font-display font-semibold text-ink">Happy with the {news ? "plan" : "blueprint"}?</p>
+          <p className="text-sm text-ink-soft">Head to the editor and write {news ? "your first issue" : "chapter one"}.</p>
         </div>
         <div className="flex gap-2">
           <Button
             variant="outline"
             disabled={generating}
             onClick={() => {
-              if (confirm("Regenerate the blueprint? This rebuilds the outline and Book Memory."))
+              if (confirm(`Regenerate the ${v.plan.toLowerCase()}? This rebuilds the ${v.outline.toLowerCase()} and ${v.memory}.`))
                 generate();
             }}
           >

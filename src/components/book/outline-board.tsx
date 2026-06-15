@@ -20,6 +20,7 @@ import { EditableText } from "@/components/book/editable-text";
 import { AutoWritePanel } from "@/components/book/auto-write";
 import { toast } from "@/components/ui/toast";
 import { cn, formatNumber, cleanChapterTitle } from "@/lib/utils";
+import { workVocab } from "@/lib/work";
 import {
   updateChapterMeta,
   reorderChapters,
@@ -48,6 +49,8 @@ type Ch = {
   maxWords: number;
   status: string;
   locked: boolean;
+  subjectLine?: string;
+  publishDate?: string; // YYYY-MM-DD
 };
 
 const STATUS: Record<string, { label: string; tone: "neutral" | "brass" | "muse" | "sage" }> = {
@@ -61,11 +64,15 @@ const STATUS: Record<string, { label: string; tone: "neutral" | "brass" | "muse"
 export function OutlineBoard({
   projectId,
   initial,
+  workType,
 }: {
   projectId: string;
   initial: Ch[];
+  workType?: string;
 }) {
   const router = useRouter();
+  const v = workVocab(workType);
+  const news = v.type === "newsletter";
   const [chapters, setChapters] = useState<Ch[]>(initial);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -112,7 +119,7 @@ export function OutlineBoard({
       {
         id,
         order: cs.length,
-        title: `Chapter ${cs.length + 1}`,
+        title: `${v.unit} ${cs.length + 1}`,
         summary: "",
         wordCount: 0,
         minWords: cs[0]?.minWords ?? 0,
@@ -128,7 +135,7 @@ export function OutlineBoard({
     const deleted = await deleteChapter(id);
     setChapters((cs) => cs.filter((c) => c.id !== id));
     toast.action(
-      `Deleted "${cleanChapterTitle(removed?.title ?? "chapter")}"`,
+      `Deleted "${cleanChapterTitle(removed?.title ?? v.unitLower)}"`,
       {
         label: "Undo",
         onClick: async () => {
@@ -149,7 +156,7 @@ export function OutlineBoard({
               },
             ].sort((a, b) => a.order - b.order),
           );
-          toast.success("Chapter restored");
+          toast.success(`${v.unit} restored`);
         },
       },
       { tone: "info" },
@@ -161,24 +168,24 @@ export function OutlineBoard({
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <Badge tone="brass">
-            <BookOpen className="h-3 w-3" /> Outline
+            <BookOpen className="h-3 w-3" /> {v.outline}
           </Badge>
           <h1 className="mt-3 font-display text-display-md font-semibold text-ink">
-            The whole book at a glance
+            {news ? "Every issue at a glance" : "The whole book at a glance"}
           </h1>
           <p className="mt-2 max-w-xl text-ink-soft">
-            Drag to reorder, edit titles and summaries inline, and see progress per chapter.
-            Summaries feed Book Memory, keeping the AI consistent.
+            Drag to reorder, edit titles and summaries inline, and see progress per {v.unitLower}.
+            Summaries feed {v.memory}, keeping the AI consistent.
           </p>
         </div>
         <div className="flex flex-col items-stretch gap-2 sm:items-end">
           {emptyCount > 0 && (
             <Button variant="brass" onClick={() => setAutoOpen(true)}>
-              <Wand2 className="h-4 w-4" /> Write whole book
+              <Wand2 className="h-4 w-4" /> {news ? "Write all issues" : "Write whole book"}
             </Button>
           )}
           <div className="flex flex-wrap gap-2">
-            <Badge tone="neutral">{chapters.length} chapters</Badge>
+            <Badge tone="neutral">{chapters.length} {chapters.length === 1 ? v.unitLower : v.unitsLower}</Badge>
             <Badge tone="neutral">{drafted} drafted</Badge>
             <Badge tone="neutral">{formatNumber(totalWords)} words</Badge>
           </div>
@@ -188,6 +195,7 @@ export function OutlineBoard({
       {autoOpen && (
         <AutoWritePanel
           projectId={projectId}
+          workType={workType}
           chapters={chapters.map((c) => ({
             id: c.id,
             order: c.order,
@@ -254,14 +262,42 @@ export function OutlineBoard({
               />
               <EditableText
                 value={c.summary}
-                onSave={(v) => {
-                  updateChapterMeta(c.id, { summary: v });
-                  setChapters((cs) => cs.map((x) => (x.id === c.id ? { ...x, summary: v } : x)));
+                onSave={(val) => {
+                  updateChapterMeta(c.id, { summary: val });
+                  setChapters((cs) => cs.map((x) => (x.id === c.id ? { ...x, summary: val } : x)));
                 }}
                 placeholder="Add a summary…"
                 multiline
                 className="mt-1.5 line-clamp-4 min-h-[3.5rem] text-sm text-ink-soft"
               />
+
+              {news && (
+                <div className="mt-2 space-y-1.5">
+                  <input
+                    type="text"
+                    defaultValue={c.subjectLine ?? ""}
+                    placeholder="Email subject line…"
+                    onBlur={(e) => {
+                      const val = e.target.value.trim();
+                      if (val === (c.subjectLine ?? "")) return;
+                      updateChapterMeta(c.id, { subjectLine: val });
+                      setChapters((cs) => cs.map((x) => (x.id === c.id ? { ...x, subjectLine: val } : x)));
+                    }}
+                    className="w-full rounded-lg border border-line bg-paper px-2.5 py-1.5 text-xs text-ink outline-none transition-colors focus:border-muse/40"
+                  />
+                  <input
+                    type="date"
+                    defaultValue={c.publishDate ?? ""}
+                    aria-label="Publish date"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      updateChapterMeta(c.id, { publishDate: val ? new Date(val) : null });
+                      setChapters((cs) => cs.map((x) => (x.id === c.id ? { ...x, publishDate: val } : x)));
+                    }}
+                    className="w-full rounded-lg border border-line bg-paper px-2.5 py-1.5 text-xs text-ink-soft outline-none transition-colors focus:border-muse/40"
+                  />
+                </div>
+              )}
 
               <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-paper-sunken">
                 <div
@@ -298,24 +334,29 @@ export function OutlineBoard({
                   </Button>
                 )}
 
-                <button
-                  onClick={() => setMenuId((m) => (m === c.id ? null : c.id))}
-                  title="Convert to a front/back-matter section"
-                  className="ml-auto flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs text-ink-soft transition-colors hover:bg-paper-sunken hover:text-ink"
-                >
-                  <FolderInput className="h-3.5 w-3.5" /> Move
-                </button>
+                {!news && (
+                  <button
+                    onClick={() => setMenuId((m) => (m === c.id ? null : c.id))}
+                    title="Convert to a front/back-matter section"
+                    className="ml-auto flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs text-ink-soft transition-colors hover:bg-paper-sunken hover:text-ink"
+                  >
+                    <FolderInput className="h-3.5 w-3.5" /> Move
+                  </button>
+                )}
                 {chapters.length > 1 && (
                   <button
                     onClick={() => remove(c.id)}
                     aria-label={`Delete ${cleanChapterTitle(c.title)}`}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-clay/10 hover:text-clay"
+                    className={cn(
+                      "flex h-9 w-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-clay/10 hover:text-clay",
+                      news && "ml-auto",
+                    )}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 )}
 
-                {menuId === c.id && (
+                {!news && menuId === c.id && (
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setMenuId(null)} />
                     <div className="absolute bottom-10 right-0 z-20 w-56 overflow-hidden rounded-xl border border-line bg-paper-raised p-1 shadow-float animate-scale-in">
@@ -347,7 +388,7 @@ export function OutlineBoard({
           className="flex min-h-[180px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-line text-muted transition-colors hover:border-brass/40 hover:text-brass-deep"
         >
           <Plus className="h-6 w-6" />
-          <span className="text-sm">Add chapter</span>
+          <span className="text-sm">Add {v.unitLower}</span>
         </button>
       </div>
     </div>

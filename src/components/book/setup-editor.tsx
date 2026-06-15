@@ -9,6 +9,8 @@ import { Input, Textarea, Select, Label, FieldHint } from "@/components/ui/field
 import { Card } from "@/components/ui/primitives";
 import { toast } from "@/components/ui/toast";
 import { updateProjectSetup } from "@/lib/actions/projects";
+import { workVocab } from "@/lib/work";
+import { CADENCES } from "@/lib/newsletter";
 
 const BOOK_TYPES = [
   "Novel",
@@ -55,18 +57,23 @@ export type SetupData = {
   narrativeStyle: string;
   pov: string;
   publishFormat: string;
+  cadence: string;
 };
 
 export function SetupEditor({
   projectId,
   initial,
   hasBlueprint,
+  workType,
 }: {
   projectId: string;
   initial: SetupData;
   hasBlueprint: boolean;
+  workType?: string;
 }) {
   const router = useRouter();
+  const v = workVocab(workType);
+  const news = v.type === "newsletter";
   const [d, setD] = useState<SetupData>(initial);
   const [pending, start] = useTransition();
   const [dirty, setDirty] = useState(false);
@@ -91,10 +98,10 @@ export function SetupEditor({
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
-      <h1 className="font-display text-display-md font-semibold text-ink">Book setup</h1>
+      <h1 className="font-display text-display-md font-semibold text-ink">{news ? "Brand setup" : "Book setup"}</h1>
       <p className="mt-2 text-ink-soft">
         Everything you set when you started — editable any time. Changes to structure shape
-        the next blueprint and chapter generations.
+        the next {v.plan.toLowerCase()} and {v.unitLower} generations.
       </p>
 
       {/* Idea */}
@@ -106,26 +113,28 @@ export function SetupEditor({
             <Input value={d.title} onChange={(e) => set("title", e.target.value)} />
           </div>
           <div>
-            <Label>What the book is about</Label>
+            <Label>{news ? "What the newsletter delivers" : "What the book is about"}</Label>
             <Textarea
               className="min-h-[110px]"
               value={d.idea}
               onChange={(e) => set("idea", e.target.value)}
             />
           </div>
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div>
-              <Label>Fiction or nonfiction</Label>
-              <Select value={d.kind} onChange={(e) => set("kind", e.target.value)}>
-                <option value="nonfiction">Nonfiction</option>
-                <option value="fiction">Fiction</option>
-              </Select>
+          {!news && (
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div>
+                <Label>Fiction or nonfiction</Label>
+                <Select value={d.kind} onChange={(e) => set("kind", e.target.value)}>
+                  <option value="nonfiction">Nonfiction</option>
+                  <option value="fiction">Fiction</option>
+                </Select>
+              </div>
+              <div>
+                <Label>Genre</Label>
+                <Input value={d.genre} onChange={(e) => set("genre", e.target.value)} />
+              </div>
             </div>
-            <div>
-              <Label>Genre</Label>
-              <Input value={d.genre} onChange={(e) => set("genre", e.target.value)} />
-            </div>
-          </div>
+          )}
           <div className="grid gap-5 sm:grid-cols-2">
             <div>
               <Label>Theme</Label>
@@ -158,31 +167,47 @@ export function SetupEditor({
       <Card className="mt-5 p-6">
         <h2 className="mb-4 font-display text-lg font-semibold text-ink">Structure</h2>
         <div className="grid gap-5">
-          <div className="grid gap-5 sm:grid-cols-2">
+          {news ? (
             <div>
-              <Label>Book type</Label>
-              <Select value={d.bookType} onChange={(e) => set("bookType", e.target.value)}>
-                {!BOOK_TYPES.includes(d.bookType) && <option>{d.bookType}</option>}
-                {BOOK_TYPES.map((t) => (
-                  <option key={t}>{t}</option>
+              <Label>Cadence</Label>
+              <Select value={d.cadence} onChange={(e) => set("cadence", e.target.value)}>
+                {d.cadence && !CADENCES.includes(d.cadence as (typeof CADENCES)[number]) && (
+                  <option>{d.cadence}</option>
+                )}
+                {CADENCES.map((c) => (
+                  <option key={c} value={c}>
+                    {c[0].toUpperCase() + c.slice(1)}
+                  </option>
                 ))}
               </Select>
             </div>
-            <div>
-              <Label>Publishing format</Label>
-              <Select value={d.publishFormat} onChange={(e) => set("publishFormat", e.target.value)}>
-                <option>Ebook + Print</option>
-                <option>Ebook only</option>
-                <option>Print only</option>
-                <option>Kindle (KDP)</option>
-              </Select>
+          ) : (
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div>
+                <Label>Book type</Label>
+                <Select value={d.bookType} onChange={(e) => set("bookType", e.target.value)}>
+                  {!BOOK_TYPES.includes(d.bookType) && <option>{d.bookType}</option>}
+                  {BOOK_TYPES.map((t) => (
+                    <option key={t}>{t}</option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <Label>Publishing format</Label>
+                <Select value={d.publishFormat} onChange={(e) => set("publishFormat", e.target.value)}>
+                  <option>Ebook + Print</option>
+                  <option>Ebook only</option>
+                  <option>Print only</option>
+                  <option>Kindle (KDP)</option>
+                </Select>
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Chapter count — the field you wanted */}
+          {/* Issue/chapter count */}
           <div className="rounded-2xl border border-brass/30 bg-brass-soft/40 p-5">
             <div className="flex items-center justify-between">
-              <Label className="mb-0 text-ink">Number of chapters</Label>
+              <Label className="mb-0 text-ink">Number of {v.unitsLower}</Label>
               <input
                 type="number"
                 min={1}
@@ -207,7 +232,7 @@ export function SetupEditor({
 
           <div className="grid gap-5 sm:grid-cols-2">
             <div>
-              <Label>Min words / chapter</Label>
+              <Label>Min words / {v.lengthUnit}</Label>
               <Input
                 type="number"
                 value={d.minWords}
@@ -215,7 +240,7 @@ export function SetupEditor({
               />
             </div>
             <div>
-              <Label>Max words / chapter</Label>
+              <Label>Max words / {v.lengthUnit}</Label>
               <Input
                 type="number"
                 value={d.maxWords}
@@ -227,7 +252,7 @@ export function SetupEditor({
           <div className="flex items-center gap-2 rounded-xl bg-muse-soft px-4 py-3 text-sm text-muse-deep">
             <Sparkles className="h-4 w-4" />
             Estimated length: <strong>≈ {est.toLocaleString()} words</strong> across{" "}
-            {d.chapterCount} chapters
+            {d.chapterCount} {v.unitsLower}
           </div>
 
           {d.kind === "fiction" && (
@@ -302,9 +327,8 @@ export function SetupEditor({
 
       {hasBlueprint && chaptersChanged && (
         <p className="mt-3 text-center text-xs text-muted">
-          You changed the chapter count. Your current blueprint still has{" "}
-          {initial.chapterCount} chapters — regenerate it to rebuild the outline with{" "}
-          {d.chapterCount}.
+          You changed the {v.unitLower} count. Your current {v.plan.toLowerCase()} still has{" "}
+          {initial.chapterCount} {v.unitsLower} — regenerate it to rebuild with {d.chapterCount}.
         </p>
       )}
     </div>

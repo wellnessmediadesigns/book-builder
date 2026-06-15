@@ -129,7 +129,7 @@ export async function generateBlueprint(
   let config;
   try {
     const messages = newsletter
-      ? contentPlanMessages(ctx, project.idea, extras)
+      ? contentPlanMessages(ctx, project.idea, extras, project.chapterCount)
       : blueprintMessages(ctx, project.idea, extras);
     const res = await completeWithFallback(messages);
     raw = res.text;
@@ -166,14 +166,17 @@ export async function generateBlueprint(
     },
   });
 
-  // Normalize the table of contents into plan items.
-  const tocItems = toc.map((c, i) => {
-    const ch = c as { title?: string; summary?: string };
-    return {
-      title: ch.title ? cleanChapterTitle(ch.title) : `${newsletter ? "Issue" : "Chapter"} ${i + 1}`,
-      summary: ch.summary || "",
-    };
-  });
+  // Normalize the table of contents into plan items. Newsletters are capped to the
+  // planned (FEW) issue count so the model can't balloon them back to book length.
+  const tocItems = toc
+    .map((c, i) => {
+      const ch = c as { title?: string; summary?: string };
+      return {
+        title: ch.title ? cleanChapterTitle(ch.title) : `${newsletter ? "Issue" : "Chapter"} ${i + 1}`,
+        summary: ch.summary || "",
+      };
+    })
+    .slice(0, newsletter ? Math.max(1, project.chapterCount) : undefined);
 
   if (preserveWritten) {
     // Rebuild around the author's work: keep body chapters/issues that have been
@@ -194,7 +197,13 @@ export async function generateBlueprint(
         reorders.push(prisma.chapter.update({ where: { id: c.id }, data: { order: i } }));
     });
     await Promise.all(reorders);
-    const additions = tocItems.filter((t) => !writtenTitles.has(t.title.trim().toLowerCase()));
+    let additions = tocItems.filter((t) => !writtenTitles.has(t.title.trim().toLowerCase()));
+    // For newsletters, never grow past the planned issue count — but never drop
+    // written work either: only the *new* items are capped.
+    if (newsletter) {
+      const room = Math.max(0, project.chapterCount - written.length);
+      additions = additions.slice(0, room);
+    }
     if (additions.length)
       await prisma.chapter.createMany({
         data: additions.map((t, i) => ({
@@ -243,8 +252,15 @@ export async function generateBlueprint(
   forEachObj(bp.settings, (o) =>
     push("setting", String(o.name || "Setting"), String(o.description || "")),
   );
+  // For newsletters, the plan's "keyConcepts" are recurring themes/segments — file
+  // them under the newsletter-native "recurring-segment" kind so they show up in
+  // Brand knowledge's Segments group.
   forEachObj(bp.keyConcepts, (o) =>
-    push("key-concept", String(o.name || "Concept"), String(o.description || "")),
+    push(
+      newsletter ? "recurring-segment" : "key-concept",
+      String(o.name || (newsletter ? "Segment" : "Concept")),
+      String(o.description || ""),
+    ),
   );
 
   if (mem.length)
@@ -357,15 +373,17 @@ export async function autoWriteChapter(
   if (chapter.locked) return { ok: false, error: "Chapter is locked." };
 
   const ctx = await buildBookContext(chapter.projectId, chapter.order);
+  const news = ctx.workType === "newsletter";
   const unit = {
     title: chapter.title,
     summary: chapter.summary,
-    minWords: chapter.minWords || 1000,
-    maxWords: chapter.maxWords || 2000,
+    minWords: chapter.minWords || (news ? 300 : 1000),
+    maxWords: chapter.maxWords || (news ? 600 : 2000),
+    subjectLine: chapter.subjectLine || "",
   };
   try {
     const { text } = await completeWithFallback(
-      ctx.workType === "newsletter" ? newsletterIssueMessages(ctx, unit) : chapterMessages(ctx, unit),
+      news ? newsletterIssueMessages(ctx, unit) : chapterMessages(ctx, unit),
     );
     if (!text.trim()) return { ok: false, error: "The model returned no text." };
     await saveChapterContent(chapterId, textToDoc(text), {

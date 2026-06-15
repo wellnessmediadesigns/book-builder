@@ -19,7 +19,7 @@ export default async function ExportPage({
       chapters: {
         where: { matterType: null },
         orderBy: { order: "asc" },
-        select: { id: true, title: true, wordCount: true, order: true },
+        select: { id: true, title: true, wordCount: true, order: true, subjectLine: true },
       },
     },
   });
@@ -34,7 +34,7 @@ export default async function ExportPage({
         <NewsletterExport
           projectId={id}
           brand={title}
-          issues={project.chapters.map((c) => ({ id: c.id, title: c.title, wordCount: c.wordCount, order: c.order }))}
+          issues={project.chapters.map((c) => ({ id: c.id, title: c.title, wordCount: c.wordCount, order: c.order, subjectLine: c.subjectLine }))}
         />
       </>
     );

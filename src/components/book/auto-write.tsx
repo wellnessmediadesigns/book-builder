@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { celebrate } from "@/lib/confetti";
 import { cn, cleanChapterTitle } from "@/lib/utils";
+import { workVocab } from "@/lib/work";
 import { autoWriteChapter } from "@/lib/actions/ai";
 import { listMatter, generateMatter, type MatterRow } from "@/lib/actions/matter";
 
@@ -62,16 +63,21 @@ export function AutoWritePanel({
   chapters,
   onClose,
   onChapterWritten,
+  workType,
 }: {
   projectId: string;
   chapters: ChapterLite[];
   onClose: () => void;
   onChapterWritten: (id: string, wordCount: number) => void;
+  workType?: string;
 }) {
   const router = useRouter();
+  const v = workVocab(workType);
+  const news = v.type === "newsletter";
   const [phase, setPhase] = useState<"config" | "running" | "paused" | "done">("config");
   const [matter, setMatter] = useState<MatterRow[]>([]);
-  const [includeMatter, setIncludeMatter] = useState<Set<string>>(new Set(DEFAULT_MATTER));
+  // Newsletters have no front/back matter — start with nothing selected.
+  const [includeMatter, setIncludeMatter] = useState<Set<string>>(new Set(news ? [] : DEFAULT_MATTER));
   const [pacingMs, setPacingMs] = useState(PACING[0].ms);
   const [summarize, setSummarize] = useState(true);
   const [items, setItems] = useState<Item[]>([]);
@@ -163,7 +169,10 @@ export function AutoWritePanel({
     setPhase("done");
     router.refresh();
     celebrate("book");
-    toast.success("Book draft complete", "Every chapter is yours to edit.");
+    toast.success(
+      news ? "All issues drafted" : "Book draft complete",
+      `Every ${v.unitLower} is yours to edit.`,
+    );
   }
 
   function start() {
@@ -221,12 +230,14 @@ export function AutoWritePanel({
             {phase === "running" ? <Loader2 className="h-5 w-5 animate-spin" /> : <Wand2 className="h-5 w-5" />}
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="font-display text-lg font-semibold text-ink">Write the whole book</h2>
+            <h2 className="font-display text-lg font-semibold text-ink">{news ? "Write all issues" : "Write the whole book"}</h2>
             <p className="text-xs text-muted">
               {phase === "config"
-                ? "Quire drafts each chapter in order, then your sections."
+                ? news
+                  ? "Quire drafts each issue in order."
+                  : "Quire drafts each chapter in order, then your sections."
                 : phase === "done"
-                  ? "Done — every chapter drafted."
+                  ? `Done — every ${v.unitLower} drafted.`
                   : `${doneCount} of ${total} done${remaining ? ` · ~${etaMin} min left` : ""}`}
             </p>
           </div>
@@ -248,14 +259,15 @@ export function AutoWritePanel({
               <div className="rounded-xl border border-line bg-paper-sunken/40 p-4">
                 <p className="flex items-center gap-2 text-sm font-medium text-ink">
                   <BookOpenCheck className="h-4 w-4 text-brass" />
-                  {emptyChapters.length} chapter{emptyChapters.length === 1 ? "" : "s"} to write
+                  {emptyChapters.length} {emptyChapters.length === 1 ? v.unitLower : v.unitsLower} to write
                 </p>
                 <p className="mt-1 text-xs text-ink-soft">
-                  Empty chapters only, in order — anything you&apos;ve already written is kept.
+                  Empty {v.unitsLower} only, in order — anything you&apos;ve already written is kept.
                 </p>
               </div>
 
-              {/* matter checklist */}
+              {/* matter checklist — book-only (newsletters have no front/back matter) */}
+              {!news && (
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
                   Also generate these sections
@@ -282,6 +294,7 @@ export function AutoWritePanel({
                   Sections that already have content are skipped.
                 </p>
               </div>
+              )}
 
               {/* pacing */}
               <div>
@@ -307,7 +320,7 @@ export function AutoWritePanel({
 
               <label className="flex cursor-pointer items-center gap-2 text-sm text-ink-soft">
                 <input type="checkbox" checked={summarize} onChange={(e) => setSummarize(e.target.checked)} className="h-4 w-4 accent-[hsl(var(--muse))]" />
-                Keep continuity summaries between chapters{" "}
+                Keep continuity summaries between {v.unitsLower}{" "}
                 <span className="text-xs text-muted">(recommended)</span>
               </label>
 
@@ -338,7 +351,7 @@ export function AutoWritePanel({
                     {it.detail && <p className="truncate text-xs text-clay">{it.detail}</p>}
                   </div>
                   <span className="text-[0.6875rem] capitalize text-muted">
-                    {it.kind === "matter" ? "section" : it.status === "done" ? "" : "chapter"}
+                    {it.kind === "matter" ? "section" : it.status === "done" ? "" : v.unitLower}
                   </span>
                 </div>
               ))}

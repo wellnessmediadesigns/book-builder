@@ -9,6 +9,7 @@ import { directionMessages, brainstormSetupMessages } from "@/lib/ai/prompts";
 import { generateBlueprint } from "@/lib/actions/ai";
 import type { ProjectInput } from "@/lib/actions/projects";
 import { parseDirection, parseDismissed, bulletId, type Direction } from "@/lib/brainstorm";
+import { NEWSLETTER_LENGTHS, NEWSLETTER_DEFAULTS } from "@/lib/newsletter";
 
 const ACCENTS = ["brass", "muse", "sage"];
 
@@ -219,6 +220,8 @@ export async function buildBookFromBrainstorm(
     .map((m) => `${m.role === "user" ? "Author" : "Muse"}: ${m.content}`)
     .join("\n");
 
+  const newsletter = session.mode === "newsletter";
+
   let raw: Record<string, unknown>;
   try {
     const { text } = await completeWithFallback(
@@ -226,6 +229,7 @@ export async function buildBookFromBrainstorm(
         { title: direction.title, bullets: direction.bullets.map((b) => b.text) },
         transcript,
         dismissed,
+        { newsletter },
       ),
     );
     raw = parseJson(text);
@@ -234,15 +238,18 @@ export async function buildBookFromBrainstorm(
     return { ok: false, error: err === "no_key" ? "no_key" : err };
   }
 
-  const newsletter = session.mode === "newsletter";
   const str = (k: string, fallback = "") => String(raw[k] ?? fallback);
   const num = (k: string, fallback: number) => {
     const n = Number(raw[k]);
     return Number.isFinite(n) && n > 0 ? Math.round(n) : fallback;
   };
-  const minWords = newsletter ? num("minWords", 600) : num("minWords", 1200);
+  // Newsletters are SHORT + FEW; books keep their generous ranges.
+  const [nlMin, nlMax] = NEWSLETTER_LENGTHS[NEWSLETTER_DEFAULTS.length];
+  const minWords = newsletter
+    ? Math.max(150, Math.min(nlMax, num("minWords", nlMin)))
+    : num("minWords", 1200);
   const maxWords = newsletter
-    ? Math.min(1800, Math.max(minWords, num("maxWords", 1100)))
+    ? Math.min(nlMax, Math.max(minWords, num("maxWords", nlMax)))
     : Math.max(minWords, num("maxWords", 2500));
   // Always carry the author's removed topics into `avoid` so generation steers
   // clear of them (contextBlock injects "Must avoid: …" into every prompt).
@@ -270,7 +277,7 @@ export async function buildBookFromBrainstorm(
     goals: str("goals"),
     bookType: newsletter ? "Newsletter" : str("bookType", "Self-help"),
     chapterCount: newsletter
-      ? Math.min(24, Math.max(1, num("chapterCount", 6)))
+      ? Math.min(NEWSLETTER_DEFAULTS.maxIssues, Math.max(NEWSLETTER_DEFAULTS.minIssues, num("chapterCount", NEWSLETTER_DEFAULTS.issueCount)))
       : Math.min(40, Math.max(1, num("chapterCount", 10))),
     minWords,
     maxWords,
@@ -280,6 +287,7 @@ export async function buildBookFromBrainstorm(
     seriesName: "",
     styleNotes: "",
     workType: newsletter ? "newsletter" : "book",
+    cadence: newsletter ? (str("cadence", "weekly").toLowerCase() || "weekly") : "",
   };
 
   const estTotalWords = Math.round(((minWords + maxWords) / 2) * input.chapterCount);

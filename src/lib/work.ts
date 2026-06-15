@@ -12,6 +12,12 @@ export type WorkVocab = {
   unit: string;
   /** "Chapters" | "Issues" */
   units: string;
+  /** "chapter" | "issue" — for mid-sentence use */
+  unitLower: string;
+  /** "chapters" | "issues" — for mid-sentence use */
+  unitsLower: string;
+  /** "chapter" | "issue" — unit a word-count goal applies to */
+  lengthUnit: string;
   /** "Outline" | "Issues" */
   outline: string;
   /** "Blueprint" | "Content plan" */
@@ -30,6 +36,9 @@ const BOOK: WorkVocab = {
   workLower: "book",
   unit: "Chapter",
   units: "Chapters",
+  unitLower: "chapter",
+  unitsLower: "chapters",
+  lengthUnit: "chapter",
   outline: "Outline",
   plan: "Blueprint",
   memory: "Book Memory",
@@ -43,6 +52,9 @@ const NEWSLETTER: WorkVocab = {
   workLower: "newsletter brand",
   unit: "Issue",
   units: "Issues",
+  unitLower: "issue",
+  unitsLower: "issues",
+  lengthUnit: "issue",
   outline: "Issues",
   plan: "Content plan",
   memory: "Brand knowledge",

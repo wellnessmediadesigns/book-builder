@@ -25,6 +25,7 @@ export default async function OutlinePage({
       <BookHeader projectId={id} title={project.recommendedTitle || project.title} workType={project.workType} />
       <OutlineBoard
         projectId={id}
+        workType={project.workType}
         initial={project.chapters.map((c) => ({
           id: c.id,
           order: c.order,
@@ -35,6 +36,8 @@ export default async function OutlinePage({
           maxWords: c.maxWords,
           status: c.status,
           locked: c.locked,
+          subjectLine: c.subjectLine,
+          publishDate: c.publishDate ? c.publishDate.toISOString().slice(0, 10) : "",
         }))}
       />
     </>

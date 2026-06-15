@@ -16,6 +16,7 @@ import {
 import Link from "next/link";
 import { cn, formatNumber } from "@/lib/utils";
 import { Spinner } from "@/components/ui/primitives";
+import { workVocab } from "@/lib/work";
 
 export type ChapterMeta = {
   id: string;
@@ -48,6 +49,7 @@ export function ChapterRail({
   onReorder,
   onGenerate,
   onCollapse,
+  workType,
 }: {
   projectId: string;
   bookTitle: string;
@@ -60,7 +62,9 @@ export function ChapterRail({
   onReorder: (ids: string[]) => void;
   onGenerate: (id: string) => void;
   onCollapse: () => void;
+  workType?: string;
 }) {
+  const v = workVocab(workType);
   const [dragId, setDragId] = useState<string | null>(null);
   const totalWords = chapters.reduce((s, c) => s + c.wordCount, 0);
 
@@ -83,14 +87,14 @@ export function ChapterRail({
         <button
           onClick={onCollapse}
           className="flex h-7 w-7 items-center justify-center rounded-lg text-muted transition-colors hover:bg-paper-sunken hover:text-ink"
-          title="Hide chapters"
+          title={`Hide ${v.unitsLower}`}
         >
           <PanelLeftClose className="h-4 w-4" />
         </button>
       </div>
 
       <div className="px-4 pb-2 text-xs text-muted">
-        {chapters.length} chapters · {formatNumber(totalWords)} words
+        {chapters.length} {chapters.length === 1 ? v.unitLower : v.unitsLower} · {formatNumber(totalWords)} words
       </div>
 
       <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 pb-2">
@@ -142,7 +146,7 @@ export function ChapterRail({
                   <button
                     onClick={() => onGenerate(c.id)}
                     disabled={gen}
-                    title="Generate chapter"
+                    title={`Generate ${v.unitLower}`}
                     className="flex h-6 w-6 items-center justify-center rounded-md text-muse transition-colors hover:bg-muse-soft"
                   >
                     {gen ? <Spinner className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
@@ -154,8 +158,8 @@ export function ChapterRail({
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    title="Download this chapter (PDF)"
-                    aria-label="Download this chapter as PDF"
+                    title={`Download this ${v.unitLower} (PDF)`}
+                    aria-label={`Download this ${v.unitLower} as PDF`}
                     className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-paper-sunken hover:text-ink"
                   >
                     <FileDown className="h-3.5 w-3.5" />
@@ -164,8 +168,8 @@ export function ChapterRail({
                 {chapters.length > 1 && (
                   <button
                     onClick={() => onDelete(c.id)}
-                    title="Delete chapter"
-                    aria-label="Delete chapter"
+                    title={`Delete ${v.unitLower}`}
+                    aria-label={`Delete ${v.unitLower}`}
                     className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-clay/10 hover:text-clay"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -189,7 +193,7 @@ export function ChapterRail({
           onClick={onAdd}
           className="mt-1 flex w-full items-center gap-2 rounded-xl border border-dashed border-line px-3 py-2.5 text-sm text-muted transition-colors hover:border-brass/30 hover:text-brass-deep"
         >
-          <Plus className="h-4 w-4" /> Add chapter
+          <Plus className="h-4 w-4" /> Add {v.unitLower}
         </button>
       </div>
 

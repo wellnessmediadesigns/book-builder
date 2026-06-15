@@ -8,6 +8,7 @@ import { Input, Textarea, Label, FieldHint } from "@/components/ui/field";
 import { toast } from "@/components/ui/toast";
 import { createNewsletter } from "@/lib/actions/projects";
 import { analyzeStyleSample } from "@/lib/actions/ai";
+import { CADENCES } from "@/lib/newsletter";
 
 const LENGTHS = [
   { id: "short", label: "Short", hint: "~300–600 words" },
@@ -21,8 +22,9 @@ export function NewsletterSetup({ aiReady }: { aiReady: boolean }) {
   const [audience, setAudience] = useState("");
   const [tone, setTone] = useState("");
   const [styleNotes, setStyleNotes] = useState("");
-  const [plannedIssues, setPlannedIssues] = useState(6);
-  const [issueLength, setIssueLength] = useState<"short" | "standard" | "long">("standard");
+  const [plannedIssues, setPlannedIssues] = useState(5);
+  const [issueLength, setIssueLength] = useState<"short" | "standard" | "long">("short");
+  const [cadence, setCadence] = useState<string>("weekly");
 
   const [sample, setSample] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
@@ -58,7 +60,7 @@ export function NewsletterSetup({ aiReady }: { aiReady: boolean }) {
       return;
     }
     start(async () => {
-      await createNewsletter({ name, about, audience, tone, styleNotes, issueLength, plannedIssues });
+      await createNewsletter({ name, about, audience, tone, styleNotes, issueLength, plannedIssues, cadence });
     });
   }
 
@@ -129,6 +131,20 @@ export function NewsletterSetup({ aiReady }: { aiReady: boolean }) {
               >
                 <span className="block text-sm font-medium text-ink">{l.label}</span>
                 <span className="block text-[0.6875rem] text-muted">{l.hint}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <Label>How often do you send?</Label>
+          <div className="grid grid-cols-3 gap-2">
+            {CADENCES.map((c) => (
+              <button
+                key={c}
+                onClick={() => setCadence(c)}
+                className={`rounded-xl border p-3 text-center text-sm font-medium capitalize transition-colors ${cadence === c ? "border-brass/50 bg-brass-soft text-ink" : "border-line bg-paper-raised text-ink-soft hover:border-brass/30"}`}
+              >
+                {c}
               </button>
             ))}
           </div>

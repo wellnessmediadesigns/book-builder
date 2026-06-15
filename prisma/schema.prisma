@@ -56,6 +56,7 @@ model Project {
   narrativeStyle  String @default("")
   pov             String @default("") // point of view
   publishFormat   String @default("Ebook + Print")
+  cadence         String @default("") // newsletters: weekly | biweekly | monthly | …
 
   // ——— Step 3: Blueprint (all editable) ———
   blueprintJson String? // titles, subtitle, recommended, positioning, reader promise,
@@ -91,6 +92,10 @@ model Chapter {
   title   String @default("Untitled Chapter")
   summary String @default("")
   status  String @default("planned") // planned | drafting | drafted | revised | final
+
+  // Newsletter issue metadata (unused for books)
+  subjectLine String   @default("") // email subject line; falls back to title
+  publishDate DateTime? // target/actual send date
 
   contentJson String? // TipTap document JSON
   contentText String  @default("") // plaintext mirror for word-count + AI context
@@ -152,6 +157,7 @@ model MemoryEntry {
   // premise | reader-promise | style-rule | tone-rule | character | relationship |
   // setting | timeline | worldbuilding | key-concept | fact | terminology |
   // chapter-summary | open-thread | resolved-thread | future-goal | note
+  // newsletter: subscriber-persona | recurring-segment | cta
   kind      String
   title     String  @default("")
   body      String  @default("")

@@ -33,6 +33,7 @@ import {
 import type { NoteData } from "@/lib/actions/notes";
 import { cn, relativeTime, formatNumber } from "@/lib/utils";
 import { Spinner } from "@/components/ui/primitives";
+import { workVocab } from "@/lib/work";
 
 export type ChapterAction =
   | { type: "generate" }
@@ -75,6 +76,7 @@ const ANALYZE: { label: string; icon: LucideIcon; cmd: string }[] = [
 ];
 
 export function CommandCenter({
+  workType,
   chapterTitle,
   wordCount,
   minWords,
@@ -97,6 +99,7 @@ export function CommandCenter({
   onJumpBookmark,
   onDeleteBookmark,
 }: {
+  workType?: string;
   chapterTitle: string;
   wordCount: number;
   minWords: number;
@@ -122,6 +125,7 @@ export function CommandCenter({
   const [tab, setTab] = useState<"ai" | "history" | "notes">("ai");
   const [comment, setComment] = useState("");
   const [custom, setCustom] = useState("");
+  const v = workVocab(workType);
   const goal = maxWords > 0 ? Math.min(100, Math.round((wordCount / maxWords) * 100)) : 0;
 
   return (
@@ -172,7 +176,7 @@ export function CommandCenter({
           <div className="space-y-4">
             {locked && (
               <div className="flex items-center gap-2 rounded-xl bg-brass-soft px-3 py-2 text-xs text-brass-deep">
-                <Lock className="h-3.5 w-3.5" /> Chapter locked — AI is paused here.
+                <Lock className="h-3.5 w-3.5" /> {v.unit} locked — AI is paused here.
               </div>
             )}
 
@@ -185,7 +189,7 @@ export function CommandCenter({
                   primary
                   onClick={() => onAction(b.action)}
                 >
-                  {b.label}
+                  {b.action.type === "generate" ? `Generate ${v.unitLower}` : b.label}
                 </ActionBtn>
               ))}
             </Group>

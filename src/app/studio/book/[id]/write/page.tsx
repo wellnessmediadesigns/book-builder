@@ -32,6 +32,7 @@ export default async function WritePage({
     <Writer
       projectId={project.id}
       bookTitle={project.recommendedTitle || project.title}
+      workType={project.workType}
       aiReady={ready}
       initialReadingFont={readingFont}
       initialChapterId={initialChapterId}

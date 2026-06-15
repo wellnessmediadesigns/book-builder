@@ -3,6 +3,7 @@
 import { prisma, getAuthor } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { NEWSLETTER_LENGTHS } from "@/lib/newsletter";
 
 export type ProjectInput = {
   title: string;
@@ -29,6 +30,7 @@ export type ProjectInput = {
   seriesName: string;
   styleNotes: string;
   workType?: string; // "book" (default) | "newsletter"
+  cadence?: string; // newsletters: weekly | biweekly | monthly
 };
 
 const ACCENTS = ["brass", "muse", "sage"];
@@ -192,13 +194,9 @@ export async function createNewsletter(input: {
   styleNotes: string;
   issueLength: "short" | "standard" | "long";
   plannedIssues: number;
+  cadence?: string;
 }) {
-  const lengths: Record<string, [number, number]> = {
-    short: [300, 600],
-    standard: [600, 1100],
-    long: [1100, 2000],
-  };
-  const [minWords, maxWords] = lengths[input.issueLength] ?? lengths.standard;
+  const [minWords, maxWords] = NEWSLETTER_LENGTHS[input.issueLength] ?? NEWSLETTER_LENGTHS.short;
   const full: ProjectInput = {
     title: input.name.trim() || "Untitled newsletter",
     idea: input.about,
@@ -224,6 +222,7 @@ export async function createNewsletter(input: {
     seriesName: "",
     styleNotes: input.styleNotes || "",
     workType: "newsletter",
+    cadence: input.cadence || "weekly",
   };
   return createProject(full); // redirects to the plan tab
 }

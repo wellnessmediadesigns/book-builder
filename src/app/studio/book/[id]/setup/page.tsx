@@ -19,6 +19,7 @@ export default async function SetupPage({
       <BookHeader projectId={id} title={p.recommendedTitle || p.title} workType={p.workType} />
       <SetupEditor
         projectId={id}
+        workType={p.workType}
         hasBlueprint={p.status !== "draft"}
         initial={{
           title: p.title,
@@ -42,6 +43,7 @@ export default async function SetupPage({
           narrativeStyle: p.narrativeStyle,
           pov: p.pov,
           publishFormat: p.publishFormat,
+          cadence: p.cadence,
         }}
       />
     </>

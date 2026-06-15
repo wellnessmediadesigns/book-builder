@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
-type Issue = { id: string; title: string; wordCount: number; order: number };
+type Issue = { id: string; title: string; wordCount: number; order: number; subjectLine?: string };
 
 export function NewsletterExport({
   projectId,
@@ -23,6 +23,17 @@ export function NewsletterExport({
   const [html, setHtml] = useState("");
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const active = issues.find((i) => i.id === issueId);
+  const subject = active?.subjectLine?.trim() || active?.title || "";
+
+  async function copySubject() {
+    try {
+      await navigator.clipboard.writeText(subject);
+      toast.success("Subject line copied");
+    } catch {
+      toast.error("Couldn't copy");
+    }
+  }
 
   const emailUrl = (fmt: string) => `/api/export/${fmt}?project=${projectId}&chapter=${issueId}`;
 
@@ -124,6 +135,20 @@ export function NewsletterExport({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <p className="mb-1.5 px-1 text-xs font-semibold uppercase tracking-wide text-muted">Subject line</p>
+            <div className="flex items-center gap-2 rounded-xl border border-line bg-paper-raised px-3 py-2">
+              <span className="min-w-0 flex-1 truncate text-sm text-ink">{subject || "—"}</span>
+              <button
+                onClick={copySubject}
+                aria-label="Copy subject line"
+                className="shrink-0 text-muted transition-colors hover:text-ink"
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
 
           <Button variant="brass" className="w-full" onClick={copyFormatted}>

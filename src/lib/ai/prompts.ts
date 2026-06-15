@@ -113,13 +113,16 @@ ${schema}`,
 }
 
 
-/** Turns the agreed direction + transcript into a full book setup (strict JSON → ProjectInput). */
+/** Turns the agreed direction + transcript into a full setup (strict JSON → ProjectInput).
+ *  Newsletters get a newsletter-shaped schema (short issues, a brand, a cadence) — never a book. */
 export function brainstormSetupMessages(
   direction: { title: string; bullets: string[] },
   transcript: string,
   dismissed: string[] = [],
+  opts: { newsletter?: boolean } = {},
 ): AiMessage[] {
-  const schema = `{
+  const newsletter = opts.newsletter ?? false;
+  const bookSchema = `{
   "title": "working title",
   "idea": "2-4 sentence description of the book's heart and what it delivers",
   "theme": "central theme(s)",
@@ -139,21 +142,40 @@ export function brainstormSetupMessages(
   "minWords": 1200,
   "maxWords": 2500
 }`;
+  const newsletterSchema = `{
+  "title": "the newsletter brand name",
+  "idea": "2-4 sentence description of what this newsletter delivers to subscribers",
+  "theme": "central theme(s) / recurring focus",
+  "audience": "who subscribes",
+  "tone": "the tone in a few words",
+  "style": "the writing style in a phrase",
+  "readingLevel": "e.g. General adult",
+  "cadence": "weekly | biweekly | monthly",
+  "include": "things to include, or ''",
+  "avoid": "things to avoid, or ''",
+  "goals": "what the newsletter should achieve, or ''",
+  "chapterCount": 5,
+  "minWords": 350,
+  "maxWords": 550
+}`;
+  const schema = newsletter ? newsletterSchema : bookSchema;
   const dir = direction.bullets.length || direction.title
     ? `${direction.title ? `Title: ${direction.title}\n` : ""}${direction.bullets.map((b) => `- ${b}`).join("\n")}`
     : "(none — infer from the conversation)";
   const excludeBlock = dismissed.length
     ? `\n\nEXCLUDE these topics entirely — the author removed them on purpose. Do NOT mention or build around them, and add them to "avoid":\n${dismissed.map((d) => `- ${d}`).join("\n")}`
     : "";
+  const system = newsletter
+    ? "You turn an author's agreed brainstorm direction into a concrete NEWSLETTER setup they can start from. Think in issues and a brand — never a book or chapters. The agreed direction is the source of truth: build ONLY from it, never introduce topics outside it, and never include anything the author has removed. Use the conversation only for voice/tone. Return ONLY minified JSON — no commentary, no fences."
+    : "You turn an author's agreed brainstorm direction into a concrete book setup they can start from. The agreed direction is the source of truth: build ONLY from it, never introduce topics outside it, and never include anything the author has removed. Use the conversation only for voice/tone. Return ONLY minified JSON — no commentary, no fences.";
+  const guidance = newsletter
+    ? `Plan FEW issues to start (4-6). Each issue is SHORT — 300-600 words, a quick on-brand email, NOT a book chapter. Choose a sensible cadence. Fill every field; use "" only where truly not applicable.`
+    : `Pick realistic numbers (chapterCount 6-24; sensible word ranges for the book type). Fill every field; use "" only where truly not applicable.`;
   return [
-    {
-      role: "system",
-      content:
-        "You turn an author's agreed brainstorm direction into a concrete book setup they can start from. The agreed direction is the source of truth: build ONLY from it, never introduce topics outside it, and never include anything the author has removed. Use the conversation only for voice/tone. Return ONLY minified JSON — no commentary, no fences.",
-    },
+    { role: "system", content: system },
     {
       role: "user",
-      content: `Design a complete book setup from this agreed direction.
+      content: `Design a complete ${newsletter ? "newsletter" : "book"} setup from this agreed direction.
 
 AGREED DIRECTION (the source of truth — base the setup ONLY on these points; do NOT introduce topics that aren't among them):
 ${dir}${excludeBlock}
@@ -161,7 +183,7 @@ ${dir}${excludeBlock}
 CONVERSATION (voice/tone flavor only — do NOT pull in topics that aren't in the agreed direction):
 """${transcript.slice(-3000)}"""
 
-Pick realistic numbers (chapterCount 6-24; sensible word ranges for the book type). Fill every field; use "" only where truly not applicable.
+${guidance}
 Respond with ONLY valid minified JSON matching this schema (no fences):
 ${schema}`,
     },
@@ -180,6 +202,7 @@ export type BookContext = {
   readingLevel: string;
   pov: string;
   narrativeStyle: string;
+  cadence?: string; // newsletters: weekly | biweekly | monthly
   readerPromise: string;
   include: string;
   avoid: string;
@@ -194,6 +217,7 @@ export function contextBlock(ctx: BookContext): string {
   const lines: string[] = [];
   if (news) lines.push(`NEWSLETTER BRAND: "${ctx.title}"`);
   else lines.push(`BOOK: "${ctx.title}" — ${ctx.bookType} (${ctx.kind})`);
+  if (news && ctx.cadence) lines.push(`Cadence: ${ctx.cadence}`);
   if (ctx.genre) lines.push(`Genre: ${ctx.genre}`);
   if (ctx.audience) lines.push(`Audience: ${ctx.audience}`);
   if (ctx.tone) lines.push(`Tone: ${ctx.tone}`);
@@ -296,7 +320,12 @@ from the story so far and set up what comes next. Write the full chapter now.`,
 // ————————————————————————————————————————————— Newsletters
 
 /** Content plan for a newsletter brand — a series of issue ideas (strict JSON). */
-export function contentPlanMessages(ctx: BookContext, idea: string, extras: string): AiMessage[] {
+export function contentPlanMessages(
+  ctx: BookContext,
+  idea: string,
+  extras: string,
+  issueCount = 5,
+): AiMessage[] {
   const schema = `{
   "recommendedName": "the single best name for this newsletter",
   "positioning": "one-sentence positioning — who it's for and the promise",
@@ -319,8 +348,9 @@ ${contextBlock(ctx)}
 WHAT THIS NEWSLETTER IS ABOUT: ${idea}
 ${extras ? `\nBRAND NOTES: ${extras}` : ""}
 
-Generate a content plan: a table of contents of issue ideas (use the planned issue count), each a
+Generate a content plan: a table of contents of EXACTLY ${issueCount} issue ideas, each a
 concrete subject line + the angle for that issue. Keep "characters"/"settings" empty.
+Each issue is a SHORT email (a few hundred words), not a book chapter.
 Issue "title" must be the subject/title ONLY — no "Issue 1:" prefix.
 
 Respond with ONLY valid minified JSON matching this schema (no markdown fences):
@@ -332,8 +362,9 @@ ${schema}`,
 /** Generate one newsletter issue (an email), in the brand voice, continuity-aware. */
 export function newsletterIssueMessages(
   ctx: BookContext,
-  issue: { title: string; summary: string; minWords: number; maxWords: number },
+  issue: { title: string; summary: string; minWords: number; maxWords: number; subjectLine?: string },
 ): AiMessage[] {
+  const subject = issue.subjectLine?.trim();
   return [
     { role: "system", content: QUIRE_SYSTEM },
     {
@@ -342,9 +373,9 @@ export function newsletterIssueMessages(
 
 ${contextBlock(ctx)}
 
-ISSUE TO WRITE: "${issue.title}"
+ISSUE TO WRITE: "${issue.title}"${subject ? `\nEmail subject line: "${subject}" — open in a way that pays this off.` : ""}
 What this issue should deliver: ${issue.summary || "A valuable, on-brand issue."}
-Target length: ${issue.minWords}–${issue.maxWords} words.
+Target length: ${issue.minWords}–${issue.maxWords} words. Keep it brief and skimmable — an email, not a chapter.
 
 How to write it:
 - Open with a strong hook in the first line — no "Hi everyone" filler and no subject-line label.

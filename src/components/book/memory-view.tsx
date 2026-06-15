@@ -21,6 +21,7 @@ import { Input, Textarea, Select, Label } from "@/components/ui/field";
 import { EditableText } from "@/components/book/editable-text";
 import { addMemory, updateMemory, deleteMemory } from "@/lib/actions/memory";
 import { toast } from "@/components/ui/toast";
+import { workVocab } from "@/lib/work";
 
 type Entry = { id: string; kind: string; title: string; body: string };
 
@@ -41,9 +42,15 @@ const KINDS: { value: string; label: string; icon: typeof User }[] = [
   { value: "resolved-thread", label: "Resolved thread", icon: GitBranch },
   { value: "future-goal", label: "Future goal", icon: Clock },
   { value: "note", label: "Note", icon: ScrollText },
+  // newsletter-specific
+  { value: "subscriber-persona", label: "Subscriber persona", icon: User },
+  { value: "recurring-segment", label: "Recurring segment", icon: GitBranch },
+  { value: "cta", label: "Call to action", icon: Sparkles },
 ];
 
-const GROUPS: { title: string; kinds: string[]; tone: "brass" | "muse" | "sage" }[] = [
+type Group = { title: string; kinds: string[]; tone: "brass" | "muse" | "sage" };
+
+const BOOK_GROUPS: Group[] = [
   { title: "Foundation", kinds: ["premise", "reader-promise", "note"], tone: "muse" },
   { title: "Voice", kinds: ["style-rule", "tone-rule"], tone: "brass" },
   { title: "Cast & world", kinds: ["character", "relationship", "setting", "worldbuilding", "timeline"], tone: "sage" },
@@ -51,9 +58,30 @@ const GROUPS: { title: string; kinds: string[]; tone: "brass" | "muse" | "sage" 
   { title: "Threads", kinds: ["open-thread", "resolved-thread", "future-goal"], tone: "muse" },
 ];
 
-export function MemoryView({ projectId, entries }: { projectId: string; entries: Entry[] }) {
+const NEWSLETTER_GROUPS: Group[] = [
+  { title: "Foundation", kinds: ["premise", "reader-promise", "note"], tone: "muse" },
+  { title: "Voice", kinds: ["style-rule", "tone-rule"], tone: "brass" },
+  { title: "Audience", kinds: ["subscriber-persona"], tone: "sage" },
+  { title: "Knowledge", kinds: ["key-concept", "fact", "terminology"], tone: "brass" },
+  { title: "Segments & CTAs", kinds: ["recurring-segment", "cta"], tone: "muse" },
+];
+
+export function MemoryView({
+  projectId,
+  entries,
+  workType,
+}: {
+  projectId: string;
+  entries: Entry[];
+  workType?: string;
+}) {
+  const v = workVocab(workType);
+  const news = v.type === "newsletter";
+  const GROUPS = news ? NEWSLETTER_GROUPS : BOOK_GROUPS;
+  const allowedKinds = new Set(GROUPS.flatMap((g) => g.kinds));
+  const kindOptions = KINDS.filter((k) => allowedKinds.has(k.value));
   const [adding, setAdding] = useState(false);
-  const [kind, setKind] = useState("character");
+  const [kind, setKind] = useState(news ? "subscriber-persona" : "character");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [pending, start] = useTransition();
@@ -74,14 +102,15 @@ export function MemoryView({ projectId, entries }: { projectId: string; entries:
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           <Badge tone="muse">
-            <Brain className="h-3 w-3" /> Book Memory
+            <Brain className="h-3 w-3" /> {v.memory}
           </Badge>
           <h1 className="mt-3 font-display text-display-md font-semibold text-ink">
             What Quire remembers
           </h1>
           <p className="mt-2 max-w-xl text-ink-soft">
-            Every AI action reads from this memory to keep your book consistent — voice,
-            characters, facts, and open threads. Edit anything; it shapes every chapter.
+            {news
+              ? "Every AI action reads from this knowledge to keep your newsletter on-brand — voice, audience, recurring segments, and facts. Edit anything; it shapes every issue."
+              : "Every AI action reads from this memory to keep your book consistent — voice, characters, facts, and open threads. Edit anything; it shapes every chapter."}
           </p>
         </div>
         <Button variant="primary" className="shrink-0" onClick={() => setAdding((a) => !a)}>
@@ -96,7 +125,7 @@ export function MemoryView({ projectId, entries }: { projectId: string; entries:
               <div>
                 <Label>Type</Label>
                 <Select value={kind} onChange={(e) => setKind(e.target.value)}>
-                  {KINDS.map((k) => (
+                  {kindOptions.map((k) => (
                     <option key={k.value} value={k.value}>
                       {k.label}
                     </option>
@@ -133,7 +162,7 @@ export function MemoryView({ projectId, entries }: { projectId: string; entries:
         <EmptyState
           icon={<Brain className="h-6 w-6" />}
           title="Memory builds as you write"
-          description="Generate a blueprint to seed your Book Memory, or add entries by hand."
+          description={`Generate a ${v.plan.toLowerCase()} to seed your ${v.memory}, or add entries by hand.`}
         />
       ) : (
         <div className="space-y-8">

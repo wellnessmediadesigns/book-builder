@@ -79,6 +79,7 @@ export function Writer({
   initialReadingFont = "serif",
   initialChapterId,
   autoGenerate = false,
+  workType,
 }: {
   projectId: string;
   bookTitle: string;
@@ -87,6 +88,7 @@ export function Writer({
   initialReadingFont?: "serif" | "sans";
   initialChapterId?: string;
   autoGenerate?: boolean;
+  workType?: string;
 }) {
   const [chapters, setChapters] = useState<FullChapter[]>(initialChapters);
   const [activeId, setActiveId] = useState(
@@ -708,6 +710,7 @@ export function Writer({
             <ChapterRail
               projectId={projectId}
               bookTitle={bookTitle}
+              workType={workType}
               chapters={chapters}
               activeId={activeId}
               generatingId={generatingId}
@@ -856,6 +859,7 @@ export function Writer({
         {(() => {
           const panel = (
             <CommandCenter
+              workType={workType}
               chapterTitle={active?.title ?? ""}
               wordCount={wordCount}
               minWords={active?.minWords ?? 0}
