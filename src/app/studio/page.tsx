@@ -55,33 +55,45 @@ export default async function DashboardPage() {
                 {formatNumber(totalWords)} words written
               </span>
             </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+          </div>
+          <div className="flex flex-col gap-3">
+            {/* Newsletters — mirrors the book actions */}
+            <div>
               <Link
                 href="/studio/newsletters"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-brass-soft px-3 py-1.5 text-sm font-medium text-brass-deep transition-colors hover:bg-brass/15"
+                className="mb-1.5 inline-flex items-center gap-1 text-[0.625rem] font-semibold uppercase tracking-wider text-muted transition-colors hover:text-ink"
               >
-                <Mail className="h-3.5 w-3.5" /> Newsletters
-                <ArrowRight className="h-3.5 w-3.5" />
+                Newsletters <ArrowRight className="h-3 w-3" />
               </Link>
-              <Link
-                href="/studio/brainstorm/new?mode=newsletter"
-                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-ink-soft transition-colors hover:bg-paper-sunken hover:text-ink"
-              >
-                <Lightbulb className="h-3.5 w-3.5 text-muse" /> Brainstorm a newsletter
-              </Link>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link href="/studio/brainstorm/new?mode=newsletter">
+                  <Button size="lg" variant="museSoft" className="group">
+                    <Lightbulb className="h-4 w-4" /> Brainstorm
+                  </Button>
+                </Link>
+                <Link href="/studio/newsletters/new">
+                  <Button size="lg" variant="primary" className="group">
+                    <Mail className="h-4 w-4" /> New newsletter
+                  </Button>
+                </Link>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link href="/studio/brainstorm">
-              <Button size="lg" variant="museSoft" className="group">
-                <Lightbulb className="h-4 w-4" /> Brainstorm
-              </Button>
-            </Link>
-            <Link href="/studio/new">
-              <Button size="lg" variant="primary" className="group">
-                <Plus className="h-4 w-4" /> New book
-              </Button>
-            </Link>
+            {/* Books */}
+            <div>
+              <p className="mb-1.5 text-[0.625rem] font-semibold uppercase tracking-wider text-muted">Books</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link href="/studio/brainstorm">
+                  <Button size="lg" variant="museSoft" className="group">
+                    <Lightbulb className="h-4 w-4" /> Brainstorm
+                  </Button>
+                </Link>
+                <Link href="/studio/new">
+                  <Button size="lg" variant="primary" className="group">
+                    <Plus className="h-4 w-4" /> New book
+                  </Button>
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
 
