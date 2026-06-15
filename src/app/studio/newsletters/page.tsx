@@ -7,6 +7,7 @@ import { Badge, EmptyState } from "@/components/ui/primitives";
 import { relativeTime, formatNumber } from "@/lib/utils";
 import { listPublications } from "@/lib/actions/projects";
 import { listSessions } from "@/lib/actions/brainstorm";
+import { DeleteSessionButton } from "@/components/studio/delete-session-button";
 
 export const dynamic = "force-dynamic";
 
@@ -118,30 +119,32 @@ export default async function NewslettersPage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {brainstorms.map((s) => (
-                <Link
-                  key={s.id}
-                  href={`/studio/brainstorm/${s.id}`}
-                  className="group flex flex-col rounded-2xl border border-line bg-paper-raised p-5 shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-raised"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muse-soft text-muse-deep">
-                      <Lightbulb className="h-5 w-5" />
+                <div key={s.id} className="group relative">
+                  <Link
+                    href={`/studio/brainstorm/${s.id}`}
+                    className="flex flex-col rounded-2xl border border-line bg-paper-raised p-5 shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-raised"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muse-soft text-muse-deep">
+                        <Lightbulb className="h-5 w-5" />
+                      </div>
+                      {s.status === "built" ? (
+                        <Badge tone="sage">
+                          <BookOpen className="h-3 w-3" /> Built
+                        </Badge>
+                      ) : (
+                        <Badge tone="neutral">{s.directionCount} points</Badge>
+                      )}
                     </div>
-                    {s.status === "built" ? (
-                      <Badge tone="sage">
-                        <BookOpen className="h-3 w-3" /> Built
-                      </Badge>
-                    ) : (
-                      <Badge tone="neutral">{s.directionCount} points</Badge>
-                    )}
-                  </div>
-                  <h3 className="mt-3 line-clamp-2 font-display text-base font-semibold text-ink">{s.title}</h3>
-                  {s.snippet && <p className="mt-1 line-clamp-2 flex-1 text-sm text-ink-soft">{s.snippet}</p>}
-                  <div className="mt-3 flex items-center justify-between text-xs text-muted">
-                    <span>{relativeTime(s.updatedAt)}</span>
-                    <ArrowRight className="h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
-                  </div>
-                </Link>
+                    <h3 className="mt-3 line-clamp-2 font-display text-base font-semibold text-ink">{s.title}</h3>
+                    {s.snippet && <p className="mt-1 line-clamp-2 flex-1 text-sm text-ink-soft">{s.snippet}</p>}
+                    <div className="mt-3 flex items-center justify-between text-xs text-muted">
+                      <span>{relativeTime(s.updatedAt)}</span>
+                      <ArrowRight className="h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
+                    </div>
+                  </Link>
+                  <DeleteSessionButton id={s.id} title={s.title} />
+                </div>
               ))}
             </div>
           </section>

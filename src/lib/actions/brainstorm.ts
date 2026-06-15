@@ -46,7 +46,7 @@ export async function listSessions(mode?: string): Promise<SessionBrief[]> {
   const author = await getAuthor();
   const rows = await prisma.brainstormSession.findMany({
     where: { authorId: author.id, ...(mode ? { mode } : {}) },
-    orderBy: { updatedAt: "desc" },
+    orderBy: [{ order: "asc" }, { updatedAt: "desc" }],
     include: { messages: { orderBy: { createdAt: "desc" }, take: 1 } },
   });
   return rows.map((s) => ({
@@ -70,8 +70,29 @@ export async function renameSession(id: string, title: string): Promise<void> {
 }
 
 export async function deleteSession(id: string): Promise<void> {
+  const author = await getAuthor();
+  const s = await prisma.brainstormSession.findUnique({ where: { id }, select: { authorId: true } });
+  if (!s || s.authorId !== author.id) return;
   await prisma.brainstormSession.delete({ where: { id } });
   revalidatePath("/studio/brainstorm");
+  revalidatePath("/studio/newsletters");
+}
+
+/** Persists a manual ordering of the author's sessions. */
+export async function reorderSessions(ids: string[]): Promise<void> {
+  const author = await getAuthor();
+  const owned = await prisma.brainstormSession.findMany({
+    where: { id: { in: ids }, authorId: author.id },
+    select: { id: true },
+  });
+  const ownedIds = new Set(owned.map((o) => o.id));
+  await Promise.all(
+    ids.filter((id) => ownedIds.has(id)).map((id, i) =>
+      prisma.brainstormSession.update({ where: { id }, data: { order: i } }),
+    ),
+  );
+  revalidatePath("/studio/brainstorm");
+  revalidatePath("/studio/newsletters");
 }
 
 // ————————————————————————————————————————————— Direction

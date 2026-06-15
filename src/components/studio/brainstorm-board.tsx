@@ -18,6 +18,8 @@ import {
   ArrowRight,
   Settings,
   Lightbulb,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import Link from "next/link";
 import { QuireMark } from "@/components/brand/logo";
@@ -31,6 +33,8 @@ import {
   refreshDirection,
   setDirection as saveDirection,
   buildBookFromBrainstorm,
+  reorderSessions,
+  deleteSession,
   type SessionBrief,
 } from "@/lib/actions/brainstorm";
 import type { Direction, Bullet } from "@/lib/brainstorm";
@@ -493,6 +497,44 @@ function SessionsRail({
 }) {
   const router = useRouter();
   const [, start] = useTransition();
+  const [rows, setRows] = useState<SessionBrief[]>(sessions);
+  const [dragId, setDragId] = useState<string | null>(null);
+
+  useEffect(() => setRows(sessions), [sessions]);
+
+  function persist(next: SessionBrief[]) {
+    setRows(next);
+    reorderSessions(next.map((s) => s.id)).catch(() => {});
+  }
+  function move(id: string, dir: -1 | 1) {
+    const i = rows.findIndex((s) => s.id === id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= rows.length) return;
+    const next = [...rows];
+    [next[i], next[j]] = [next[j], next[i]];
+    persist(next);
+  }
+  function handleDrop(targetId: string) {
+    if (!dragId || dragId === targetId) return;
+    const ids = rows.map((s) => s.id);
+    const from = ids.indexOf(dragId);
+    const to = ids.indexOf(targetId);
+    const next = [...rows];
+    next.splice(to, 0, next.splice(from, 1)[0]);
+    persist(next);
+    setDragId(null);
+  }
+  function remove(s: SessionBrief) {
+    if (!window.confirm(`Delete “${s.title}”? This can’t be undone.`)) return;
+    setRows((r) => r.filter((x) => x.id !== s.id));
+    deleteSession(s.id).catch(() => {});
+    toast.success("Brainstorm deleted");
+    if (s.id === activeId) {
+      const next = rows.find((x) => x.id !== s.id);
+      router.push(next ? `/studio/brainstorm/${next.id}` : mode === "newsletter" ? "/studio/newsletters" : "/studio/brainstorm");
+    }
+  }
+
   return (
     <div className="flex h-full flex-col">
       <div className="p-3">
@@ -502,30 +544,53 @@ function SessionsRail({
       </div>
       <p className="px-4 pb-1.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">Sessions</p>
       <div className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-2 pb-3">
-        {sessions.length === 0 && <p className="px-2 py-3 text-xs text-muted">No sessions yet.</p>}
-        {sessions.map((s) => {
+        {rows.length === 0 && <p className="px-2 py-3 text-xs text-muted">No sessions yet.</p>}
+        {rows.map((s, i) => {
           const active = s.id === activeId;
           return (
-            <button
+            <div
               key={s.id}
-              onClick={() => {
-                onNavigate?.();
-                router.push(`/studio/brainstorm/${s.id}`);
-              }}
-              className={cn("group w-full rounded-xl px-3 py-2.5 text-left transition-colors", active ? "bg-paper-raised shadow-soft" : "hover:bg-paper-raised/60")}
+              draggable
+              onDragStart={() => setDragId(s.id)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => handleDrop(s.id)}
+              className={cn(
+                "group flex items-center gap-1 rounded-xl pr-1.5 transition-colors",
+                active ? "bg-paper-raised shadow-soft" : "hover:bg-paper-raised/60",
+                dragId === s.id && "opacity-40",
+              )}
             >
-              <div className="flex items-center gap-1.5">
-                <span className={cn("truncate text-sm", active ? "font-medium text-ink" : "text-ink-soft")}>{s.title}</span>
-                {s.status === "built" && <BookOpen className="ml-auto h-3 w-3 shrink-0 text-sage" />}
+              <button
+                onClick={() => {
+                  onNavigate?.();
+                  router.push(`/studio/brainstorm/${s.id}`);
+                }}
+                className="min-w-0 flex-1 rounded-xl px-3 py-2.5 text-left"
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className={cn("truncate text-sm", active ? "font-medium text-ink" : "text-ink-soft")}>{s.title}</span>
+                  {s.status === "built" && <BookOpen className="h-3 w-3 shrink-0 text-sage" />}
+                </div>
+                <div className="mt-0.5 flex items-center gap-2 text-[0.6875rem] text-muted">
+                  <span className="inline-flex items-center gap-0.5">
+                    <Target className="h-3 w-3" /> {s.directionCount}
+                  </span>
+                  <span>·</span>
+                  <span>{relativeTime(s.updatedAt)}</span>
+                </div>
+              </button>
+              <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+                <button onClick={() => move(s.id, -1)} disabled={i === 0} aria-label="Move up" className="flex h-6 w-6 items-center justify-center rounded-md text-muted transition-colors hover:bg-paper-sunken hover:text-ink disabled:opacity-30">
+                  <ChevronUp className="h-3.5 w-3.5" />
+                </button>
+                <button onClick={() => move(s.id, 1)} disabled={i === rows.length - 1} aria-label="Move down" className="flex h-6 w-6 items-center justify-center rounded-md text-muted transition-colors hover:bg-paper-sunken hover:text-ink disabled:opacity-30">
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </button>
+                <button onClick={() => remove(s)} aria-label="Delete brainstorm" className="flex h-6 w-6 items-center justify-center rounded-md text-muted transition-colors hover:bg-clay/10 hover:text-clay">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
-              <div className="mt-0.5 flex items-center gap-2 text-[0.6875rem] text-muted">
-                <span className="inline-flex items-center gap-0.5">
-                  <Target className="h-3 w-3" /> {s.directionCount}
-                </span>
-                <span>·</span>
-                <span>{relativeTime(s.updatedAt)}</span>
-              </div>
-            </button>
+            </div>
           );
         })}
       </div>

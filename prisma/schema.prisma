@@ -245,6 +245,7 @@ model BrainstormSession {
   title          String  @default("New brainstorm")
   status         String  @default("active") // active | built
   mode           String  @default("book")   // book | newsletter — what we're building toward
+  order          Int     @default(0)         // manual sort within a mode
   builtProjectId String? // the project this session produced, once built
   directionJson  String  @default("") // agreed direction: { title, bullets[] }
 

@@ -56,7 +56,7 @@ export default async function DashboardPage() {
               </span>
             </div>
           </div>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 sm:w-[22rem]">
             {/* Newsletters — mirrors the book actions */}
             <div>
               <Link
@@ -65,14 +65,14 @@ export default async function DashboardPage() {
               >
                 Newsletters <ArrowRight className="h-3 w-3" />
               </Link>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <Link href="/studio/brainstorm/new?mode=newsletter">
-                  <Button size="lg" variant="museSoft" className="group">
+                  <Button variant="museSoft" className="w-full">
                     <Lightbulb className="h-4 w-4" /> Brainstorm
                   </Button>
                 </Link>
                 <Link href="/studio/newsletters/new">
-                  <Button size="lg" variant="primary" className="group">
+                  <Button variant="primary" className="w-full">
                     <Mail className="h-4 w-4" /> New newsletter
                   </Button>
                 </Link>
@@ -81,14 +81,14 @@ export default async function DashboardPage() {
             {/* Books */}
             <div>
               <p className="mb-1.5 text-[0.625rem] font-semibold uppercase tracking-wider text-muted">Books</p>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <Link href="/studio/brainstorm">
-                  <Button size="lg" variant="museSoft" className="group">
+                  <Button variant="museSoft" className="w-full">
                     <Lightbulb className="h-4 w-4" /> Brainstorm
                   </Button>
                 </Link>
                 <Link href="/studio/new">
-                  <Button size="lg" variant="primary" className="group">
+                  <Button variant="primary" className="w-full">
                     <Plus className="h-4 w-4" /> New book
                   </Button>
                 </Link>
