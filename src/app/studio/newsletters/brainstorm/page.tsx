@@ -4,12 +4,12 @@ import { BrainstormHome } from "@/components/studio/brainstorm-home";
 
 export const dynamic = "force-dynamic";
 
-export default async function BookBrainstormPage() {
+export default async function NewsletterBrainstormPage() {
   const author = await getAuthor();
   return (
     <>
       <TopNav author={author.name} email={author.email ?? ""} />
-      <BrainstormHome mode="book" />
+      <BrainstormHome mode="newsletter" />
     </>
   );
 }

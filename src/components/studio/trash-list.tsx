@@ -7,18 +7,22 @@ import { Card, Badge } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { formatNumber, relativeTime } from "@/lib/utils";
+import { workVocab } from "@/lib/work";
 import { restoreProject, purgeProject } from "@/lib/actions/projects";
 
 type Trashed = {
   id: string;
   title: string;
   bookType: string;
+  workType?: string;
   deletedAt: string;
   chapterCount: number;
   words: number;
 };
 
-export function TrashList({ items }: { items: Trashed[] }) {
+export function TrashList({ items, workType }: { items: Trashed[]; workType?: string }) {
+  const v = workVocab(workType);
+  const news = v.type === "newsletter";
   const [rows, setRows] = useState(items);
   const [pending, start] = useTransition();
 
@@ -26,7 +30,7 @@ export function TrashList({ items }: { items: Trashed[] }) {
     setRows((r) => r.filter((x) => x.id !== id));
     start(async () => {
       await restoreProject(id);
-      toast.success("Book restored");
+      toast.success(`${v.work} restored`);
     });
   }
 
@@ -42,7 +46,7 @@ export function TrashList({ items }: { items: Trashed[] }) {
   if (rows.length === 0) {
     return (
       <p className="rounded-2xl border border-dashed border-line bg-paper-raised/50 px-6 py-16 text-center text-sm text-muted">
-        Trash is empty. Deleted books land here and can be restored.
+        Trash is empty. Deleted {v.unitsLower === "issues" ? "newsletters" : "books"} land here and can be restored.
       </p>
     );
   }
@@ -64,7 +68,7 @@ export function TrashList({ items }: { items: Trashed[] }) {
               </div>
               <p className="mt-1 flex items-center gap-3 text-xs text-muted">
                 <span className="inline-flex items-center gap-1">
-                  <BookOpen className="h-3.5 w-3.5" /> {p.chapterCount} ch
+                  <BookOpen className="h-3.5 w-3.5" /> {p.chapterCount} {news ? (p.chapterCount === 1 ? "issue" : "issues") : "ch"}
                 </span>
                 <span>{formatNumber(p.words)} words</span>
                 <span>deleted {relativeTime(p.deletedAt)}</span>

@@ -18,7 +18,7 @@ import {
   Lightbulb,
   Mail,
 } from "lucide-react";
-import { listProjectsBrief } from "@/lib/actions/projects";
+import { listProjectsBrief, listPublications } from "@/lib/actions/projects";
 import { searchChapters } from "@/lib/actions/chapters";
 import { listSessions, type SessionBrief } from "@/lib/actions/brainstorm";
 import { cn } from "@/lib/utils";
@@ -30,7 +30,7 @@ type Item = {
   label: string;
   hint?: string;
   icon: React.ReactNode;
-  group: "Actions" | "Books" | "Brainstorms" | "Chapters" | "Theme";
+  group: "Actions" | "Books" | "Newsletters" | "Brainstorms" | "Chapters" | "Theme";
   run: () => void;
 };
 
@@ -51,6 +51,7 @@ export function CommandPalette() {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [publications, setPublications] = useState<Project[]>([]);
   const [sessions, setSessions] = useState<SessionBrief[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [chapterHits, setChapterHits] = useState<ChapterHit[]>([]);
@@ -80,6 +81,9 @@ export function CommandPalette() {
       setLoaded(true);
       listProjectsBrief()
         .then(setProjects)
+        .catch(() => {});
+      listPublications()
+        .then((pubs) => setPublications(pubs.map((p) => ({ id: p.id, title: p.title, status: p.status }))))
         .catch(() => {});
       listSessions()
         .then(setSessions)
@@ -146,6 +150,14 @@ export function CommandPalette() {
         run: () => go("/studio/newsletters"),
       },
       {
+        id: "new-newsletter",
+        label: "New newsletter",
+        hint: "Start a brand",
+        icon: <Mail className="h-4 w-4" />,
+        group: "Actions",
+        run: () => go("/studio/newsletters/new"),
+      },
+      {
         id: "settings",
         label: "Settings",
         hint: "AI provider, author",
@@ -180,6 +192,15 @@ export function CommandPalette() {
       run: () =>
         go(`/studio/book/${p.id}/${p.status === "draft" ? "blueprint" : "write"}`),
     }));
+    const newsletters: Item[] = publications.map((p) => ({
+      id: `nl-${p.id}`,
+      label: p.title,
+      hint: p.status === "draft" ? "Plan" : "Open",
+      icon: <Mail className="h-4 w-4" />,
+      group: "Newsletters",
+      run: () =>
+        go(`/studio/book/${p.id}/${p.status === "draft" ? "blueprint" : "write"}`),
+    }));
     const brainstorms: Item[] = sessions.map((s) => ({
       id: `bs-${s.id}`,
       label: s.title,
@@ -188,8 +209,8 @@ export function CommandPalette() {
       group: "Brainstorms",
       run: () => go(`/studio/brainstorm/${s.id}`),
     }));
-    return [...base, ...books, ...brainstorms];
-  }, [projects, sessions, resolvedTheme, go, close, setTheme]);
+    return [...base, ...books, ...newsletters, ...brainstorms];
+  }, [projects, publications, sessions, resolvedTheme, go, close, setTheme]);
 
   const chapterItems = useMemo<Item[]>(
     () =>
@@ -214,7 +235,7 @@ export function CommandPalette() {
   useEffect(() => setActive(0), [query]);
 
   const groups = useMemo(() => {
-    const order: Item["group"][] = ["Actions", "Books", "Brainstorms", "Chapters", "Theme"];
+    const order: Item["group"][] = ["Actions", "Books", "Newsletters", "Brainstorms", "Chapters", "Theme"];
     return order
       .map((g) => ({ group: g, items: filtered.filter((i) => i.group === g) }))
       .filter((g) => g.items.length);
@@ -260,7 +281,7 @@ export function CommandPalette() {
                 autoFocus
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search books and actions…"
+                placeholder="Search books, newsletters, actions…"
                 className="h-12 w-full bg-transparent text-sm text-ink placeholder:text-muted outline-none"
               />
               <Kbd>esc</Kbd>

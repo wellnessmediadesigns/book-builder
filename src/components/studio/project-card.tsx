@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { motion } from "framer-motion";
-import { MoreHorizontal, Copy, Trash2, BookOpen, Clock } from "lucide-react";
+import { MoreHorizontal, Copy, Trash2, BookOpen, Clock, Mail } from "lucide-react";
 import { Badge } from "@/components/ui/primitives";
 import { QuireMark } from "@/components/brand/logo";
 import { deleteProject, duplicateProject, restoreProject } from "@/lib/actions/projects";
 import { formatNumber, relativeTime, readingTimeLabel } from "@/lib/utils";
+import { workVocab } from "@/lib/work";
 import { toast } from "@/components/ui/toast";
 
 const ACCENTS: Record<string, string> = {
@@ -37,17 +38,29 @@ type P = {
   goalWords: number;
   index: number;
   coverUrl?: string;
+  workType?: string;
+  audience?: string;
+  cadence?: string;
 };
 
 export function ProjectCard(p: P) {
   const [menu, setMenu] = useState(false);
   const [pending, start] = useTransition();
+  const v = workVocab(p.workType);
+  const news = v.type === "newsletter";
   const accent = ACCENTS[p.coverAccent] ?? ACCENTS.brass;
   const status = STATUS[p.status] ?? STATUS.draft;
   const title = p.recommendedTitle || p.title;
   const progress = p.goalWords > 0 ? Math.min(100, Math.round((p.words / p.goalWords) * 100)) : 0;
   const href =
     p.status === "draft" ? `/studio/book/${p.id}/blueprint` : `/studio/book/${p.id}/write`;
+  const subtitle = news
+    ? p.audience
+      ? `For ${p.audience}`
+      : p.cadence
+        ? `${p.cadence[0].toUpperCase()}${p.cadence.slice(1)}`
+        : "Newsletter"
+    : `${p.bookType} · ${p.kind}`;
 
   return (
     <motion.div
@@ -63,6 +76,8 @@ export function ProjectCard(p: P) {
             {p.coverUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={p.coverUrl} alt={`${title} cover`} className="absolute inset-0 h-full w-full object-cover" />
+            ) : news ? (
+              <Mail className="h-9 w-9 opacity-80" />
             ) : (
               <>
                 <div className="absolute left-0 top-0 h-full w-1.5 bg-gradient-to-b from-black/10 to-transparent" />
@@ -77,12 +92,11 @@ export function ProjectCard(p: P) {
             <h3 className="line-clamp-2 font-display text-lg font-semibold leading-snug text-ink">
               {title}
             </h3>
-            <p className="mt-1 text-xs capitalize text-muted">
-              {p.bookType} · {p.kind}
-            </p>
+            <p className="mt-1 text-xs capitalize text-muted">{subtitle}</p>
             <div className="mt-4 flex items-center gap-3 text-xs text-ink-soft">
               <span className="inline-flex items-center gap-1">
-                <BookOpen className="h-3.5 w-3.5" /> {p.chapterCount} ch
+                {news ? <Mail className="h-3.5 w-3.5" /> : <BookOpen className="h-3.5 w-3.5" />}{" "}
+                {p.chapterCount} {news ? (p.chapterCount === 1 ? "issue" : "issues") : "ch"}
               </span>
               <span>{formatNumber(p.words)} words</span>
               <span className="ml-auto text-muted">{relativeTime(p.updatedAt)}</span>
@@ -114,7 +128,7 @@ export function ProjectCard(p: P) {
           e.preventDefault();
           setMenu((m) => !m);
         }}
-        aria-label="Book options"
+        aria-label={`${v.work} options`}
         className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-lg bg-paper-raised/90 text-ink-soft opacity-100 shadow-soft backdrop-blur transition-opacity hover:text-ink sm:opacity-0 sm:group-hover:opacity-100"
       >
         <MoreHorizontal className="h-4 w-4" />

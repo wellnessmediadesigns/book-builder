@@ -27,15 +27,33 @@ import { cn } from "@/lib/utils";
 import { updateProfile } from "@/lib/actions/settings";
 import { logout } from "@/lib/actions/auth";
 
-const NAV = [
-  { href: "/studio", label: "Library", icon: BookMarked },
-  { href: "/studio/newsletters", label: "Newsletters", icon: Mail },
-  { href: "/studio/brainstorm", label: "Brainstorm", icon: Lightbulb },
-  { href: "/studio/covers", label: "Cover Studio", icon: ImageIcon },
-  { href: "/studio/new", label: "New book", icon: Plus },
-  { href: "/studio/style", label: "Style guide", icon: Palette },
-  { href: "/studio/settings", label: "Settings", icon: Settings },
-  { href: "/studio/trash", label: "Trash", icon: Trash2 },
+const NAV_GROUPS: { heading: string; items: { href: string; label: string; icon: typeof Mail }[] }[] = [
+  {
+    heading: "Books",
+    items: [
+      { href: "/studio", label: "Books", icon: BookMarked },
+      { href: "/studio/brainstorm", label: "Brainstorm", icon: Lightbulb },
+      { href: "/studio/covers", label: "Cover Studio", icon: ImageIcon },
+      { href: "/studio/new", label: "New book", icon: Plus },
+      { href: "/studio/trash", label: "Books trash", icon: Trash2 },
+    ],
+  },
+  {
+    heading: "Newsletters",
+    items: [
+      { href: "/studio/newsletters", label: "Newsletters", icon: Mail },
+      { href: "/studio/newsletters/brainstorm", label: "Brainstorm", icon: Lightbulb },
+      { href: "/studio/newsletters/new", label: "New newsletter", icon: Plus },
+      { href: "/studio/newsletters/trash", label: "Newsletters trash", icon: Trash2 },
+    ],
+  },
+  {
+    heading: "General",
+    items: [
+      { href: "/studio/style", label: "Style guide", icon: Palette },
+      { href: "/studio/settings", label: "Settings", icon: Settings },
+    ],
+  },
 ];
 
 export function AccountMenu({ name, email }: { name: string; email: string }) {
@@ -112,16 +130,23 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
               </div>
 
               {/* nav */}
-              <div className="my-1.5 space-y-0.5">
-                {NAV.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setOpen(false)}
-                    className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-ink-soft transition-colors hover:bg-paper-sunken hover:text-ink"
-                  >
-                    <item.icon className="h-4 w-4" /> {item.label}
-                  </Link>
+              <div className="my-1.5 max-h-[50vh] space-y-1.5 overflow-y-auto">
+                {NAV_GROUPS.map((group) => (
+                  <div key={group.heading} className="space-y-0.5">
+                    <p className="px-2.5 pt-1 text-[0.625rem] font-semibold uppercase tracking-wider text-muted">
+                      {group.heading}
+                    </p>
+                    {group.items.map((item) => (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setOpen(false)}
+                        className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-ink-soft transition-colors hover:bg-paper-sunken hover:text-ink"
+                      >
+                        <item.icon className="h-4 w-4" /> {item.label}
+                      </Link>
+                    ))}
+                  </div>
                 ))}
                 <a
                   href="/api/backup"

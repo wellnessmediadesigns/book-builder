@@ -36,8 +36,8 @@ export type ProjectInput = {
 
 const ACCENTS = ["brass", "muse", "sage"];
 
-/** The most-recently-touched book + chapter, for a dashboard "Continue" card. */
-export async function getResumeTarget(): Promise<{
+/** The most-recently-touched work + chapter/issue, for a dashboard "Continue" card. */
+export async function getResumeTarget(workType: string = "book"): Promise<{
   projectId: string;
   bookTitle: string;
   chapterId: string | null;
@@ -47,7 +47,7 @@ export async function getResumeTarget(): Promise<{
 } | null> {
   const author = await getAuthor();
   const project = await prisma.project.findFirst({
-    where: { authorId: author.id, status: { not: "draft" }, deletedAt: null, workType: "book" },
+    where: { authorId: author.id, status: { not: "draft" }, deletedAt: null, workType },
     orderBy: { updatedAt: "desc" },
   });
   if (!project) return null;
@@ -312,10 +312,10 @@ export async function purgeProject(id: string) {
   revalidatePath("/studio/trash");
 }
 
-export async function listTrashed() {
+export async function listTrashed(workType?: string) {
   const author = await getAuthor();
   const rows = await prisma.project.findMany({
-    where: { authorId: author.id, deletedAt: { not: null } },
+    where: { authorId: author.id, deletedAt: { not: null }, ...(workType ? { workType } : {}) },
     orderBy: { deletedAt: "desc" },
     include: { chapters: { where: { matterType: null }, select: { wordCount: true } } },
   });
@@ -323,6 +323,7 @@ export async function listTrashed() {
     id: p.id,
     title: p.recommendedTitle || p.title,
     bookType: p.bookType,
+    workType: p.workType,
     deletedAt: (p.deletedAt ?? new Date()).toISOString(),
     chapterCount: p.chapters.length,
     words: p.chapters.reduce((s, c) => s + c.wordCount, 0),

@@ -28,6 +28,12 @@ export type WorkVocab = {
   setup: string;
   /** home route */
   home: string;
+  /** create-new route */
+  newHref: string;
+  /** brainstorm home route */
+  brainstormHref: string;
+  /** trash route */
+  trashHref: string;
 };
 
 const BOOK: WorkVocab = {
@@ -44,6 +50,9 @@ const BOOK: WorkVocab = {
   memory: "Book Memory",
   setup: "Setup",
   home: "/studio",
+  newHref: "/studio/new",
+  brainstormHref: "/studio/brainstorm",
+  trashHref: "/studio/trash",
 };
 
 const NEWSLETTER: WorkVocab = {
@@ -60,6 +69,9 @@ const NEWSLETTER: WorkVocab = {
   memory: "Brand knowledge",
   setup: "Brand",
   home: "/studio/newsletters",
+  newHref: "/studio/newsletters/new",
+  brainstormHref: "/studio/newsletters/brainstorm",
+  trashHref: "/studio/newsletters/trash",
 };
 
 export function workVocab(workType: string | null | undefined): WorkVocab {

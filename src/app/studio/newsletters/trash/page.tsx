@@ -8,31 +8,31 @@ import { listTrashed } from "@/lib/actions/projects";
 
 export const dynamic = "force-dynamic";
 
-export default async function TrashPage() {
+export default async function NewsletterTrashPage() {
   const author = await getAuthor();
-  const items = await listTrashed("book");
+  const items = await listTrashed("newsletter");
 
   return (
     <>
       <TopNav author={author.name} email={author.email ?? ""} />
       <main className="mx-auto max-w-3xl px-6 py-10">
         <Link
-          href="/studio"
+          href="/studio/newsletters"
           className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-soft transition-colors hover:text-ink"
         >
-          <ChevronLeft className="h-4 w-4" /> Books
+          <ChevronLeft className="h-4 w-4" /> Newsletters
         </Link>
         <div className="mb-6">
           <Badge tone="neutral">
             <Trash2 className="h-3 w-3" /> Trash
           </Badge>
-          <h1 className="mt-3 font-display text-display-md font-semibold text-ink">Books trash</h1>
+          <h1 className="mt-3 font-display text-display-md font-semibold text-ink">Newsletters trash</h1>
           <p className="mt-2 text-ink-soft">
-            Deleted books are kept here so you can bring them back. Delete forever to remove them
+            Deleted newsletters are kept here so you can bring them back. Delete forever to remove them
             permanently.
           </p>
         </div>
-        <TrashList items={items} workType="book" />
+        <TrashList items={items} workType="newsletter" />
       </main>
     </>
   );
