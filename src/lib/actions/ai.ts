@@ -15,6 +15,7 @@ import {
   blueprintMessages,
   contentPlanMessages,
   newsletterIssueMessages,
+  brandSetupMessages,
   selectionMessages,
   analysisMessages,
   summaryMessages,
@@ -268,6 +269,84 @@ export async function generateBlueprint(
 
   await logGen(projectId, "blueprint", config, raw.length, "ok", `${Date.now() - started}ms`);
   revalidatePath(`/studio/book/${projectId}`, "layout");
+  return { ok: true, data: null };
+}
+
+/** Generates (or regenerates) a brand's identity and seeds its Brand identity memory.
+ *  Used by the brand brainstorm build and the manual brand setup / "Regenerate". */
+export async function generateBrandIdentity(
+  projectId: string,
+  opts: { direction?: { title: string; bullets: string[] }; transcript?: string; dismissed?: string[] } = {},
+): Promise<ActionResult<null>> {
+  if (!(await aiChainReady())) return { ok: false, error: "no_key" };
+  const project = await prisma.project.findUniqueOrThrow({ where: { id: projectId } });
+  const direction = opts.direction ?? {
+    title: project.recommendedTitle || project.title,
+    bullets: [project.idea, project.audience, project.theme, project.tone].filter(Boolean),
+  };
+  const transcript = opts.transcript ?? project.idea ?? "";
+
+  const started = Date.now();
+  let raw = "";
+  let config;
+  try {
+    const res = await completeWithFallback(brandSetupMessages(direction, transcript, opts.dismissed ?? []));
+    raw = res.text;
+    config = res.config;
+  } catch (e) {
+    const err = e instanceof AiError ? e.message : "Couldn't build the brand. Try again.";
+    if (err === "no_key") return { ok: false, error: "no_key" };
+    await logGen(projectId, "blueprint", await resolveAiConfig(), 0, "error", err);
+    return { ok: false, error: err };
+  }
+
+  let bp: Record<string, unknown>;
+  try {
+    bp = parseBlueprint(raw);
+  } catch {
+    await logGen(projectId, "blueprint", config, raw.length, "error", "parse");
+    return { ok: false, error: "The model returned an unexpected format. Try again." };
+  }
+
+  const str = (k: string) => String(bp[k] ?? "");
+  const arrStr = (k: string) => (Array.isArray(bp[k]) ? (bp[k] as unknown[]).map((x) => String(x)) : []);
+  const name = str("name") || project.recommendedTitle || project.title;
+
+  await prisma.project.update({
+    where: { id: projectId },
+    data: {
+      recommendedTitle: name,
+      idea: str("idea") || project.idea,
+      positioning: str("positioning"),
+      readerPromise: str("positioning"),
+      audience: str("audience") || project.audience,
+      tone: str("tone") || project.tone,
+      style: str("voice") || project.style,
+      status: "complete",
+    },
+  });
+
+  // Reseed Brand identity memory.
+  await prisma.memoryEntry.deleteMany({ where: { projectId } });
+  const mem: { kind: string; title: string; body: string; order: number }[] = [];
+  let order = 0;
+  const push = (kind: string, title: string, body: string) => {
+    if (body.trim()) mem.push({ kind, title, body, order: order++ });
+  };
+  push("brand-positioning", "Positioning", str("positioning"));
+  push("brand-voice", "Voice", str("voice"));
+  push("tone-rule", "Tone", str("tone"));
+  push("brand-audience", "Audience", str("audience"));
+  arrStr("values").forEach((v, i) => push("brand-value", `Value ${i + 1}`, v));
+  arrStr("themes").forEach((v, i) => push("recurring-segment", `Theme ${i + 1}`, v));
+  arrStr("dos").forEach((v) => push("brand-do", "Do", v));
+  arrStr("donts").forEach((v) => push("brand-dont", "Don't", v));
+  arrStr("sampleLines").forEach((v, i) => push("brand-sample", `Sample line ${i + 1}`, v));
+  arrStr("taglines").forEach((v, i) => push("cta", `Tagline ${i + 1}`, v));
+  if (mem.length) await prisma.memoryEntry.createMany({ data: mem.map((m) => ({ projectId, ...m })) });
+
+  await logGen(projectId, "blueprint", config, raw.length, "ok", `${Date.now() - started}ms`);
+  revalidatePath(`/studio/brands/${projectId}`, "layout");
   return { ok: true, data: null };
 }
 

@@ -17,8 +17,9 @@ import {
   ArrowRight,
   Lightbulb,
   Mail,
+  Sparkles,
 } from "lucide-react";
-import { listProjectsBrief, listPublications } from "@/lib/actions/projects";
+import { listProjectsBrief, listPublications, listBrands } from "@/lib/actions/projects";
 import { searchChapters } from "@/lib/actions/chapters";
 import { listSessions, type SessionBrief } from "@/lib/actions/brainstorm";
 import { cn } from "@/lib/utils";
@@ -30,7 +31,7 @@ type Item = {
   label: string;
   hint?: string;
   icon: React.ReactNode;
-  group: "Actions" | "Books" | "Newsletters" | "Brainstorms" | "Chapters" | "Theme";
+  group: "Actions" | "Books" | "Newsletters" | "Brands" | "Brainstorms" | "Chapters" | "Theme";
   run: () => void;
 };
 
@@ -52,6 +53,7 @@ export function CommandPalette() {
   const [active, setActive] = useState(0);
   const [projects, setProjects] = useState<Project[]>([]);
   const [publications, setPublications] = useState<Project[]>([]);
+  const [brands, setBrands] = useState<Project[]>([]);
   const [sessions, setSessions] = useState<SessionBrief[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [chapterHits, setChapterHits] = useState<ChapterHit[]>([]);
@@ -84,6 +86,9 @@ export function CommandPalette() {
         .catch(() => {});
       listPublications()
         .then((pubs) => setPublications(pubs.map((p) => ({ id: p.id, title: p.title, status: p.status }))))
+        .catch(() => {});
+      listBrands()
+        .then((bs) => setBrands(bs.map((b) => ({ id: b.id, title: b.title, status: b.status }))))
         .catch(() => {});
       listSessions()
         .then(setSessions)
@@ -152,10 +157,26 @@ export function CommandPalette() {
       {
         id: "new-newsletter",
         label: "New newsletter",
-        hint: "Start a brand",
+        hint: "Start a publication",
         icon: <Mail className="h-4 w-4" />,
         group: "Actions",
         run: () => go("/studio/newsletters/new"),
+      },
+      {
+        id: "brands",
+        label: "Brands",
+        hint: "Reusable identities",
+        icon: <Sparkles className="h-4 w-4" />,
+        group: "Actions",
+        run: () => go("/studio/brands"),
+      },
+      {
+        id: "new-brand",
+        label: "New brand",
+        hint: "Build an identity",
+        icon: <Sparkles className="h-4 w-4" />,
+        group: "Actions",
+        run: () => go("/studio/brands/new"),
       },
       {
         id: "settings",
@@ -201,6 +222,14 @@ export function CommandPalette() {
       run: () =>
         go(`/studio/book/${p.id}/${p.status === "draft" ? "blueprint" : "write"}`),
     }));
+    const brandItems: Item[] = brands.map((p) => ({
+      id: `br-${p.id}`,
+      label: p.title,
+      hint: "Open brand",
+      icon: <Sparkles className="h-4 w-4" />,
+      group: "Brands",
+      run: () => go(`/studio/brands/${p.id}`),
+    }));
     const brainstorms: Item[] = sessions.map((s) => ({
       id: `bs-${s.id}`,
       label: s.title,
@@ -209,8 +238,8 @@ export function CommandPalette() {
       group: "Brainstorms",
       run: () => go(`/studio/brainstorm/${s.id}`),
     }));
-    return [...base, ...books, ...newsletters, ...brainstorms];
-  }, [projects, publications, sessions, resolvedTheme, go, close, setTheme]);
+    return [...base, ...books, ...newsletters, ...brandItems, ...brainstorms];
+  }, [projects, publications, brands, sessions, resolvedTheme, go, close, setTheme]);
 
   const chapterItems = useMemo<Item[]>(
     () =>
@@ -235,7 +264,7 @@ export function CommandPalette() {
   useEffect(() => setActive(0), [query]);
 
   const groups = useMemo(() => {
-    const order: Item["group"][] = ["Actions", "Books", "Newsletters", "Brainstorms", "Chapters", "Theme"];
+    const order: Item["group"][] = ["Actions", "Books", "Newsletters", "Brands", "Brainstorms", "Chapters", "Theme"];
     return order
       .map((g) => ({ group: g, items: filtered.filter((i) => i.group === g) }))
       .filter((g) => g.items.length);

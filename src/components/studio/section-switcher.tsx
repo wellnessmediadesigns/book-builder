@@ -3,44 +3,50 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { BookOpen, Mail } from "lucide-react";
+import { BookOpen, Mail, Sparkles, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/** The persistent Books | Newsletters switcher — the spine of the two spaces. */
+type Tab = { key: string; label: string; icon: LucideIcon; href: string; prefix: string; accent: string };
+
+// Ordered most-specific prefix first for active detection.
+const TABS: Tab[] = [
+  { key: "newsletter", label: "Newsletters", icon: Mail, href: "/studio/newsletters", prefix: "/studio/newsletters", accent: "text-muse" },
+  { key: "brand", label: "Brands", icon: Sparkles, href: "/studio/brands", prefix: "/studio/brands", accent: "text-brass" },
+  { key: "book", label: "Books", icon: BookOpen, href: "/studio", prefix: "/studio", accent: "text-brass" },
+];
+
+// Render order (general → specific) so Books sits first.
+const ORDER = ["book", "newsletter", "brand"];
+
+/** The persistent space switcher — the spine of the studio's separate sections. */
 export function SectionSwitcher() {
   const pathname = usePathname() ?? "";
-  const section: "book" | "newsletter" = pathname.startsWith("/studio/newsletters")
-    ? "newsletter"
-    : "book";
-
-  const tabs = [
-    { key: "book" as const, label: "Books", icon: BookOpen, href: "/studio" },
-    { key: "newsletter" as const, label: "Newsletters", icon: Mail, href: "/studio/newsletters" },
-  ];
+  const active = TABS.find((t) => pathname === t.prefix || pathname.startsWith(t.prefix + "/"))?.key ?? "book";
+  const tabs = ORDER.map((k) => TABS.find((t) => t.key === k)!);
 
   return (
-    <div className="flex items-center gap-0.5 rounded-xl border border-line bg-paper-sunken/70 p-0.5">
+    <div className="flex items-center gap-0.5 overflow-x-auto no-scrollbar rounded-xl border border-line bg-paper-sunken/70 p-0.5">
       {tabs.map((t) => {
-        const active = section === t.key;
+        const isActive = active === t.key;
         return (
           <Link
             key={t.key}
             href={t.href}
-            aria-current={active ? "page" : undefined}
+            aria-current={isActive ? "page" : undefined}
             className={cn(
-              "relative flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-colors",
-              active ? "text-ink" : "text-ink-soft hover:text-ink",
+              "relative flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium transition-colors lg:px-3",
+              isActive ? "text-ink" : "text-ink-soft hover:text-ink",
             )}
           >
-            {active && (
+            {isActive && (
               <motion.span
                 layoutId="section-switcher-active"
                 transition={{ type: "spring", stiffness: 380, damping: 32 }}
                 className="absolute inset-0 rounded-lg bg-paper-raised shadow-soft"
               />
             )}
-            <t.icon className={cn("relative h-4 w-4", active && (t.key === "book" ? "text-brass" : "text-muse"))} />
-            <span className="relative hidden sm:inline">{t.label}</span>
+            <t.icon className={cn("relative h-4 w-4", isActive && t.accent)} />
+            <span className="relative hidden lg:inline">{t.label}</span>
           </Link>
         );
       })}

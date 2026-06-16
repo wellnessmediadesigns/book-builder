@@ -8,6 +8,7 @@ import {
   BookMarked,
   Lightbulb,
   Mail,
+  Sparkles,
   Plus,
   Palette,
   Image as ImageIcon,
@@ -45,6 +46,15 @@ const NAV_GROUPS: { heading: string; items: { href: string; label: string; icon:
       { href: "/studio/newsletters/brainstorm", label: "Brainstorm", icon: Lightbulb },
       { href: "/studio/newsletters/new", label: "New newsletter", icon: Plus },
       { href: "/studio/newsletters/trash", label: "Newsletters trash", icon: Trash2 },
+    ],
+  },
+  {
+    heading: "Brands",
+    items: [
+      { href: "/studio/brands", label: "Brands", icon: Sparkles },
+      { href: "/studio/brands/brainstorm", label: "Brainstorm", icon: Lightbulb },
+      { href: "/studio/brands/new", label: "New brand", icon: Plus },
+      { href: "/studio/brands/trash", label: "Brands trash", icon: Trash2 },
     ],
   },
   {

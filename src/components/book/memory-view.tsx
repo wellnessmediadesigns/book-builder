@@ -14,6 +14,10 @@ import {
   Clock,
   GitBranch,
   Tag,
+  Target,
+  Check,
+  Ban,
+  Quote,
 } from "lucide-react";
 import { Badge, Card, EmptyState } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
@@ -44,8 +48,16 @@ const KINDS: { value: string; label: string; icon: typeof User }[] = [
   { value: "note", label: "Note", icon: ScrollText },
   // newsletter-specific
   { value: "subscriber-persona", label: "Subscriber persona", icon: User },
-  { value: "recurring-segment", label: "Recurring segment", icon: GitBranch },
-  { value: "cta", label: "Call to action", icon: Sparkles },
+  { value: "recurring-segment", label: "Recurring theme", icon: GitBranch },
+  { value: "cta", label: "Call to action / tagline", icon: Sparkles },
+  // brand-specific
+  { value: "brand-positioning", label: "Positioning", icon: Target },
+  { value: "brand-voice", label: "Voice", icon: ScrollText },
+  { value: "brand-audience", label: "Audience", icon: User },
+  { value: "brand-value", label: "Value", icon: Sparkles },
+  { value: "brand-do", label: "Do", icon: Check },
+  { value: "brand-dont", label: "Don't", icon: Ban },
+  { value: "brand-sample", label: "Sample line", icon: Quote },
 ];
 
 type Group = { title: string; kinds: string[]; tone: "brass" | "muse" | "sage" };
@@ -66,6 +78,15 @@ const NEWSLETTER_GROUPS: Group[] = [
   { title: "Segments & CTAs", kinds: ["recurring-segment", "cta"], tone: "muse" },
 ];
 
+const BRAND_GROUPS: Group[] = [
+  { title: "Positioning", kinds: ["brand-positioning", "note"], tone: "brass" },
+  { title: "Voice & tone", kinds: ["brand-voice", "tone-rule", "brand-sample"], tone: "muse" },
+  { title: "Audience", kinds: ["brand-audience"], tone: "sage" },
+  { title: "Values & themes", kinds: ["brand-value", "recurring-segment"], tone: "brass" },
+  { title: "Guardrails", kinds: ["brand-do", "brand-dont"], tone: "muse" },
+  { title: "Taglines & CTAs", kinds: ["cta"], tone: "sage" },
+];
+
 export function MemoryView({
   projectId,
   entries,
@@ -77,11 +98,12 @@ export function MemoryView({
 }) {
   const v = workVocab(workType);
   const news = v.type === "newsletter";
-  const GROUPS = news ? NEWSLETTER_GROUPS : BOOK_GROUPS;
+  const brand = v.type === "brand";
+  const GROUPS = brand ? BRAND_GROUPS : news ? NEWSLETTER_GROUPS : BOOK_GROUPS;
   const allowedKinds = new Set(GROUPS.flatMap((g) => g.kinds));
   const kindOptions = KINDS.filter((k) => allowedKinds.has(k.value));
   const [adding, setAdding] = useState(false);
-  const [kind, setKind] = useState(news ? "subscriber-persona" : "character");
+  const [kind, setKind] = useState(brand ? "brand-value" : news ? "subscriber-persona" : "character");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [pending, start] = useTransition();
@@ -105,12 +127,14 @@ export function MemoryView({
             <Brain className="h-3 w-3" /> {v.memory}
           </Badge>
           <h1 className="mt-3 font-display text-display-md font-semibold text-ink">
-            What Quire remembers
+            {brand ? "Brand identity" : "What Quire remembers"}
           </h1>
           <p className="mt-2 max-w-xl text-ink-soft">
-            {news
-              ? "Every AI action reads from this knowledge to keep your newsletter on-brand — voice, audience, recurring segments, and facts. Edit anything; it shapes every issue."
-              : "Every AI action reads from this memory to keep your book consistent — voice, characters, facts, and open threads. Edit anything; it shapes every chapter."}
+            {brand
+              ? "This identity defines your brand — voice, values, audience, positioning. Your social posts and newsletters pull from it to stay perfectly on-brand. Edit anything."
+              : news
+                ? "Every AI action reads from this knowledge to keep your newsletter on-brand — voice, audience, recurring segments, and facts. Edit anything; it shapes every issue."
+                : "Every AI action reads from this memory to keep your book consistent — voice, characters, facts, and open threads. Edit anything; it shapes every chapter."}
           </p>
         </div>
         <Button variant="primary" className="shrink-0" onClick={() => setAdding((a) => !a)}>

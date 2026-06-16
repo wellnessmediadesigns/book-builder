@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { completeWithFallback, aiChainReady } from "@/lib/ai/context";
 import { AiError } from "@/lib/ai/providers";
 import { directionMessages, brainstormSetupMessages } from "@/lib/ai/prompts";
-import { generateBlueprint, autoWriteChapter } from "@/lib/actions/ai";
+import { generateBlueprint, autoWriteChapter, generateBrandIdentity } from "@/lib/actions/ai";
 import type { ProjectInput } from "@/lib/actions/projects";
 import { parseDirection, parseDismissed, bulletId, type Direction } from "@/lib/brainstorm";
 import { NEWSLETTER_LENGTHS, NEWSLETTER_DEFAULTS } from "@/lib/newsletter";
@@ -34,10 +34,12 @@ function parseJson(raw: string): Record<string, unknown> {
 
 // ————————————————————————————————————————————— Sessions
 
+const MODES = new Set(["book", "newsletter", "brand"]);
+
 export async function createSession(mode: string = "book"): Promise<void> {
   const author = await getAuthor();
   const session = await prisma.brainstormSession.create({
-    data: { authorId: author.id, mode: mode === "newsletter" ? "newsletter" : "book" },
+    data: { authorId: author.id, mode: MODES.has(mode) ? mode : "book" },
   });
   revalidatePath("/studio/brainstorm");
   redirect(`/studio/brainstorm/${session.id}`);
@@ -221,6 +223,47 @@ export async function buildBookFromBrainstorm(
     .join("\n");
 
   const newsletter = session.mode === "newsletter";
+
+  // Brands don't produce chapters/issues — they build a reusable identity and
+  // seed Brand identity memory, then land on the brand profile.
+  if (session.mode === "brand") {
+    const title = direction.title?.trim() || "Untitled brand";
+    const live = session.builtProjectId
+      ? await prisma.project.findFirst({
+          where: { id: session.builtProjectId, authorId: author.id, deletedAt: null },
+          select: { id: true },
+        })
+      : null;
+    let brandId: string;
+    if (live) {
+      await prisma.project.update({ where: { id: live.id }, data: { title } });
+      brandId = live.id;
+    } else {
+      const count = await prisma.project.count();
+      const created = await prisma.project.create({
+        data: {
+          authorId: author.id,
+          title,
+          workType: "brand",
+          bookType: "Brand",
+          coverAccent: ACCENTS[count % ACCENTS.length],
+        },
+      });
+      brandId = created.id;
+    }
+    const res = await generateBrandIdentity(brandId, {
+      direction: { title: direction.title, bullets: direction.bullets.map((b) => b.text) },
+      transcript,
+      dismissed,
+    });
+    if (res && !res.ok) return { ok: false, error: res.error };
+    await prisma.brainstormSession.update({
+      where: { id: sessionId },
+      data: { status: "built", builtProjectId: brandId },
+    });
+    revalidatePath("/studio/brands");
+    redirect(`/studio/brands/${brandId}`);
+  }
 
   let raw: Record<string, unknown>;
   try {

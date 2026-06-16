@@ -10,8 +10,11 @@ import { Settings, Search, Lightbulb } from "lucide-react";
 
 export function TopNav({ author, email }: { author?: string; email?: string }) {
   const pathname = usePathname() ?? "";
-  const news = pathname.startsWith("/studio/newsletters");
-  const brainstormHref = news ? "/studio/newsletters/brainstorm" : "/studio/brainstorm";
+  const brainstormHref = pathname.startsWith("/studio/newsletters")
+    ? "/studio/newsletters/brainstorm"
+    : pathname.startsWith("/studio/brands")
+      ? "/studio/brands/brainstorm"
+      : "/studio/brainstorm";
 
   return (
     <header className="sticky top-0 z-30 border-b border-line/70 bg-paper/80 backdrop-blur-xl">

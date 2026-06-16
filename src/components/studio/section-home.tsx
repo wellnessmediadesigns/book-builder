@@ -26,6 +26,8 @@ export type SectionWork = {
   coverUrl?: string;
   audience?: string;
   cadence?: string;
+  positioning?: string;
+  points?: number;
 };
 
 type Resume = {
@@ -47,7 +49,7 @@ export function SectionHome({
   stats,
   resume,
 }: {
-  workType: "book" | "newsletter";
+  workType: "book" | "newsletter" | "brand";
   authorName: string;
   works: SectionWork[];
   sessions: SessionBrief[];
@@ -56,11 +58,14 @@ export function SectionHome({
 }) {
   const v = workVocab(workType);
   const news = workType === "newsletter";
-  const Icon = news ? Mail : BookOpen;
+  const brand = workType === "brand";
+  const Icon = brand ? Sparkles : news ? Mail : BookOpen;
+  const accentText = news ? "text-muse" : "text-brass";
   const totalWords = works.reduce((s, w) => s + w.words, 0);
-  const countLabel = news
-    ? `${works.length} ${works.length === 1 ? "newsletter" : "newsletters"}`
-    : `${works.length} ${works.length === 1 ? "book" : "books"}`;
+  const totalPoints = works.reduce((s, w) => s + (w.points ?? 0), 0);
+  const plural = brand ? "brands" : news ? "newsletters" : "books";
+  const single = brand ? "brand" : news ? "newsletter" : "book";
+  const countLabel = `${works.length} ${works.length === 1 ? single : plural}`;
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
@@ -76,22 +81,24 @@ export function SectionHome({
         <div className="relative flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <Badge tone={news ? "muse" : "brass"}>
-              <Icon className="h-3 w-3" /> {news ? "Newsletters" : "Books"}
+              <Icon className="h-3 w-3" /> {brand ? "Brands" : news ? "Newsletters" : "Books"}
             </Badge>
             <p className="mt-3 text-sm text-muted">
               {timeOfDayGreeting()}, {authorName}.
             </p>
             <h1 className="mt-1 font-display text-display-md font-semibold text-ink">
-              {news ? "Your newsletters" : "Your books"}
+              {brand ? "Your brands" : news ? "Your newsletters" : "Your books"}
             </h1>
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-ink-soft">
               <span className="inline-flex items-center gap-1.5">
-                <Icon className={`h-4 w-4 ${news ? "text-muse" : "text-brass"}`} />
+                <Icon className={`h-4 w-4 ${accentText}`} />
                 {countLabel}
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <Sparkles className="h-4 w-4 text-muse" />
-                {formatNumber(totalWords)} words written
+                {brand
+                  ? `${formatNumber(totalPoints)} identity points`
+                  : `${formatNumber(totalWords)} words written`}
               </span>
             </div>
           </div>
@@ -103,7 +110,7 @@ export function SectionHome({
             </Link>
             <Link href={v.newHref}>
               <Button size="lg" variant="brass">
-                <Plus className="h-4 w-4" /> {news ? "New newsletter" : "New book"}
+                <Plus className="h-4 w-4" /> {brand ? "New brand" : news ? "New newsletter" : "New book"}
               </Button>
             </Link>
           </div>
@@ -113,11 +120,13 @@ export function SectionHome({
       {works.length === 0 ? (
         <EmptyState
           icon={<Icon className="h-6 w-6" />}
-          title={news ? "Your first newsletter starts here" : "Your first book starts here"}
+          title={`Your first ${single} starts here`}
           description={
-            news
-              ? "Set up a brand — its voice and audience — and Quire writes you a complete, ready-to-send first issue."
-              : "Describe an idea and Quire drafts a full blueprint — titles, an outline, and a reader journey — all yours to edit."
+            brand
+              ? "Describe a theme or audience and Muse builds a reusable brand identity — voice, values, positioning — that powers your posts and newsletters."
+              : news
+                ? "Set up a brand — its voice and audience — and Quire writes you a complete, ready-to-send first issue."
+                : "Describe an idea and Quire drafts a full blueprint — titles, an outline, and a reader journey — all yours to edit."
           }
           action={
             <div className="flex flex-wrap items-center justify-center gap-2">
@@ -128,7 +137,7 @@ export function SectionHome({
               </Link>
               <Link href={v.newHref}>
                 <Button variant="brass">
-                  <Sparkles className="h-4 w-4" /> {news ? "Start a newsletter" : "Start a book"}
+                  <Sparkles className="h-4 w-4" /> Start a {single}
                 </Button>
               </Link>
             </div>
@@ -136,7 +145,7 @@ export function SectionHome({
         />
       ) : (
         <>
-          {resume && (
+          {!brand && resume && (
             <div className="mb-5">
               <ResumeCard
                 bookTitle={resume.bookTitle}
@@ -147,9 +156,11 @@ export function SectionHome({
               />
             </div>
           )}
-          <div className="mb-8">
-            <WritingStatsCard stats={stats} />
-          </div>
+          {!brand && (
+            <div className="mb-8">
+              <WritingStatsCard stats={stats} />
+            </div>
+          )}
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {works.map((w, i) => (
               <ProjectCard
@@ -170,6 +181,8 @@ export function SectionHome({
                 coverUrl={w.coverUrl}
                 audience={w.audience}
                 cadence={w.cadence}
+                positioning={w.positioning}
+                points={w.points}
               />
             ))}
           </div>
@@ -183,7 +196,7 @@ export function SectionHome({
             <div>
               <h2 className="font-display text-lg font-semibold text-ink">Brainstorms</h2>
               <p className="text-sm text-ink-soft">
-                {news ? "Newsletter ideas in progress" : "Book ideas in progress"} — pick one back up.
+                {brand ? "Brand ideas in progress" : news ? "Newsletter ideas in progress" : "Book ideas in progress"} — pick one back up.
               </p>
             </div>
             <Link href={v.brainstormHref}>

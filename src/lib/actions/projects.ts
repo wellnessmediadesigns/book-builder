@@ -4,7 +4,7 @@ import { prisma, getAuthor } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { NEWSLETTER_LENGTHS } from "@/lib/newsletter";
-import { generateBlueprint, autoWriteChapter } from "@/lib/actions/ai";
+import { generateBlueprint, autoWriteChapter, generateBrandIdentity } from "@/lib/actions/ai";
 
 export type ProjectInput = {
   title: string;
@@ -184,6 +184,52 @@ export async function listPublications() {
     written: p.chapters.filter((c) => c.wordCount > 0).length,
     words: p.chapters.reduce((s, c) => s + c.wordCount, 0),
   }));
+}
+
+/** Brands (a Project with workType "brand") for the Brands home. */
+export async function listBrands() {
+  const author = await getAuthor();
+  const rows = await prisma.project.findMany({
+    where: { authorId: author.id, deletedAt: null, workType: "brand" },
+    orderBy: { updatedAt: "desc" },
+    include: { memory: { select: { id: true } } },
+  });
+  return rows.map((p) => ({
+    id: p.id,
+    title: p.recommendedTitle || p.title,
+    status: p.status,
+    coverAccent: p.coverAccent,
+    positioning: p.positioning,
+    audience: p.audience,
+    updatedAt: p.updatedAt.toISOString(),
+    points: p.memory.length,
+  }));
+}
+
+/** Creates a brand (a Project with workType "brand"), generates its identity, lands on the profile. */
+export async function createBrand(input: {
+  name: string;
+  about: string;
+  audience: string;
+  styleNotes?: string;
+}) {
+  const author = await getAuthor();
+  const count = await prisma.project.count();
+  const project = await prisma.project.create({
+    data: {
+      authorId: author.id,
+      title: input.name.trim() || "Untitled brand",
+      idea: input.about,
+      audience: input.audience,
+      styleNotes: input.styleNotes || "",
+      workType: "brand",
+      bookType: "Brand",
+      coverAccent: ACCENTS[count % ACCENTS.length],
+    },
+  });
+  await generateBrandIdentity(project.id).catch(() => {});
+  revalidatePath("/studio/brands");
+  redirect(`/studio/brands/${project.id}`);
 }
 
 /** Creates a newsletter brand (a Project with workType "newsletter") + lands on the plan. */

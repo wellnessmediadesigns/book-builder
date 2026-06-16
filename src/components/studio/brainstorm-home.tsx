@@ -7,10 +7,11 @@ import { listSessions, createSession } from "@/lib/actions/brainstorm";
 import { DeleteSessionButton } from "@/components/studio/delete-session-button";
 
 /** Shared brainstorm-sessions home, scoped to a mode (book | newsletter). */
-export async function BrainstormHome({ mode }: { mode: "book" | "newsletter" }) {
+export async function BrainstormHome({ mode }: { mode: "book" | "newsletter" | "brand" }) {
   const news = mode === "newsletter";
+  const brand = mode === "brand";
   const sessions = await listSessions(mode);
-  const Icon = news ? Mail : BookOpen;
+  const Icon = brand ? Sparkles : news ? Mail : BookOpen;
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
@@ -24,12 +25,14 @@ export async function BrainstormHome({ mode }: { mode: "book" | "newsletter" }) 
               <Sparkles className="h-3 w-3" /> Brainstorm
             </Badge>
             <h1 className="mt-3 font-display text-display-md font-semibold text-ink">
-              {news ? "Shape your next newsletter" : "Find your next book"}
+              {brand ? "Shape your next brand" : news ? "Shape your next newsletter" : "Find your next book"}
             </h1>
             <p className="mt-2 max-w-lg text-ink-soft">
-              {news
-                ? "Bounce ideas back and forth with Muse, agree on the angle and audience, then turn it into a complete, ready-to-send newsletter in one tap."
-                : "Bounce ideas back and forth with Muse, save the ones that spark to your board, and turn them into a real book in one tap."}
+              {brand
+                ? "Bounce ideas back and forth with Muse, agree on the voice, values, and audience, then turn it into a reusable brand identity in one tap."
+                : news
+                  ? "Bounce ideas back and forth with Muse, agree on the angle and audience, then turn it into a complete, ready-to-send newsletter in one tap."
+                  : "Bounce ideas back and forth with Muse, save the ones that spark to your board, and turn them into a real book in one tap."}
             </p>
           </div>
           <form action={createSession.bind(null, mode)}>
@@ -45,9 +48,11 @@ export async function BrainstormHome({ mode }: { mode: "book" | "newsletter" }) 
           icon={<Lightbulb className="h-6 w-6" />}
           title="No brainstorms yet"
           description={
-            news
-              ? "Start one and chat your way to a newsletter — Muse helps you find the angle, the subscriber, and the hook."
-              : "Start one and chat your way to a book idea — Muse will help you find the angle, the audience, and the hook."
+            brand
+              ? "Start one and chat your way to a brand — Muse helps you find the voice, values, and audience."
+              : news
+                ? "Start one and chat your way to a newsletter — Muse helps you find the angle, the subscriber, and the hook."
+                : "Start one and chat your way to a book idea — Muse will help you find the angle, the audience, and the hook."
           }
           action={
             <form action={createSession.bind(null, mode)}>

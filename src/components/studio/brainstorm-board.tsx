@@ -56,9 +56,18 @@ const NEWSLETTER_STARTERS = [
   "What recurring segments could my newsletter have?",
 ];
 
+const BRAND_STARTERS = [
+  "Help me build a brand for a calm productivity newsletter",
+  "I have a topic — help me shape a brand voice around it",
+  "What should my brand stand for if it's for new founders?",
+  "Find a distinctive angle and voice for my brand",
+];
+
 const FOLLOWUPS = ["Give me 3 title options", "Who exactly is this for?", "What's the hook?", "Make it bolder"];
 
 const NEWSLETTER_FOLLOWUPS = ["Give me 3 name ideas", "Who's the subscriber?", "Draft 5 issue ideas", "What's the cadence?"];
+
+const BRAND_FOLLOWUPS = ["Give me 3 name ideas", "What does it stand for?", "How should it sound?", "Who's it for?"];
 
 let tmpSeq = 0;
 function tmpId() {
@@ -98,9 +107,15 @@ export function BrainstormBoard({
   aiReady: boolean;
 }) {
   const newsletter = session.mode === "newsletter";
-  const buildLabel = newsletter ? "Build this newsletter" : "Build this book";
-  const starters = newsletter ? NEWSLETTER_STARTERS : STARTERS;
-  const followups = newsletter ? NEWSLETTER_FOLLOWUPS : FOLLOWUPS;
+  const brand = session.mode === "brand";
+  const buildLabel = brand ? "Build this brand" : newsletter ? "Build this newsletter" : "Build this book";
+  const starters = brand ? BRAND_STARTERS : newsletter ? NEWSLETTER_STARTERS : STARTERS;
+  const followups = brand ? BRAND_FOLLOWUPS : newsletter ? NEWSLETTER_FOLLOWUPS : FOLLOWUPS;
+  const builtHref = session.builtProjectId
+    ? brand
+      ? `/studio/brands/${session.builtProjectId}`
+      : `/studio/book/${session.builtProjectId}/blueprint`
+    : "#";
   const [messages, setMessages] = useState<Msg[]>(initialMessages);
   const [direction, setDirectionLocal] = useState<Direction>(initialDirection);
   const [input, setInput] = useState("");
@@ -285,7 +300,7 @@ export function BrainstormBoard({
           <span className="min-w-0 flex-1 truncate font-display text-sm font-semibold text-ink">{session.title}</span>
 
           {built && session.builtProjectId ? (
-            <Link href={`/studio/book/${session.builtProjectId}/blueprint`}>
+            <Link href={builtHref}>
               <Badge tone="sage">
                 <BookOpen className="h-3 w-3" /> Built
               </Badge>
@@ -326,12 +341,14 @@ export function BrainstormBoard({
                     <Lightbulb className="h-7 w-7" />
                   </div>
                   <h2 className="font-display text-xl font-semibold text-ink">
-                    {newsletter ? "Let’s shape your newsletter" : "Let’s find your next book"}
+                    {brand ? "Let’s shape your brand" : newsletter ? "Let’s shape your newsletter" : "Let’s find your next book"}
                   </h2>
                   <p className="mt-1.5 max-w-sm text-sm text-ink-soft">
-                    {newsletter
-                      ? "Chat with Muse about your brand, audience, and issue ideas. As you agree, they collect in your Direction — then build the newsletter in one tap."
-                      : "Chat with Muse. As you agree on the concept, title, and key points, they collect in your Direction — then build the book in one tap."}
+                    {brand
+                      ? "Chat with Muse about your audience, voice, and what the brand stands for. As you agree, they collect in your Direction — then build the brand in one tap."
+                      : newsletter
+                        ? "Chat with Muse about your brand, audience, and issue ideas. As you agree, they collect in your Direction — then build the newsletter in one tap."
+                        : "Chat with Muse. As you agree on the concept, title, and key points, they collect in your Direction — then build the book in one tap."}
                   </p>
                 </div>
                 <div className="flex flex-col gap-2">
@@ -475,13 +492,17 @@ export function BrainstormBoard({
                   <Hammer className="h-5 w-5" />
                 </div>
                 <h3 className="font-display text-lg font-semibold text-ink">
-                  {built ? `Rebuild this ${newsletter ? "newsletter" : "book"}?` : `${buildLabel}?`}
+                  {built ? `Rebuild this ${brand ? "brand" : newsletter ? "newsletter" : "book"}?` : `${buildLabel}?`}
                 </h3>
               </div>
               <p className="mt-3 text-sm text-ink-soft">
                 {built
-                  ? `This updates the same ${newsletter ? "newsletter" : "book"} from your refined direction and keeps anything you've written.`
-                  : `This creates a new ${newsletter ? "newsletter" : "book"} from your current direction, and takes you to its blueprint.`}
+                  ? brand
+                    ? "This rebuilds the same brand's identity from your refined direction."
+                    : `This updates the same ${newsletter ? "newsletter" : "book"} from your refined direction and keeps anything you've written.`
+                  : brand
+                    ? "This builds a reusable brand identity from your direction and takes you to its profile."
+                    : `This creates a new ${newsletter ? "newsletter" : "book"} from your current direction, and takes you to its ${newsletter ? "first issue" : "blueprint"}.`}
               </p>
               <div className="mt-5 flex justify-end gap-2">
                 <Button variant="soft" onClick={() => setConfirmBuild(false)}>Keep brainstorming</Button>
@@ -506,8 +527,8 @@ export function BrainstormBoard({
             <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-muse-soft text-muse-deep shadow-glow">
               <Hammer className="h-8 w-8" />
             </div>
-            <p className="mt-4 font-display text-lg font-semibold text-ink">{newsletter ? "Writing your newsletter…" : "Building your book…"}</p>
-            <p className="mt-1 text-sm text-ink-soft">{newsletter ? "Turning your direction into a complete, ready-to-send issue." : "Turning your direction into a blueprint."}</p>
+            <p className="mt-4 font-display text-lg font-semibold text-ink">{brand ? "Building your brand…" : newsletter ? "Writing your newsletter…" : "Building your book…"}</p>
+            <p className="mt-1 text-sm text-ink-soft">{brand ? "Turning your direction into a reusable brand identity." : newsletter ? "Turning your direction into a complete, ready-to-send issue." : "Turning your direction into a blueprint."}</p>
           </motion.div>
         )}
       </AnimatePresence>

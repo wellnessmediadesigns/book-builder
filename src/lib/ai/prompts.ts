@@ -64,13 +64,26 @@ const NEWSLETTER_BRAINSTORM_SYSTEM = `You are Muse, the brainstorming partner in
 - End most replies with ONE focused question that moves the newsletter forward (who's the subscriber? the cadence? the angle? the first few issues?).
 - Keep replies tight and skimmable. No filler, no "AI tells", no markdown headers.`;
 
+const BRAND_BRAINSTORM_SYSTEM = `You are Muse, the brainstorming partner inside Quire, helping an author shape a BRAND — a reusable identity (voice, audience, values, positioning) that later powers their social posts and newsletters. This is not a book and not a single post. How you work:
+- Be a generative, encouraging thought partner — warm, sharp, concrete. Never take over; the author decides.
+- Think in brand terms: who the brand is for, what it stands for (values), how it sounds (voice & tone), its positioning / what makes it different, its promise to the audience, recurring themes, and a few on-voice sample lines. Never frame this as a book or chapters.
+- Offer a few strong, concrete options over vague musing. When useful, give a short numbered list.
+- CONVERGE: as the author shows interest, build on it and help lock in the brand name, audience, voice & tone, values, and positioning. Reflect back what you both seem to be agreeing on.
+- End most replies with ONE focused question that sharpens the brand (who's it for? what does it stand for? how should it sound?).
+- Keep replies tight and skimmable. No filler, no "AI tells", no markdown headers.`;
+
 /** A turn in the brainstorming chat. `history` is prior messages oldest-first. */
 export function brainstormMessages(
   history: { role: "user" | "assistant"; content: string }[],
   userTurn: string,
   mode: string = "book",
 ): AiMessage[] {
-  const system = mode === "newsletter" ? NEWSLETTER_BRAINSTORM_SYSTEM : BRAINSTORM_SYSTEM;
+  const system =
+    mode === "newsletter"
+      ? NEWSLETTER_BRAINSTORM_SYSTEM
+      : mode === "brand"
+        ? BRAND_BRAINSTORM_SYSTEM
+        : BRAINSTORM_SYSTEM;
   const msgs: AiMessage[] = [{ role: "system", content: system }];
   for (const m of history.slice(-20)) msgs.push({ role: m.role, content: m.content });
   msgs.push({ role: "user", content: userTurn });
@@ -190,8 +203,57 @@ ${schema}`,
   ];
 }
 
+/** Turns an agreed brand direction (+ transcript) into a complete brand identity (strict JSON). */
+export function brandSetupMessages(
+  direction: { title: string; bullets: string[] },
+  transcript: string,
+  dismissed: string[] = [],
+): AiMessage[] {
+  const schema = `{
+  "name": "the brand name",
+  "positioning": "one sentence — who it's for and what makes it different",
+  "idea": "2-3 sentences describing the brand's heart and promise",
+  "audience": "who the brand is for",
+  "tone": "the brand's tone in a few words",
+  "voice": "how the brand sounds, in a phrase (e.g. plain-spoken and witty)",
+  "values": ["3-6 short value statements the brand stands for"],
+  "themes": ["3-6 recurring topics/themes the brand talks about"],
+  "dos": ["3-5 concrete things to always do on-brand"],
+  "donts": ["3-5 concrete things to never do"],
+  "sampleLines": ["2-4 short example lines written in the brand voice"],
+  "taglines": ["2-4 candidate taglines"]
+}`;
+  const dir = direction.bullets.length || direction.title
+    ? `${direction.title ? `Name/idea: ${direction.title}\n` : ""}${direction.bullets.map((b) => `- ${b}`).join("\n")}`
+    : "(none — infer from the conversation)";
+  const excludeBlock = dismissed.length
+    ? `\n\nEXCLUDE these entirely — the author removed them on purpose. Do NOT build around them:\n${dismissed.map((d) => `- ${d}`).join("\n")}`
+    : "";
+  return [
+    {
+      role: "system",
+      content:
+        "You turn an author's agreed brainstorm direction into a concrete, reusable BRAND identity they can apply across social posts and newsletters. Think identity — voice, audience, values, positioning — never a book or a single post. The agreed direction is the source of truth: build ONLY from it. Return ONLY minified JSON — no commentary, no fences.",
+    },
+    {
+      role: "user",
+      content: `Design a complete brand identity from this agreed direction.
+
+AGREED DIRECTION (the source of truth — base the identity ONLY on these points):
+${dir}${excludeBlock}
+
+CONVERSATION (voice/tone flavor only — do NOT introduce topics that aren't in the agreed direction):
+"""${transcript.slice(-3000)}"""
+
+Fill every field; use "" or [] only where truly not applicable.
+Respond with ONLY valid minified JSON matching this schema (no fences):
+${schema}`,
+    },
+  ];
+}
+
 export type BookContext = {
-  workType?: string; // "book" | "newsletter"
+  workType?: string; // "book" | "newsletter" | "brand"
   title: string;
   kind: string;
   bookType: string;
@@ -214,8 +276,10 @@ export type BookContext = {
 
 export function contextBlock(ctx: BookContext): string {
   const news = ctx.workType === "newsletter";
+  const brand = ctx.workType === "brand";
   const lines: string[] = [];
-  if (news) lines.push(`NEWSLETTER BRAND: "${ctx.title}"`);
+  if (brand) lines.push(`BRAND: "${ctx.title}"`);
+  else if (news) lines.push(`NEWSLETTER BRAND: "${ctx.title}"`);
   else lines.push(`BOOK: "${ctx.title}" — ${ctx.bookType} (${ctx.kind})`);
   if (news && ctx.cadence) lines.push(`Cadence: ${ctx.cadence}`);
   if (ctx.genre) lines.push(`Genre: ${ctx.genre}`);
@@ -235,9 +299,11 @@ export function contextBlock(ctx: BookContext): string {
   if (ctx.styleNotes) lines.push(`VOICE SIGNATURE (match this style closely): ${ctx.styleNotes}`);
 
   if (ctx.memory.length) {
-    lines.push(news
-      ? "\nBRAND KNOWLEDGE (keep consistent — never contradict):"
-      : "\nBOOK MEMORY (keep consistent — never contradict):");
+    lines.push(brand
+      ? "\nBRAND IDENTITY (stay perfectly on-brand — never contradict):"
+      : news
+        ? "\nBRAND KNOWLEDGE (keep consistent — never contradict):"
+        : "\nBOOK MEMORY (keep consistent — never contradict):");
     for (const m of ctx.memory.slice(0, 40)) {
       lines.push(`- [${m.kind}] ${m.title}${m.body ? `: ${m.body}` : ""}`);
     }
