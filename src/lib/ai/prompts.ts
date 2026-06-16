@@ -72,6 +72,14 @@ const BRAND_BRAINSTORM_SYSTEM = `You are Muse, the brainstorming partner inside 
 - End most replies with ONE focused question that sharpens the brand (who's it for? what does it stand for? how should it sound?).
 - Keep replies tight and skimmable. No filler, no "AI tells", no markdown headers.`;
 
+const SOCIAL_BRAINSTORM_SYSTEM = `You are Muse, the brainstorming partner inside Quire, helping an author develop SOCIAL POST ideas — short content for platforms like X, Instagram, LinkedIn, TikTok, Threads. Not a book, not a newsletter. How you work:
+- Be a generative, encouraging thought partner — warm, sharp, concrete. Never take over; the author decides.
+- Think in social terms: the core idea/angle, the hook, the specific audience, which platforms it suits, and concrete post concepts (the actual angle + opening line).
+- Offer a few strong, concrete options over vague musing. When useful, give a short numbered list.
+- CONVERGE: as the author shows interest, help lock in the topic, angle, key points, and the platforms. Reflect back what you both seem to be agreeing on.
+- End most replies with ONE focused question that sharpens the post (the hook? the audience? which platforms?).
+- Keep replies tight and skimmable. No filler, no "AI tells", no markdown headers.`;
+
 /** A turn in the brainstorming chat. `history` is prior messages oldest-first. */
 export function brainstormMessages(
   history: { role: "user" | "assistant"; content: string }[],
@@ -83,7 +91,9 @@ export function brainstormMessages(
       ? NEWSLETTER_BRAINSTORM_SYSTEM
       : mode === "brand"
         ? BRAND_BRAINSTORM_SYSTEM
-        : BRAINSTORM_SYSTEM;
+        : mode === "social"
+          ? SOCIAL_BRAINSTORM_SYSTEM
+          : BRAINSTORM_SYSTEM;
   const msgs: AiMessage[] = [{ role: "system", content: system }];
   for (const m of history.slice(-20)) msgs.push({ role: m.role, content: m.content });
   msgs.push({ role: "user", content: userTurn });
@@ -450,6 +460,39 @@ Structure it like a real newsletter — a complete, ready-to-send email — with
 - A brief, warm SIGN-OFF line to close.
 Sound exactly like the brand voice above; stay consistent with the brand knowledge and previous issues. Keep the whole thing skimmable and within the word target — an email, not a chapter.
 Write the full issue now as clean prose, with each segment's subhead on its own line.`,
+    },
+  ];
+}
+
+/** Generate ONE social post for a single platform, optionally on-brand. */
+export function socialPostMessages(
+  brand: BookContext | null,
+  opts: {
+    platformLabel: string;
+    guidance: string;
+    charLimit: number;
+    hashtags: number;
+    topic: string;
+    keywords: string;
+    idea: string;
+  },
+): AiMessage[] {
+  const brandBlock = brand ? `\n${contextBlock(brand)}\n` : "";
+  return [
+    {
+      role: "system",
+      content:
+        "You are a sharp social copywriter inside Quire. You write original, scroll-stopping posts that sound genuinely human — never generic, never 'AI tells', never hashtag spam. When a brand is provided, match its voice, values, and guardrails exactly. Return ONLY the post text, ready to paste — no preamble, no surrounding quotes, no platform label, no commentary.",
+    },
+    {
+      role: "user",
+      content: `Write ONE ${opts.platformLabel} post.
+${brandBlock}
+TOPIC: ${opts.topic || "(infer from the idea)"}
+${opts.keywords ? `KEYWORDS to weave in naturally: ${opts.keywords}\n` : ""}${opts.idea ? `THE IDEA / ANGLE: ${opts.idea}\n` : ""}
+PLATFORM STYLE (${opts.platformLabel}): ${opts.guidance}
+Length: keep it within about ${opts.charLimit} characters. Use about ${opts.hashtags} hashtag${opts.hashtags === 1 ? "" : "s"} (0 is fine if that suits the platform).
+Open with a hook in the first line. Write the post now as ready-to-paste text.`,
     },
   ];
 }

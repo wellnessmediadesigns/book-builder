@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, Lightbulb, Sparkles, BookOpen, Mail, ArrowRight } from "lucide-react";
+import { Plus, Lightbulb, Sparkles, BookOpen, Mail, Share2, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge, EmptyState } from "@/components/ui/primitives";
 import { relativeTime } from "@/lib/utils";
@@ -7,11 +7,12 @@ import { listSessions, createSession } from "@/lib/actions/brainstorm";
 import { DeleteSessionButton } from "@/components/studio/delete-session-button";
 
 /** Shared brainstorm-sessions home, scoped to a mode (book | newsletter). */
-export async function BrainstormHome({ mode }: { mode: "book" | "newsletter" | "brand" }) {
+export async function BrainstormHome({ mode }: { mode: "book" | "newsletter" | "brand" | "social" }) {
   const news = mode === "newsletter";
   const brand = mode === "brand";
+  const social = mode === "social";
   const sessions = await listSessions(mode);
-  const Icon = brand ? Sparkles : news ? Mail : BookOpen;
+  const Icon = social ? Share2 : brand ? Sparkles : news ? Mail : BookOpen;
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
@@ -25,14 +26,16 @@ export async function BrainstormHome({ mode }: { mode: "book" | "newsletter" | "
               <Sparkles className="h-3 w-3" /> Brainstorm
             </Badge>
             <h1 className="mt-3 font-display text-display-md font-semibold text-ink">
-              {brand ? "Shape your next brand" : news ? "Shape your next newsletter" : "Find your next book"}
+              {social ? "Shape your next post" : brand ? "Shape your next brand" : news ? "Shape your next newsletter" : "Find your next book"}
             </h1>
             <p className="mt-2 max-w-lg text-ink-soft">
-              {brand
-                ? "Bounce ideas back and forth with Muse, agree on the voice, values, and audience, then turn it into a reusable brand identity in one tap."
-                : news
-                  ? "Bounce ideas back and forth with Muse, agree on the angle and audience, then turn it into a complete, ready-to-send newsletter in one tap."
-                  : "Bounce ideas back and forth with Muse, save the ones that spark to your board, and turn them into a real book in one tap."}
+              {social
+                ? "Bounce ideas back and forth with Muse, agree on the topic, hook, and audience, then turn it into a post — a variant per platform — in one tap."
+                : brand
+                  ? "Bounce ideas back and forth with Muse, agree on the voice, values, and audience, then turn it into a reusable brand identity in one tap."
+                  : news
+                    ? "Bounce ideas back and forth with Muse, agree on the angle and audience, then turn it into a complete, ready-to-send newsletter in one tap."
+                    : "Bounce ideas back and forth with Muse, save the ones that spark to your board, and turn them into a real book in one tap."}
             </p>
           </div>
           <form action={createSession.bind(null, mode)}>
@@ -48,11 +51,13 @@ export async function BrainstormHome({ mode }: { mode: "book" | "newsletter" | "
           icon={<Lightbulb className="h-6 w-6" />}
           title="No brainstorms yet"
           description={
-            brand
-              ? "Start one and chat your way to a brand — Muse helps you find the voice, values, and audience."
-              : news
-                ? "Start one and chat your way to a newsletter — Muse helps you find the angle, the subscriber, and the hook."
-                : "Start one and chat your way to a book idea — Muse will help you find the angle, the audience, and the hook."
+            social
+              ? "Start one and chat your way to a post — Muse helps you find the topic, the hook, and the angle."
+              : brand
+                ? "Start one and chat your way to a brand — Muse helps you find the voice, values, and audience."
+                : news
+                  ? "Start one and chat your way to a newsletter — Muse helps you find the angle, the subscriber, and the hook."
+                  : "Start one and chat your way to a book idea — Muse will help you find the angle, the audience, and the hook."
           }
           action={
             <form action={createSession.bind(null, mode)}>

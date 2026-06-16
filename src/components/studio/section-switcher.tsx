@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { BookOpen, Mail, Sparkles, type LucideIcon } from "lucide-react";
+import { BookOpen, Mail, Sparkles, Share2, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Tab = { key: string; label: string; icon: LucideIcon; href: string; prefix: string; accent: string };
@@ -11,12 +11,13 @@ type Tab = { key: string; label: string; icon: LucideIcon; href: string; prefix:
 // Ordered most-specific prefix first for active detection.
 const TABS: Tab[] = [
   { key: "newsletter", label: "Newsletters", icon: Mail, href: "/studio/newsletters", prefix: "/studio/newsletters", accent: "text-muse" },
+  { key: "social", label: "Social", icon: Share2, href: "/studio/social", prefix: "/studio/social", accent: "text-muse" },
   { key: "brand", label: "Brands", icon: Sparkles, href: "/studio/brands", prefix: "/studio/brands", accent: "text-brass" },
   { key: "book", label: "Books", icon: BookOpen, href: "/studio", prefix: "/studio", accent: "text-brass" },
 ];
 
 // Render order (general → specific) so Books sits first.
-const ORDER = ["book", "newsletter", "brand"];
+const ORDER = ["book", "newsletter", "social", "brand"];
 
 /** The persistent space switcher — the spine of the studio's separate sections. */
 export function SectionSwitcher() {

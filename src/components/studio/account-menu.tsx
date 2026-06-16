@@ -9,6 +9,7 @@ import {
   Lightbulb,
   Mail,
   Sparkles,
+  Share2,
   Plus,
   Palette,
   Image as ImageIcon,
@@ -46,6 +47,15 @@ const NAV_GROUPS: { heading: string; items: { href: string; label: string; icon:
       { href: "/studio/newsletters/brainstorm", label: "Brainstorm", icon: Lightbulb },
       { href: "/studio/newsletters/new", label: "New newsletter", icon: Plus },
       { href: "/studio/newsletters/trash", label: "Newsletters trash", icon: Trash2 },
+    ],
+  },
+  {
+    heading: "Social",
+    items: [
+      { href: "/studio/social", label: "Social posts", icon: Share2 },
+      { href: "/studio/social/brainstorm", label: "Brainstorm", icon: Lightbulb },
+      { href: "/studio/social/new", label: "New post", icon: Plus },
+      { href: "/studio/social/trash", label: "Social trash", icon: Trash2 },
     ],
   },
   {

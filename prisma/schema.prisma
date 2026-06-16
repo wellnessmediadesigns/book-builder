@@ -22,6 +22,7 @@ model Author {
   brainstorms BrainstormSession[]
   coverTemplates CoverTemplate[]
   coverDesigns   CoverDesign[]
+  socialPosts    SocialPost[]
 }
 
 model Project {
@@ -371,4 +372,44 @@ model DailyStat {
 
   @@unique([authorId, day])
   @@index([authorId, day])
+}
+
+/** A social post: one idea generated into a content variant per platform. */
+model SocialPost {
+  id       String @id @default(cuid())
+  authorId String
+  author   Author @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  brandId         String? // optional Project(workType="brand") this post stays consistent with
+  sourceSessionId String? // the brainstorm session that produced it, if any
+
+  title       String @default("")
+  topic       String @default("")
+  keywords    String @default("") // comma-separated
+  idea        String @default("")
+  platformsJson String @default("[]") // array of platform keys
+  status      String @default("draft") // draft | generated
+
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  variants SocialVariant[]
+
+  @@index([authorId, updatedAt])
+}
+
+/** One platform-tailored version of a social post. */
+model SocialVariant {
+  id     String @id @default(cuid())
+  postId String
+  post   SocialPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  platform String // x | facebook | threads | instagram | tiktok | linkedin | lemon8 | bluesky | pinterest | youtube | reddit
+  content  String @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([postId])
 }

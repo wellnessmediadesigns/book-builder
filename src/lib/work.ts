@@ -1,6 +1,6 @@
 /** Shared vocabulary so one codebase serves both books and newsletters. */
 
-export type WorkType = "book" | "newsletter" | "brand";
+export type WorkType = "book" | "newsletter" | "brand" | "social";
 
 export type WorkVocab = {
   type: WorkType;
@@ -93,12 +93,33 @@ const BRAND: WorkVocab = {
   trashHref: "/studio/brands/trash",
 };
 
+const SOCIAL: WorkVocab = {
+  type: "social",
+  work: "Post",
+  workLower: "post",
+  unit: "Post",
+  units: "Posts",
+  unitLower: "post",
+  unitsLower: "posts",
+  lengthUnit: "post",
+  outline: "Posts",
+  plan: "Posts",
+  memory: "Brand voice",
+  setup: "Compose",
+  home: "/studio/social",
+  newHref: "/studio/social/new",
+  brainstormHref: "/studio/social/brainstorm",
+  trashHref: "/studio/social/trash",
+};
+
 export function workVocab(workType: string | null | undefined): WorkVocab {
   switch (workType) {
     case "newsletter":
       return NEWSLETTER;
     case "brand":
       return BRAND;
+    case "social":
+      return SOCIAL;
     default:
       return BOOK;
   }

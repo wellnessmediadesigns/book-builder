@@ -7,6 +7,7 @@ import { completeWithFallback, aiChainReady } from "@/lib/ai/context";
 import { AiError } from "@/lib/ai/providers";
 import { directionMessages, brainstormSetupMessages } from "@/lib/ai/prompts";
 import { generateBlueprint, autoWriteChapter, generateBrandIdentity } from "@/lib/actions/ai";
+import { buildSocialFromBrainstorm } from "@/lib/actions/social";
 import type { ProjectInput } from "@/lib/actions/projects";
 import { parseDirection, parseDismissed, bulletId, type Direction } from "@/lib/brainstorm";
 import { NEWSLETTER_LENGTHS, NEWSLETTER_DEFAULTS } from "@/lib/newsletter";
@@ -34,7 +35,7 @@ function parseJson(raw: string): Record<string, unknown> {
 
 // ————————————————————————————————————————————— Sessions
 
-const MODES = new Set(["book", "newsletter", "brand"]);
+const MODES = new Set(["book", "newsletter", "brand", "social"]);
 
 export async function createSession(mode: string = "book"): Promise<void> {
   const author = await getAuthor();
@@ -223,6 +224,11 @@ export async function buildBookFromBrainstorm(
     .join("\n");
 
   const newsletter = session.mode === "newsletter";
+
+  // Social posts build into a SocialPost (not a Project) — delegate.
+  if (session.mode === "social") {
+    return buildSocialFromBrainstorm(sessionId);
+  }
 
   // Brands don't produce chapters/issues — they build a reusable identity and
   // seed Brand identity memory, then land on the brand profile.
