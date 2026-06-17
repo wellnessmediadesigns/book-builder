@@ -8,6 +8,7 @@ import {
   Plus,
   ChevronRight,
   ChevronDown,
+  ChevronLeft,
   Trash2,
   FolderPlus,
   StickyNote,
@@ -127,9 +128,14 @@ export function NotesWorkspace({ initial }: { initial: { folders: FolderNode[]; 
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-4rem)] max-w-6xl gap-0 px-0 sm:gap-5 sm:px-6 sm:py-6">
-      {/* ——— Tree sidebar ——— */}
-      <aside className="flex w-[16rem] shrink-0 flex-col rounded-none border-r border-line bg-paper-sunken/30 sm:w-[18rem] sm:rounded-2xl sm:border">
+    <div className="mx-auto flex h-[calc(100dvh-4rem)] max-w-6xl gap-0 lg:gap-5 lg:px-6 lg:py-6">
+      {/* ——— Tree sidebar (full screen on mobile, fixed rail on desktop) ——— */}
+      <aside
+        className={cn(
+          "min-h-0 w-full flex-col bg-paper-sunken/30 lg:flex lg:w-[19rem] lg:shrink-0 lg:rounded-2xl lg:border lg:border-line",
+          selected ? "hidden lg:flex" : "flex",
+        )}
+      >
         <div className="flex items-center justify-between gap-1 border-b border-line px-3 py-2.5">
           <span className="flex items-center gap-1.5 font-display text-sm font-semibold text-ink">
             <StickyNote className="h-4 w-4 text-brass" /> Notes
@@ -175,17 +181,33 @@ export function NotesWorkspace({ initial }: { initial: { folders: FolderNode[]; 
             dropInto={dropInto}
           />
           {folders.length === 0 && notes.length === 0 && (
-            <p className="px-2 py-8 text-center text-xs text-muted">No notes yet. Create a folder or a note above.</p>
+            <div className="flex flex-col items-center px-4 py-12 text-center">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-paper-raised text-brass shadow-soft">
+                <StickyNote className="h-6 w-6" />
+              </div>
+              <p className="text-sm font-medium text-ink">No notes yet</p>
+              <p className="mt-1 max-w-[16rem] text-xs text-ink-soft">Create your first note, or a folder to organize them.</p>
+              <div className="mt-4 flex flex-col gap-2">
+                <Button variant="brass" size="sm" onClick={() => addNote(null)}><Plus className="h-4 w-4" /> New note</Button>
+                <Button variant="museSoft" size="sm" onClick={() => addFolder(null)}><FolderPlus className="h-4 w-4" /> New folder</Button>
+              </div>
+            </div>
           )}
         </div>
       </aside>
 
-      {/* ——— Editor ——— */}
-      <section className="min-w-0 flex-1 overflow-hidden sm:rounded-2xl sm:border sm:border-line sm:bg-paper-raised">
+      {/* ——— Editor (full screen on mobile when a note is open) ——— */}
+      <section
+        className={cn(
+          "min-w-0 flex-1 flex-col overflow-hidden lg:flex lg:rounded-2xl lg:border lg:border-line lg:bg-paper-raised",
+          selected ? "flex w-full" : "hidden lg:flex",
+        )}
+      >
         {selected ? (
           <NoteEditor
             key={selected.id}
             note={selected}
+            onBack={() => setSelectedId(null)}
             onTitleChange={(t) => setNotes((ns) => ns.map((n) => (n.id === selected.id ? { ...n, title: t } : n)))}
           />
         ) : (
@@ -275,7 +297,7 @@ function Branch(props: {
                   {f.name}
                 </button>
               )}
-              <div className="flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100">
+              <div className="flex shrink-0 items-center opacity-100 transition-opacity lg:opacity-0 lg:group-hover:opacity-100">
                 <button onClick={() => props.onAddNote(f.id)} title="New note here" className="flex h-6 w-6 items-center justify-center rounded text-muted hover:text-ink"><Plus className="h-3.5 w-3.5" /></button>
                 <button onClick={() => props.onAddFolder(f.id)} title="New subfolder" className="flex h-6 w-6 items-center justify-center rounded text-muted hover:text-ink"><FolderPlus className="h-3.5 w-3.5" /></button>
                 <button onClick={() => props.onDeleteFolder(f.id)} title="Delete folder" className="flex h-6 w-6 items-center justify-center rounded text-muted hover:text-clay"><Trash2 className="h-3.5 w-3.5" /></button>
@@ -305,7 +327,7 @@ function Branch(props: {
             <button onClick={() => props.onSelectNote(n.id)} className={cn("min-w-0 flex-1 truncate text-left text-sm", active ? "font-medium text-ink" : "text-ink-soft")}>
               {n.title || "Untitled note"}
             </button>
-            <button onClick={() => props.onDeleteNote(n.id)} title="Delete note" className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted opacity-0 transition-opacity hover:text-clay group-hover:opacity-100"><Trash2 className="h-3.5 w-3.5" /></button>
+            <button onClick={() => props.onDeleteNote(n.id)} title="Delete note" className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted opacity-100 transition-opacity hover:text-clay lg:opacity-0 lg:group-hover:opacity-100"><Trash2 className="h-3.5 w-3.5" /></button>
           </div>
         );
       })}
@@ -315,7 +337,7 @@ function Branch(props: {
 
 // ——————————————————————————————————————————————— Editor
 
-function NoteEditor({ note, onTitleChange }: { note: NoteNode; onTitleChange: (t: string) => void }) {
+function NoteEditor({ note, onTitleChange, onBack }: { note: NoteNode; onTitleChange: (t: string) => void; onBack: () => void }) {
   const [title, setTitle] = useState(note.title);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latest = useRef<{ json: string; text: string }>({ json: note.contentJson ?? "", text: "" });
@@ -360,6 +382,9 @@ function NoteEditor({ note, onTitleChange }: { note: NoteNode; onTitleChange: (t
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-line px-5 py-3 sm:px-8">
+        <button onClick={onBack} className="mb-1.5 inline-flex items-center gap-1 text-sm text-ink-soft transition-colors hover:text-ink lg:hidden">
+          <ChevronLeft className="h-4 w-4" /> Notes
+        </button>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
