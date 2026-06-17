@@ -23,6 +23,8 @@ model Author {
   coverTemplates CoverTemplate[]
   coverDesigns   CoverDesign[]
   socialPosts    SocialPost[]
+  noteFolders    NoteFolder[]
+  notes          Note[]
 }
 
 model Project {
@@ -412,4 +414,38 @@ model SocialVariant {
   updatedAt DateTime @updatedAt
 
   @@index([postId])
+}
+
+/** A folder in the Notes tree (self-nesting). */
+model NoteFolder {
+  id       String @id @default(cuid())
+  authorId String
+  author   Author @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  name     String  @default("Untitled folder")
+  parentId String? // null = root
+  order    Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([authorId])
+}
+
+/** A note (rich text), optionally inside a folder. */
+model Note {
+  id       String @id @default(cuid())
+  authorId String
+  author   Author @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  folderId    String? // null = root
+  title       String  @default("Untitled note")
+  contentJson String? // TipTap document JSON
+  contentText String  @default("") // plaintext mirror for previews
+  order       Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([authorId, folderId])
 }

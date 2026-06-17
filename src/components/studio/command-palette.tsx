@@ -19,6 +19,7 @@ import {
   Mail,
   Sparkles,
   Share2,
+  StickyNote,
 } from "lucide-react";
 import { listProjectsBrief, listPublications, listBrands } from "@/lib/actions/projects";
 import { listPosts, type SocialPostBrief } from "@/lib/actions/social";
@@ -191,6 +192,14 @@ export function CommandPalette() {
         icon: <Sparkles className="h-4 w-4" />,
         group: "Actions",
         run: () => go("/studio/brands"),
+      },
+      {
+        id: "notes",
+        label: "Notes",
+        hint: "Notes & folders",
+        icon: <StickyNote className="h-4 w-4" />,
+        group: "Actions",
+        run: () => go("/studio/notes"),
       },
       {
         id: "new-brand",

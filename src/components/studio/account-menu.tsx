@@ -10,6 +10,7 @@ import {
   Mail,
   Sparkles,
   Share2,
+  StickyNote,
   Plus,
   Palette,
   Image as ImageIcon,
@@ -70,6 +71,7 @@ const NAV_GROUPS: { heading: string; items: { href: string; label: string; icon:
   {
     heading: "General",
     items: [
+      { href: "/studio/notes", label: "Notes", icon: StickyNote },
       { href: "/studio/style", label: "Style guide", icon: Palette },
       { href: "/studio/settings", label: "Settings", icon: Settings },
     ],
