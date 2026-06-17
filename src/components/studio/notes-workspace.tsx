@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   Trash2,
   FolderPlus,
+  FolderInput,
   StickyNote,
 } from "lucide-react";
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -45,6 +46,7 @@ export function NotesWorkspace({ initial }: { initial: { folders: FolderNode[]; 
   const [renamingFolder, setRenamingFolder] = useState<string | null>(null);
   const [drag, setDrag] = useState<Drag>(null);
   const [dropFolder, setDropFolder] = useState<string | "root" | null>(null);
+  const [moving, setMoving] = useState<Drag>(null);
 
   const selected = notes.find((n) => n.id === selectedId) ?? null;
 
@@ -105,27 +107,53 @@ export function NotesWorkspace({ initial }: { initial: { folders: FolderNode[]; 
     return false;
   }
 
-  async function dropInto(target: string | null) {
-    if (!drag) return;
-    const targetFolder = target; // null = root
-    if (drag.type === "note") {
-      const order = folderNotes(targetFolder).length;
-      setNotes((ns) => ns.map((n) => (n.id === drag.id ? { ...n, folderId: targetFolder, order } : n)));
-      await moveNote(drag.id, targetFolder, order);
+  async function moveNodeTo(node: Drag, target: string | null) {
+    if (!node) return;
+    if (node.type === "note") {
+      const order = folderNotes(target).length;
+      setNotes((ns) => ns.map((n) => (n.id === node.id ? { ...n, folderId: target, order } : n)));
+      await moveNote(node.id, target, order);
     } else {
       // prevent nesting a folder into itself or a descendant
-      if (target && (target === drag.id || isDescendant(target, drag.id))) {
-        setDrag(null);
-        setDropFolder(null);
-        return;
-      }
-      const order = childFolders(targetFolder).length;
-      setFolders((fs) => fs.map((f) => (f.id === drag.id ? { ...f, parentId: targetFolder, order } : f)));
-      await moveFolder(drag.id, targetFolder, order);
+      if (target && (target === node.id || isDescendant(target, node.id))) return;
+      const order = childFolders(target).length;
+      setFolders((fs) => fs.map((f) => (f.id === node.id ? { ...f, parentId: target, order } : f)));
+      await moveFolder(node.id, target, order);
     }
+    if (target) setExpanded((s) => new Set(s).add(target));
+  }
+
+  async function dropInto(target: string | null) {
+    if (!drag) return;
+    await moveNodeTo(drag, target);
     setDrag(null);
     setDropFolder(null);
   }
+
+  // Valid folder destinations for the "Move to…" menu (excludes a folder's own subtree).
+  function destinations(): { id: string; name: string; depth: number }[] {
+    const out: { id: string; name: string; depth: number }[] = [];
+    const walk = (pid: string | null, depth: number) => {
+      for (const f of childFolders(pid)) {
+        const blocked = moving?.type === "folder" && (f.id === moving.id || isDescendant(f.id, moving.id));
+        if (!blocked) out.push({ id: f.id, name: f.name, depth });
+        walk(f.id, depth + 1);
+      }
+    };
+    walk(null, 0);
+    return out;
+  }
+
+  const movingNode =
+    moving?.type === "note"
+      ? notes.find((n) => n.id === moving.id)
+      : moving?.type === "folder"
+        ? folders.find((f) => f.id === moving.id)
+        : null;
+  const movingCurrentParent =
+    moving?.type === "note"
+      ? (movingNode as NoteNode | undefined)?.folderId ?? null
+      : (movingNode as FolderNode | undefined)?.parentId ?? null;
 
   return (
     <div className="mx-auto flex h-[calc(100dvh-4rem)] max-w-6xl gap-0 lg:gap-5 lg:px-6 lg:py-6">
@@ -174,6 +202,7 @@ export function NotesWorkspace({ initial }: { initial: { folders: FolderNode[]; 
             onAddNote={addNote}
             onDeleteFolder={removeFolder}
             onDeleteNote={removeNote}
+            onMove={(node) => setMoving(node)}
             drag={drag}
             setDrag={setDrag}
             dropFolder={dropFolder}
@@ -227,6 +256,57 @@ export function NotesWorkspace({ initial }: { initial: { folders: FolderNode[]; 
           </div>
         )}
       </section>
+
+      {/* ——— Move to… picker (works on touch + desktop) ——— */}
+      {moving && (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 bg-ink/40 backdrop-blur-sm" onClick={() => setMoving(null)} />
+          <div className="relative w-full max-w-sm overflow-hidden rounded-t-3xl border border-line bg-paper-raised shadow-float sm:rounded-2xl">
+            <div className="border-b border-line px-5 py-3.5">
+              <p className="font-display text-base font-semibold text-ink">
+                Move {moving.type === "note" ? "note" : "folder"}
+              </p>
+              <p className="mt-0.5 truncate text-xs text-muted">
+                {moving.type === "note"
+                  ? (movingNode as NoteNode | undefined)?.title || "Untitled note"
+                  : (movingNode as FolderNode | undefined)?.name || "Untitled folder"}
+              </p>
+            </div>
+            <div className="max-h-[50vh] overflow-y-auto p-2">
+              <button
+                disabled={movingCurrentParent === null}
+                onClick={async () => { await moveNodeTo(moving, null); setMoving(null); }}
+                className={cn(
+                  "flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm transition-colors",
+                  movingCurrentParent === null ? "cursor-default text-muted" : "text-ink hover:bg-paper-sunken",
+                )}
+              >
+                <StickyNote className="h-4 w-4 text-brass" /> Top level (no folder)
+                {movingCurrentParent === null && <span className="ml-auto text-xs text-muted">Current</span>}
+              </button>
+              {destinations().map((d) => (
+                <button
+                  key={d.id}
+                  disabled={movingCurrentParent === d.id}
+                  onClick={async () => { await moveNodeTo(moving, d.id); setMoving(null); }}
+                  style={{ paddingLeft: `${d.depth * 14 + 12}px` }}
+                  className={cn(
+                    "flex w-full items-center gap-2.5 rounded-xl py-2.5 pr-3 text-left text-sm transition-colors",
+                    movingCurrentParent === d.id ? "cursor-default text-muted" : "text-ink hover:bg-paper-sunken",
+                  )}
+                >
+                  <Folder className="h-4 w-4 shrink-0 text-brass" />
+                  <span className="min-w-0 flex-1 truncate">{d.name}</span>
+                  {movingCurrentParent === d.id && <span className="text-xs text-muted">Current</span>}
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-end border-t border-line px-4 py-2.5">
+              <Button variant="ghost" size="sm" onClick={() => setMoving(null)}>Cancel</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -249,6 +329,7 @@ function Branch(props: {
   onAddNote: (folderId: string | null) => void;
   onDeleteFolder: (id: string) => void;
   onDeleteNote: (id: string) => void;
+  onMove: (node: Drag) => void;
   drag: Drag;
   setDrag: (d: Drag) => void;
   dropFolder: string | "root" | null;
@@ -300,6 +381,7 @@ function Branch(props: {
               <div className="flex shrink-0 items-center opacity-100 transition-opacity lg:opacity-0 lg:group-hover:opacity-100">
                 <button onClick={() => props.onAddNote(f.id)} title="New note here" className="flex h-6 w-6 items-center justify-center rounded text-muted hover:text-ink"><Plus className="h-3.5 w-3.5" /></button>
                 <button onClick={() => props.onAddFolder(f.id)} title="New subfolder" className="flex h-6 w-6 items-center justify-center rounded text-muted hover:text-ink"><FolderPlus className="h-3.5 w-3.5" /></button>
+                <button onClick={() => props.onMove({ type: "folder", id: f.id })} title="Move folder" className="flex h-6 w-6 items-center justify-center rounded text-muted hover:text-ink"><FolderInput className="h-3.5 w-3.5" /></button>
                 <button onClick={() => props.onDeleteFolder(f.id)} title="Delete folder" className="flex h-6 w-6 items-center justify-center rounded text-muted hover:text-clay"><Trash2 className="h-3.5 w-3.5" /></button>
               </div>
             </div>
@@ -327,7 +409,10 @@ function Branch(props: {
             <button onClick={() => props.onSelectNote(n.id)} className={cn("min-w-0 flex-1 truncate text-left text-sm", active ? "font-medium text-ink" : "text-ink-soft")}>
               {n.title || "Untitled note"}
             </button>
-            <button onClick={() => props.onDeleteNote(n.id)} title="Delete note" className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted opacity-100 transition-opacity hover:text-clay lg:opacity-0 lg:group-hover:opacity-100"><Trash2 className="h-3.5 w-3.5" /></button>
+            <div className="flex shrink-0 items-center opacity-100 transition-opacity lg:opacity-0 lg:group-hover:opacity-100">
+              <button onClick={() => props.onMove({ type: "note", id: n.id })} title="Move note" className="flex h-6 w-6 items-center justify-center rounded text-muted hover:text-ink"><FolderInput className="h-3.5 w-3.5" /></button>
+              <button onClick={() => props.onDeleteNote(n.id)} title="Delete note" className="flex h-6 w-6 items-center justify-center rounded text-muted hover:text-clay"><Trash2 className="h-3.5 w-3.5" /></button>
+            </div>
           </div>
         );
       })}
