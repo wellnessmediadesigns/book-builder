@@ -104,8 +104,14 @@ export function Wizard() {
 
   const merge = (patch: Partial<ProjectInput>) => setData((d) => ({ ...d, ...patch }));
 
-  const canNext =
-    step === 1 ? data.idea.trim().length > 8 && data.title.trim().length > 0 : true;
+  // Step 1 needs a title + a real idea; surface exactly what's missing so the
+  // disabled "Continue" is never a mystery.
+  const missing: string[] = [];
+  if (step === 1) {
+    if (data.title.trim().length === 0) missing.push("a working title");
+    if (data.idea.trim().length <= 8) missing.push("a sentence or two about the idea");
+  }
+  const canNext = step !== 1 || missing.length === 0;
 
   const estWords = Math.round(((data.minWords + data.maxWords) / 2) * data.chapterCount);
 
@@ -188,9 +194,16 @@ export function Wizard() {
             <span />
           )}
           {step < 3 ? (
-            <Button variant="primary" disabled={!canNext} onClick={() => setStep((s) => s + 1)}>
-              Continue <ArrowRight className="h-4 w-4" />
-            </Button>
+            <div className="flex flex-col items-end gap-1.5">
+              {missing.length > 0 && (
+                <p className="text-right text-xs text-clay">
+                  To continue, add {missing.join(" and ")}.
+                </p>
+              )}
+              <Button variant="primary" disabled={!canNext} onClick={() => setStep((s) => s + 1)}>
+                Continue <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
           ) : (
             <Button variant="brass" disabled={pending} onClick={submit}>
               <Sparkles className="h-4 w-4" />
@@ -234,7 +247,7 @@ function StepIdea({
       <StyleSampleBox merge={merge} />
       <SeriesControl data={data} set={set} merge={merge} series={series} />
       <div>
-        <Label>Working title</Label>
+        <Label>Working title <span className="text-clay">*</span></Label>
         <Input
           autoFocus
           placeholder="e.g. The Quiet Tide"
@@ -243,7 +256,7 @@ function StepIdea({
         />
       </div>
       <div>
-        <Label>What is your book about?</Label>
+        <Label>What is your book about? <span className="text-clay">*</span></Label>
         <Textarea
           className="min-h-[120px]"
           placeholder="Describe the idea, the heart of the story or the transformation you want to deliver…"
@@ -369,7 +382,7 @@ function StyleSampleBox({ merge }: { merge: (patch: Partial<ProjectInput>) => vo
         ...(a.styleNotes ? { styleNotes: a.styleNotes } : {}),
       });
       setDone(true);
-      toast.success("Style captured", "Fields below are pre-filled to match your sample.");
+      toast.success("Style captured", "Genre, tone & style are pre-filled. Add a title and idea to continue.");
     } else if (res.error === "no_key") {
       toast.error("Add your AI key first", "Open Settings to connect a provider.");
     } else {
