@@ -145,6 +145,19 @@ export async function saveMatter(sectionId: string, content: string) {
   revalidatePath(`/studio/book/${row.projectId}/matter`);
 }
 
+function buildCopyrightContent(byline: string, kind: string): string {
+  const year = new Date().getFullYear();
+  const fiction = kind === "fiction";
+  const disclaimer = fiction
+    ? "This is a work of fiction. Names, characters, places, and incidents are products of the author's imagination or are used fictitiously. Any resemblance to actual events, locales, or persons, living or dead, is entirely coincidental."
+    : "The information in this book is provided for general informational and educational purposes only and is not intended as professional advice. Readers should seek qualified professional guidance for their specific situations.";
+  return `© ${year} ${byline}. All rights reserved.
+
+No part of this publication may be reproduced, stored in a retrieval system, or transmitted in any form or by any means — electronic, mechanical, photocopying, recording, or otherwise — without prior written permission from the author, except for brief quotations in critical reviews or scholarly publications.
+
+${disclaimer}`;
+}
+
 export async function generateMatter(
   sectionId: string,
 ): Promise<{ ok: true; content: string } | { ok: false; error: string }> {
@@ -154,10 +167,25 @@ export async function generateMatter(
   const section = row.matterType ? sectionByMatterType(row.matterType) : undefined;
   if (!section) return { ok: false, error: "Unknown section." };
 
-  const ctx = await buildBookContext(row.projectId);
   const author = await getAuthor();
-  const project = await prisma.project.findUnique({ where: { id: row.projectId }, select: { authorName: true } });
+  const project = await prisma.project.findUnique({
+    where: { id: row.projectId },
+    select: { authorName: true, kind: true },
+  });
   const byline = project?.authorName.trim() || author.name;
+
+  // Copyright is purely formulaic — generate from a template instead of AI.
+  if (section.key === "copyright") {
+    const content = buildCopyrightContent(byline, project?.kind ?? "nonfiction");
+    await prisma.chapter.update({
+      where: { id: sectionId },
+      data: { contentText: content, wordCount: countWords(content), status: "drafted" },
+    });
+    revalidatePath(`/studio/book/${row.projectId}/matter`);
+    return { ok: true, content };
+  }
+
+  const ctx = await buildBookContext(row.projectId);
 
   try {
     const { text: content, config } = await completeWithFallback(

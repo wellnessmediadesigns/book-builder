@@ -66,11 +66,13 @@ export function SetupEditor({
   initial,
   hasBlueprint,
   workType,
+  accountName,
 }: {
   projectId: string;
   initial: SetupData;
   hasBlueprint: boolean;
   workType?: string;
+  accountName?: string;
 }) {
   const router = useRouter();
   const v = workVocab(workType);
@@ -119,9 +121,9 @@ export function SetupEditor({
               <Input
                 value={d.authorName}
                 onChange={(e) => set("authorName", e.target.value)}
-                placeholder="Leave blank to use your account name"
+                placeholder={accountName ? `Leave blank to use "${accountName}"` : "Leave blank to use your account name"}
               />
-              <FieldHint>Set a pen name or ghostwriter name for this book — used on the title page and in exports. Other books are unaffected.</FieldHint>
+              <FieldHint>Set a pen name or ghostwriter name for this book — used on the title page, copyright, and exports. Other books are unaffected.</FieldHint>
             </div>
           )}
           <div>

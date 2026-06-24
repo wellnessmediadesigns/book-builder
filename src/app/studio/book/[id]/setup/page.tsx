@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { prisma, getAuthor } from "@/lib/db";
 import { BookHeader } from "@/components/book/book-header";
 import { SetupEditor } from "@/components/book/setup-editor";
 
@@ -11,7 +11,10 @@ export default async function SetupPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const p = await prisma.project.findUnique({ where: { id } });
+  const [p, author] = await Promise.all([
+    prisma.project.findUnique({ where: { id } }),
+    getAuthor(),
+  ]);
   if (!p) notFound();
 
   return (
@@ -21,6 +24,7 @@ export default async function SetupPage({
         projectId={id}
         workType={p.workType}
         hasBlueprint={p.status !== "draft"}
+        accountName={author.name}
         initial={{
           title: p.title,
           idea: p.idea,
