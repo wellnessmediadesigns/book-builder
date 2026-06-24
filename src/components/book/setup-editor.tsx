@@ -59,6 +59,7 @@ export type SetupData = {
   publishFormat: string;
   cadence: string;
   authorName: string;
+  copyrightHolder: string;
 };
 
 export function SetupEditor({
@@ -67,12 +68,14 @@ export function SetupEditor({
   hasBlueprint,
   workType,
   accountName,
+  publisherName,
 }: {
   projectId: string;
   initial: SetupData;
   hasBlueprint: boolean;
   workType?: string;
   accountName?: string;
+  publisherName?: string;
 }) {
   const router = useRouter();
   const v = workVocab(workType);
@@ -123,7 +126,26 @@ export function SetupEditor({
                 onChange={(e) => set("authorName", e.target.value)}
                 placeholder={accountName ? `Leave blank to use "${accountName}"` : "Leave blank to use your account name"}
               />
-              <FieldHint>Set a pen name or ghostwriter name for this book — used on the title page, copyright, and exports. Other books are unaffected.</FieldHint>
+              <FieldHint>The name on the cover and title page (a pen name or ghostwriter byline). Other books are unaffected.</FieldHint>
+            </div>
+          )}
+          {!news && (
+            <div>
+              <Label>Copyright holder</Label>
+              <Input
+                value={d.copyrightHolder}
+                onChange={(e) => set("copyrightHolder", e.target.value)}
+                placeholder={
+                  publisherName
+                    ? `Leave blank to use "${publisherName}"`
+                    : `Leave blank to use the byline (${d.authorName.trim() || accountName || "your name"})`
+                }
+              />
+              <FieldHint>
+                Who owns the rights on the © page — usually your publishing name or imprint (e.g. a
+                media brand). Blank falls back to {publisherName ? `your publishing name, then ` : ""}the byline.
+                {!publisherName && " Set a default publishing name in Settings to reuse across books."}
+              </FieldHint>
             </div>
           )}
           <div>

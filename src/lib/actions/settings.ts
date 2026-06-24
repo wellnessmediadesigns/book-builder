@@ -11,6 +11,7 @@ export async function updateSettings(data: {
   temperature?: number;
   maxContext?: number;
   readingFont?: string;
+  publisherName?: string;
   fallbackProvider?: string;
   fallbackModel?: string;
   fallbackApiKey?: string;
@@ -18,7 +19,7 @@ export async function updateSettings(data: {
 }) {
   // Trim text fields so stray paste whitespace can't break auth or model lookup.
   const clean = { ...data };
-  for (const k of ["apiKey", "model", "baseUrl", "fallbackApiKey", "fallbackModel", "fallbackBaseUrl"] as const) {
+  for (const k of ["apiKey", "model", "baseUrl", "publisherName", "fallbackApiKey", "fallbackModel", "fallbackBaseUrl"] as const) {
     if (typeof clean[k] === "string") clean[k] = (clean[k] as string).trim();
   }
   const author = await getAuthor();

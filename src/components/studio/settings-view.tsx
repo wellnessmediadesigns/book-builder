@@ -37,6 +37,7 @@ type S = {
   baseUrl: string;
   temperature: number;
   maxContext: number;
+  publisherName: string;
   fallbackProvider: string;
   fallbackModel: string;
   fallbackApiKey: string;
@@ -206,7 +207,22 @@ export function SettingsView({ initial, authorName }: { initial: S; authorName: 
         </div>
         <Label>Display name</Label>
         <Input value={name} onChange={(e) => setName(e.target.value)} className="max-w-xs" />
-        <FieldHint>Used on title pages and the author byline in exports.</FieldHint>
+        <FieldHint>Your default byline on title pages and exports. Books can override it per book.</FieldHint>
+
+        <div className="mt-5">
+          <Label>Publishing name (copyright holder)</Label>
+          <Input
+            value={s.publisherName}
+            onChange={(e) => set("publisherName", e.target.value)}
+            placeholder="e.g. a media brand or imprint — leave blank to use the byline"
+            className="max-w-md"
+          />
+          <FieldHint>
+            The rights holder on copyright pages (e.g. © {new Date().getFullYear()}{" "}
+            {s.publisherName.trim() || "Your Publishing Name"}). Used across all books unless a
+            book sets its own copyright holder. Blank falls back to each book&apos;s byline.
+          </FieldHint>
+        </div>
       </Card>
     </div>
   );

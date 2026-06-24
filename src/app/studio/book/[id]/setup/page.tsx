@@ -25,6 +25,7 @@ export default async function SetupPage({
         workType={p.workType}
         hasBlueprint={p.status !== "draft"}
         accountName={author.name}
+        publisherName={author.settings?.publisherName ?? ""}
         initial={{
           title: p.title,
           idea: p.idea,
@@ -49,6 +50,7 @@ export default async function SetupPage({
           publishFormat: p.publishFormat,
           cadence: p.cadence,
           authorName: p.authorName,
+          copyrightHolder: p.copyrightHolder,
         }}
       />
     </>

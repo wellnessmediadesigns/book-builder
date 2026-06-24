@@ -145,13 +145,13 @@ export async function saveMatter(sectionId: string, content: string) {
   revalidatePath(`/studio/book/${row.projectId}/matter`);
 }
 
-function buildCopyrightContent(byline: string, kind: string): string {
+function buildCopyrightContent(holder: string, kind: string): string {
   const year = new Date().getFullYear();
   const fiction = kind === "fiction";
   const disclaimer = fiction
     ? "This is a work of fiction. Names, characters, places, and incidents are products of the author's imagination or are used fictitiously. Any resemblance to actual events, locales, or persons, living or dead, is entirely coincidental."
     : "The information in this book is provided for general informational and educational purposes only and is not intended as professional advice. Readers should seek qualified professional guidance for their specific situations.";
-  return `© ${year} ${byline}. All rights reserved.
+  return `© ${year} ${holder}. All rights reserved.
 
 No part of this publication may be reproduced, stored in a retrieval system, or transmitted in any form or by any means — electronic, mechanical, photocopying, recording, or otherwise — without prior written permission from the author, except for brief quotations in critical reviews or scholarly publications.
 
@@ -170,13 +170,18 @@ export async function generateMatter(
   const author = await getAuthor();
   const project = await prisma.project.findUnique({
     where: { id: row.projectId },
-    select: { authorName: true, kind: true },
+    select: { authorName: true, copyrightHolder: true, kind: true },
   });
   const byline = project?.authorName.trim() || author.name;
 
   // Copyright is purely formulaic — generate from a template instead of AI.
   if (section.key === "copyright") {
-    const content = buildCopyrightContent(byline, project?.kind ?? "nonfiction");
+    // Rights holder resolves: per-book override → global publishing name → byline.
+    const holder =
+      project?.copyrightHolder.trim() ||
+      author.settings?.publisherName.trim() ||
+      byline;
+    const content = buildCopyrightContent(holder, project?.kind ?? "nonfiction");
     await prisma.chapter.update({
       where: { id: sectionId },
       data: { contentText: content, wordCount: countWords(content), status: "drafted" },

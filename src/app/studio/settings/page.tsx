@@ -19,6 +19,7 @@ export default async function SettingsPage() {
           baseUrl: s.baseUrl,
           temperature: s.temperature,
           maxContext: s.maxContext,
+          publisherName: s.publisherName,
           fallbackProvider: s.fallbackProvider,
           fallbackModel: s.fallbackModel,
           fallbackApiKey: s.fallbackApiKey,

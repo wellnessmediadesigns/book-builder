@@ -33,6 +33,7 @@ export type ProjectInput = {
   workType?: string; // "book" (default) | "newsletter"
   cadence?: string; // newsletters: weekly | biweekly | monthly
   authorName?: string; // per-book byline / pen name; blank = account name
+  copyrightHolder?: string; // rights holder on the copyright page; blank = publishing name → byline
 };
 
 const ACCENTS = ["brass", "muse", "sage"];
@@ -137,6 +138,7 @@ export async function listProjectSetups(): Promise<
       seriesName: p.seriesName,
       styleNotes: p.styleNotes,
       authorName: p.authorName,
+      copyrightHolder: p.copyrightHolder,
     },
   }));
 }
