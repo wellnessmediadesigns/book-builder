@@ -342,7 +342,7 @@ function QuickStart({
           const b = books.find((x) => x.id === e.target.value);
           if (!b) return;
           merge({ ...b.setup }); // copy the whole setup; tweak any field below
-          toast.success(`Copied setup from "${b.label}"`, "Adjust the idea, title, and anything else below.");
+          toast.success(`Copied from "${b.label}"`, "Title and a starter idea are filled in — tweak them for this book (e.g. Volume 2).");
         }}
       >
         <option value="">Choose a book to copy its setup…</option>

@@ -75,6 +75,29 @@ export async function getResumeTarget(workType: string = "book"): Promise<{
   };
 }
 
+/** Best-guess "what it's about" for the copy-setup picker: prefer the real idea,
+ *  else compose one from the book's positioning / reader promise / theme so the
+ *  copied draft is never blank. */
+function bestGuessIdea(p: {
+  idea: string;
+  positioning: string;
+  readerPromise: string;
+  theme: string;
+  audience: string;
+  bookType: string;
+  kind: string;
+}): string {
+  if (p.idea.trim()) return p.idea.trim();
+  const rich = [p.positioning, p.readerPromise].map((s) => s.trim()).filter(Boolean);
+  if (rich.length) return rich.join(" ");
+  const parts: string[] = [];
+  if (p.theme) parts.push(`exploring ${p.theme}`);
+  if (p.audience) parts.push(`for ${p.audience}`);
+  const kind = p.kind && p.kind !== "nonfiction" ? p.kind : "";
+  const lead = `A ${[kind, p.bookType || "book"].filter(Boolean).join(" ")}`;
+  return `${lead}${parts.length ? ` ${parts.join(" ")}` : ""}.`.trim();
+}
+
 /** Full setup of every existing book, for the "copy from a book" picker. */
 export async function listProjectSetups(): Promise<
   { id: string; label: string; setup: ProjectInput }[]
@@ -90,7 +113,7 @@ export async function listProjectSetups(): Promise<
     label: p.recommendedTitle || p.title || "Untitled book",
     setup: {
       title: p.title,
-      idea: p.idea,
+      idea: bestGuessIdea(p),
       theme: p.theme,
       genre: p.genre,
       kind: p.kind,
