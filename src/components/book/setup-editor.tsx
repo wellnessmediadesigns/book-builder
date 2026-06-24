@@ -58,6 +58,7 @@ export type SetupData = {
   pov: string;
   publishFormat: string;
   cadence: string;
+  authorName: string;
 };
 
 export function SetupEditor({
@@ -112,6 +113,17 @@ export function SetupEditor({
             <Label>Working title</Label>
             <Input value={d.title} onChange={(e) => set("title", e.target.value)} />
           </div>
+          {!news && (
+            <div>
+              <Label>Author name (byline)</Label>
+              <Input
+                value={d.authorName}
+                onChange={(e) => set("authorName", e.target.value)}
+                placeholder="Leave blank to use your account name"
+              />
+              <FieldHint>Set a pen name or ghostwriter name for this book — used on the title page and in exports. Other books are unaffected.</FieldHint>
+            </div>
+          )}
           <div>
             <Label>{news ? "What the newsletter delivers" : "What the book is about"}</Label>
             <Textarea

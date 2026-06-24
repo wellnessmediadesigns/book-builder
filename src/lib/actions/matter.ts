@@ -156,10 +156,12 @@ export async function generateMatter(
 
   const ctx = await buildBookContext(row.projectId);
   const author = await getAuthor();
+  const project = await prisma.project.findUnique({ where: { id: row.projectId }, select: { authorName: true } });
+  const byline = project?.authorName.trim() || author.name;
 
   try {
     const { text: content, config } = await completeWithFallback(
-      matterMessages(ctx, author.name, section.title, section.directive),
+      matterMessages(ctx, byline, section.title, section.directive),
     );
     await prisma.chapter.update({
       where: { id: sectionId },

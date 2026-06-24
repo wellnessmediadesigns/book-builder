@@ -44,6 +44,7 @@ export default async function SetupPage({
           pov: p.pov,
           publishFormat: p.publishFormat,
           cadence: p.cadence,
+          authorName: p.authorName,
         }}
       />
     </>

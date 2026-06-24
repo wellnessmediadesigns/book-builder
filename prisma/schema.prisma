@@ -37,6 +37,7 @@ model Project {
   idea         String  @default("")
   theme        String  @default("")
   seriesName   String  @default("") // books sharing a series keep a consistent voice
+  authorName   String  @default("") // per-book byline / pen name; blank = account name
   styleNotes   String  @default("") // reusable voice signature (from a sample or series)
   genre        String  @default("")
   kind         String  @default("nonfiction") // fiction | nonfiction

@@ -32,6 +32,7 @@ export type ProjectInput = {
   styleNotes: string;
   workType?: string; // "book" (default) | "newsletter"
   cadence?: string; // newsletters: weekly | biweekly | monthly
+  authorName?: string; // per-book byline / pen name; blank = account name
 };
 
 const ACCENTS = ["brass", "muse", "sage"];
@@ -135,6 +136,7 @@ export async function listProjectSetups(): Promise<
       publishFormat: p.publishFormat,
       seriesName: p.seriesName,
       styleNotes: p.styleNotes,
+      authorName: p.authorName,
     },
   }));
 }
