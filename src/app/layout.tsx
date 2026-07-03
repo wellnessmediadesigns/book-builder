@@ -3,6 +3,7 @@ import "./globals.css";
 import { fontVars } from "@/lib/fonts";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/ui/toast";
+import { AppFooter } from "@/components/app-footer";
 
 export const metadata: Metadata = {
   title: "Quire — The AI Writing Studio",
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen bg-paper text-ink antialiased">
         <Providers>{children}</Providers>
         <Toaster />
+        <AppFooter />
       </body>
     </html>
   );

@@ -1,6 +1,6 @@
 {
   "name": "quire",
-  "version": "0.1.0",
+  "version": "1.25.0",
   "private": true,
   "description": "Quire — The AI Writing Studio. From a spark to a finished book.",
   "scripts": {
