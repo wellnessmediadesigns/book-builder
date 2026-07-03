@@ -68,7 +68,20 @@ async function postWithRetry(
  * All three providers speak the OpenAI-compatible /chat/completions shape,
  * which keeps the layer modular and trivial to extend with future providers.
  */
-function buildRequest(config: AiConfig, messages: AiMessage[], stream: boolean) {
+export type CompletionOpts = {
+  /** Output-token ceiling. Always sent — several providers default so low
+   *  (512–1024) that a full chapter silently truncates mid-sentence. */
+  maxTokens?: number;
+};
+
+const DEFAULT_MAX_TOKENS = 4096;
+
+function buildRequest(
+  config: AiConfig,
+  messages: AiMessage[],
+  stream: boolean,
+  opts?: CompletionOpts,
+) {
   const url = `${resolveBaseUrl(config)}/chat/completions`;
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   // Trim defensively — pasted keys/models often carry stray spaces or newlines
@@ -83,17 +96,22 @@ function buildRequest(config: AiConfig, messages: AiMessage[], stream: boolean) 
     model: config.model.trim(),
     messages,
     temperature: config.temperature,
+    max_tokens: opts?.maxTokens ?? DEFAULT_MAX_TOKENS,
     stream,
   });
   return { url, headers, body };
 }
 
-export async function complete(config: AiConfig, messages: AiMessage[]): Promise<string> {
+export async function complete(
+  config: AiConfig,
+  messages: AiMessage[],
+  opts?: CompletionOpts,
+): Promise<string> {
   if (config.provider === "workersai") {
     const { workersComplete } = await workersai();
-    return workersComplete(config.model, messages, config.temperature);
+    return workersComplete(config.model, messages, config.temperature, opts?.maxTokens);
   }
-  const { url, headers, body } = buildRequest(config, messages, false);
+  const { url, headers, body } = buildRequest(config, messages, false, opts);
   const res = await postWithRetry(url, { method: "POST", headers, body }, config.provider);
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
@@ -109,13 +127,14 @@ export async function complete(config: AiConfig, messages: AiMessage[]): Promise
 export async function* stream(
   config: AiConfig,
   messages: AiMessage[],
+  opts?: CompletionOpts,
 ): AsyncGenerator<string> {
   if (config.provider === "workersai") {
     const { workersStream } = await workersai();
-    yield* workersStream(config.model, messages, config.temperature);
+    yield* workersStream(config.model, messages, config.temperature, opts?.maxTokens);
     return;
   }
-  const { url, headers, body } = buildRequest(config, messages, true);
+  const { url, headers, body } = buildRequest(config, messages, true, opts);
   const res = await postWithRetry(url, { method: "POST", headers, body }, config.provider);
   if (!res.ok || !res.body) {
     const detail = await res.text().catch(() => "");

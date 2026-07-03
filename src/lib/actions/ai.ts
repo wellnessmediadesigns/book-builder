@@ -9,6 +9,7 @@ import {
   buildBookContext,
   completeWithFallback,
   aiChainReady,
+  tokensForWords,
 } from "@/lib/ai/context";
 import { complete, configIsReady, AiError } from "@/lib/ai/providers";
 import {
@@ -21,6 +22,7 @@ import {
   summaryMessages,
   styleAnalysisMessages,
   chapterMessages,
+  continueChapterMessages,
 } from "@/lib/ai/prompts";
 import { saveChapterContent } from "@/lib/actions/chapters";
 
@@ -471,7 +473,10 @@ export async function summarizeChapter(
 export async function autoWriteChapter(
   chapterId: string,
   options?: { summarize?: boolean },
-): Promise<{ ok: true; wordCount: number } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; wordCount: number; extended: boolean; short: boolean }
+  | { ok: false; error: string }
+> {
   if (!(await aiChainReady())) return { ok: false, error: "no_key" };
   const chapter = await prisma.chapter.findUnique({ where: { id: chapterId } });
   if (!chapter) return { ok: false, error: "Chapter not found." };
@@ -487,12 +492,35 @@ export async function autoWriteChapter(
     maxWords: chapter.maxWords || (news ? 600 : 2000),
     subjectLine: chapter.subjectLine || "",
   };
+  // A real token budget stops providers with low output defaults from silently
+  // truncating a full chapter mid-sentence.
+  const budget = { maxTokens: tokensForWords(unit.maxWords) };
   try {
     const { text } = await completeWithFallback(
       news ? newsletterIssueMessages(ctx, unit) : chapterMessages(ctx, unit),
+      budget,
     );
     if (!text.trim()) return { ok: false, error: "The model returned no text." };
-    await saveChapterContent(chapterId, textToDoc(text), {
+    let finalText = text.trim();
+    let extended = false;
+    // One automatic extension pass when the draft lands under target — the
+    // author shouldn't have to notice a short chapter and repair it by hand.
+    if (countWords(finalText) < unit.minWords) {
+      try {
+        const paras = finalText.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+        const { text: replacement } = await completeWithFallback(
+          continueChapterMessages(ctx, finalText, unit),
+          budget,
+        );
+        if (replacement.trim() && paras.length > 0) {
+          finalText = [...paras.slice(0, -1), replacement.trim()].join("\n\n");
+          extended = true;
+        }
+      } catch {
+        // Keep the short draft — its "drafting" status flags it for the author.
+      }
+    }
+    await saveChapterContent(chapterId, textToDoc(finalText), {
       snapshot: true,
       source: "generation",
     });
@@ -500,7 +528,8 @@ export async function autoWriteChapter(
       await summarizeChapter(chapterId).catch(() => {});
     }
     revalidatePath(`/studio/book/${chapter.projectId}`, "layout");
-    return { ok: true, wordCount: countWords(text) };
+    const wordCount = countWords(finalText);
+    return { ok: true, wordCount, extended, short: wordCount < unit.minWords };
   } catch (e) {
     const err = e instanceof AiError ? e.message : "Generation failed.";
     return { ok: false, error: err === "no_key" ? "no_key" : err };

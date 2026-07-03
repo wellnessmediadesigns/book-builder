@@ -376,6 +376,59 @@ export async function updateProjectSetup(id: string, input: Partial<ProjectInput
   return { ok: true };
 }
 
+export type BookProgress = {
+  chapterCount: number;
+  written: number; // chapters with any content
+  short: number; // written but below the chapter's word target
+  finals: number; // explicitly marked final
+  empty: number;
+  matterDrafted: number; // manuscript (front/back) sections with content
+  matterTotal: number;
+  hasCopyright: boolean;
+  hasCover: boolean;
+  hasTitle: boolean;
+  usingDefaultByline: boolean; // byline would print as the placeholder "Author"
+};
+
+/** One honest snapshot of "how close is this book to publishable?". */
+export async function getBookProgress(projectId: string): Promise<BookProgress | null> {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    include: {
+      chapters: {
+        select: { wordCount: true, minWords: true, status: true, matterType: true, contentText: true },
+      },
+      covers: { select: { type: true } },
+    },
+  });
+  if (!project) return null;
+  const author = await getAuthor();
+
+  const body = project.chapters.filter((c) => c.matterType === null);
+  const matter = project.chapters.filter(
+    (c) => c.matterType?.startsWith("front:") || c.matterType?.startsWith("back:"),
+  );
+  const written = body.filter((c) => c.wordCount > 0);
+  const byline = project.authorName.trim() || author.name;
+
+  return {
+    chapterCount: body.length,
+    written: written.length,
+    short: written.filter((c) => c.wordCount < c.minWords).length,
+    finals: body.filter((c) => c.status === "final").length,
+    empty: body.length - written.length,
+    matterDrafted: matter.filter((c) => c.contentText.trim()).length,
+    matterTotal: matter.length,
+    hasCopyright: matter.some(
+      (c) => c.matterType === "front:copyright" && c.contentText.trim(),
+    ),
+    hasCover: project.covers.some((c) => c.type === "front"),
+    hasTitle: Boolean((project.recommendedTitle || project.title).trim()) &&
+      project.title !== "Untitled Book",
+    usingDefaultByline: byline === "Author",
+  };
+}
+
 /** Soft-delete: moves the book to Trash (restorable) rather than erasing it. */
 export async function deleteProject(id: string) {
   await prisma.project.update({ where: { id }, data: { deletedAt: new Date() } });

@@ -44,6 +44,7 @@ import {
   resolveRevision,
   listChapterVersions,
   getVersionDetail,
+  updateChapterMeta,
 } from "@/lib/actions/chapters";
 import {
   listNotes,
@@ -276,6 +277,49 @@ export function Writer({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
+
+  // "Write next chapter": jump to the next empty chapter and generate it — the
+  // 1..N loop without a detour through the outline.
+  const nextEmpty = (() => {
+    if (!active) return null;
+    return (
+      chapters
+        .filter((c) => c.order > active.order && c.wordCount === 0 && !c.locked)
+        .sort((a, b) => a.order - b.order)[0] ?? null
+    );
+  })();
+  const pendingGen = useRef<string | null>(null);
+  useEffect(() => {
+    if (pendingGen.current && pendingGen.current === activeId && editor) {
+      pendingGen.current = null;
+      setTimeout(() => streamGenerate("generate"), 150);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId, editor]);
+
+  function writeNext() {
+    if (!nextEmpty || !ensureAi()) return;
+    pendingGen.current = nextEmpty.id;
+    selectChapter(nextEmpty.id);
+  }
+
+  // Mark final / reopen: the author's explicit "this one is done".
+  async function toggleFinal() {
+    if (!active) return;
+    const next =
+      active.status === "final"
+        ? active.wordCount >= (active.minWords || 0)
+          ? "drafted"
+          : "drafting"
+        : "final";
+    setChapters((cs) => cs.map((c) => (c.id === active.id ? { ...c, status: next } : c)));
+    try {
+      await updateChapterMeta(active.id, { status: next });
+      toast.success(next === "final" ? "Chapter marked final" : "Chapter reopened");
+    } catch {
+      toast.error("Couldn't update the chapter");
+    }
+  }
 
   // ——— selection AI command ———
   async function runCommand(cmd: string, instruction = "") {
@@ -881,6 +925,8 @@ export function Writer({
               maxWords={active?.maxWords ?? 0}
               locked={active?.locked ?? false}
               busy={busy || generatingId !== null}
+              status={active?.status}
+              nextChapter={nextEmpty ? { id: nextEmpty.id, title: cleanChapterTitle(nextEmpty.title) } : null}
               analysis={analysis}
               analysisLoading={analysisLoading}
               versions={versions}
@@ -889,6 +935,11 @@ export function Writer({
                 if (isMobile && (a.type === "generate" || a.type === "continue")) setPanelOpen(false);
                 handleChapterAction(a);
               }}
+              onWriteNext={() => {
+                if (isMobile) setPanelOpen(false);
+                writeNext();
+              }}
+              onToggleFinal={toggleFinal}
               onSnapshot={handleSnapshot}
               onRestore={handleRestore}
               onCompare={handleCompare}

@@ -2,6 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { BookHeader } from "@/components/book/book-header";
 import { OutlineBoard } from "@/components/book/outline-board";
+import { BookProgressCard } from "@/components/book/book-progress";
+import { getBookProgress } from "@/lib/actions/projects";
 
 export const dynamic = "force-dynamic";
 
@@ -19,10 +21,16 @@ export default async function OutlinePage({
   });
   if (!project) notFound();
   if (project.status === "draft") redirect(`/studio/book/${id}/blueprint`);
+  const progress = project.workType === "book" ? await getBookProgress(id) : null;
 
   return (
     <>
       <BookHeader projectId={id} title={project.recommendedTitle || project.title} workType={project.workType} />
+      {progress && (
+        <div className="mx-auto max-w-5xl px-4 pt-6 sm:px-6">
+          <BookProgressCard projectId={id} progress={progress} compact />
+        </div>
+      )}
       <OutlineBoard
         projectId={id}
         workType={project.workType}

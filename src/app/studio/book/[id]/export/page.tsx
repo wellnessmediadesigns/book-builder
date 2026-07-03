@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { BookHeader } from "@/components/book/book-header";
 import { ExportView } from "@/components/book/export-view";
 import { NewsletterExport } from "@/components/book/newsletter-export";
+import { BookProgressCard } from "@/components/book/book-progress";
+import { getBookProgress } from "@/lib/actions/projects";
 import { THEMES } from "@/lib/export/themes";
 
 export const dynamic = "force-dynamic";
@@ -42,10 +44,16 @@ export default async function ExportPage({
 
   const wordCount = project.chapters.reduce((s, c) => s + c.wordCount, 0);
   const writtenCount = project.chapters.filter((c) => c.wordCount > 0).length;
+  const progress = await getBookProgress(id);
 
   return (
     <>
       <BookHeader projectId={id} title={title} workType={project.workType} />
+      {progress && (
+        <div className="mx-auto max-w-5xl px-4 pt-6 sm:px-6">
+          <BookProgressCard projectId={id} progress={progress} />
+        </div>
+      )}
       <ExportView
         projectId={id}
         title={title}

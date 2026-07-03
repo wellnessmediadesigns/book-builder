@@ -149,7 +149,13 @@ export function AutoWritePanel({
       if (!aliveRef.current) return;
 
       if (res.ok) {
-        setStatus(i, "done");
+        const note =
+          item.kind === "chapter" && "short" in res && res.short
+            ? "Came out short — extend it in the editor with Continue writing."
+            : item.kind === "chapter" && "extended" in res && res.extended
+              ? "Extended automatically to meet the word target."
+              : undefined;
+        setStatus(i, "done", note);
         if (item.kind === "chapter" && "wordCount" in res) onChapterWritten(item.id, res.wordCount);
       } else {
         const msg = res.error === "no_key" ? "Add your AI key in Settings." : res.error;
@@ -348,7 +354,11 @@ export function AutoWritePanel({
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm text-ink">{it.label}</p>
-                    {it.detail && <p className="truncate text-xs text-clay">{it.detail}</p>}
+                    {it.detail && (
+                      <p className={cn("truncate text-xs", it.status === "error" ? "text-clay" : "text-muted")}>
+                        {it.detail}
+                      </p>
+                    )}
                   </div>
                   <span className="text-[0.6875rem] capitalize text-muted">
                     {it.kind === "matter" ? "section" : it.status === "done" ? "" : v.unitLower}

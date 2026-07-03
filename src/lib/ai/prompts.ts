@@ -320,7 +320,13 @@ export function contextBlock(ctx: BookContext): string {
   }
   if (ctx.priorSummaries.length) {
     lines.push(news ? "\nPREVIOUS ISSUES (for consistency):" : "\nSTORY SO FAR (previous chapter summaries):");
-    for (const s of ctx.priorSummaries) {
+    // Long books: full summaries for the recent chapters, titles-only for the
+    // rest — keeps late-book prompts inside smaller models' context windows.
+    const FULL = 10;
+    const older = ctx.priorSummaries.slice(0, Math.max(0, ctx.priorSummaries.length - FULL));
+    const recent = ctx.priorSummaries.slice(-FULL);
+    if (older.length) lines.push(`- Earlier: ${older.map((s) => s.title).join("; ")}`);
+    for (const s of recent) {
       lines.push(`- ${s.title}: ${s.summary}`);
     }
   }

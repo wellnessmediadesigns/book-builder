@@ -59,6 +59,7 @@ export async function workersComplete(
   model: string,
   messages: AiMessage[],
   temperature: number,
+  maxTokens = 4096,
 ): Promise<string> {
   const ai = getBinding();
   if (!ai) throw new AiError(NO_BINDING, "no_binding");
@@ -66,7 +67,7 @@ export async function workersComplete(
   const backoff = [700, 2000, 4000];
   for (let i = 0; ; i++) {
     try {
-      res = await ai.run(model, { messages, temperature, max_tokens: 4096 });
+      res = await ai.run(model, { messages, temperature, max_tokens: maxTokens });
       break;
     } catch (e) {
       if (i < backoff.length && isTransient(e)) {
@@ -88,6 +89,7 @@ export async function* workersStream(
   model: string,
   messages: AiMessage[],
   temperature: number,
+  maxTokens = 4096,
 ): AsyncGenerator<string> {
   const ai = getBinding();
   if (!ai) throw new AiError(NO_BINDING, "no_binding");
@@ -98,7 +100,7 @@ export async function* workersStream(
       messages,
       stream: true,
       temperature,
-      max_tokens: 4096,
+      max_tokens: maxTokens,
     })) as ReadableStream<Uint8Array>;
   } catch (e) {
     throw new AiError(workersErr(e, model), "workersai");

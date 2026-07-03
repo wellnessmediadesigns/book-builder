@@ -1,7 +1,12 @@
 import { prisma, getAuthor } from "@/lib/db";
 import type { AiConfig, AiMessage } from "./types";
 import type { BookContext } from "./prompts";
-import { complete, stream, configIsReady, AiError } from "./providers";
+import { complete, stream, configIsReady, AiError, type CompletionOpts } from "./providers";
+
+/** Output-token budget for a chapter target (~1.6 tokens/word + headroom). */
+export function tokensForWords(maxWords: number): number {
+  return Math.min(8192, Math.max(2048, Math.round(maxWords * 2.2)));
+}
 
 /** Resolve the active AI config from saved settings, falling back to server env defaults. */
 export async function resolveAiConfig(): Promise<AiConfig> {
@@ -47,13 +52,14 @@ export async function aiChainReady(): Promise<boolean> {
 /** Non-streaming completion that tries the primary, then the fallback, on failure. */
 export async function completeWithFallback(
   messages: AiMessage[],
+  opts?: CompletionOpts,
 ): Promise<{ text: string; config: AiConfig }> {
   const chain = await resolveAiChain();
   if (chain.length === 0) throw new AiError("no_key", "no_key");
   let lastErr: unknown;
   for (const config of chain) {
     try {
-      const text = await complete(config, messages);
+      const text = await complete(config, messages, opts);
       return { text, config };
     } catch (e) {
       lastErr = e;
@@ -63,12 +69,15 @@ export async function completeWithFallback(
 }
 
 /** Streaming completion that falls back if the primary fails on connect. */
-export async function* streamWithFallback(messages: AiMessage[]): AsyncGenerator<string> {
+export async function* streamWithFallback(
+  messages: AiMessage[],
+  opts?: CompletionOpts,
+): AsyncGenerator<string> {
   const chain = await resolveAiChain();
   if (chain.length === 0) throw new AiError("no_key", "no_key");
 
   for (let i = 0; i < chain.length; i++) {
-    const gen = stream(chain[i], messages);
+    const gen = stream(chain[i], messages, opts);
     let first: IteratorResult<string>;
     try {
       first = await gen.next();

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { buildBookContext, streamWithFallback, aiChainReady } from "@/lib/ai/context";
+import { buildBookContext, streamWithFallback, aiChainReady, tokensForWords } from "@/lib/ai/context";
 import { AiError } from "@/lib/ai/providers";
 import { chapterMessages, continueChapterMessages, newsletterIssueMessages } from "@/lib/ai/prompts";
 
@@ -51,11 +51,12 @@ export async function POST(req: NextRequest) {
             maxWords: chapter.maxWords || 2000,
           });
 
+  const budget = { maxTokens: tokensForWords(chapter.maxWords || 2000) };
   const encoder = new TextEncoder();
   const body = new ReadableStream({
     async start(controller) {
       try {
-        for await (const delta of streamWithFallback(messages)) {
+        for await (const delta of streamWithFallback(messages, budget)) {
           controller.enqueue(encoder.encode(delta));
         }
       } catch (e) {

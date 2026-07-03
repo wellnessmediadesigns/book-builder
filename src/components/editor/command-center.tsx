@@ -83,11 +83,15 @@ export function CommandCenter({
   maxWords,
   locked,
   busy,
+  status,
+  nextChapter,
   analysis,
   analysisLoading,
   versions,
   notes,
   onAction,
+  onWriteNext,
+  onToggleFinal,
   onSnapshot,
   onRestore,
   onCompare,
@@ -106,11 +110,15 @@ export function CommandCenter({
   maxWords: number;
   locked: boolean;
   busy: boolean;
+  status?: string;
+  nextChapter?: { id: string; title: string } | null;
   analysis: string | null;
   analysisLoading: boolean;
   versions: Version[];
   notes: NoteData;
   onAction: (a: ChapterAction) => void;
+  onWriteNext?: () => void;
+  onToggleFinal?: () => void;
   onSnapshot: () => void;
   onRestore: (id: string) => void;
   onCompare: (id: string) => void;
@@ -127,6 +135,8 @@ export function CommandCenter({
   const [custom, setCustom] = useState("");
   const v = workVocab(workType);
   const goal = maxWords > 0 ? Math.min(100, Math.round((wordCount / maxWords) * 100)) : 0;
+  const isFinal = status === "final";
+  const isShort = wordCount > 0 && minWords > 0 && wordCount < minWords;
 
   return (
     <div className="flex h-full flex-col bg-paper-sunken/30">
@@ -165,9 +175,24 @@ export function CommandCenter({
           />
         </div>
         {maxWords > 0 && (
-          <p className="mt-1 text-[0.6875rem] text-muted">
+          <p className={cn("mt-1 text-[0.6875rem]", isShort ? "font-medium text-brass-deep" : "text-muted")}>
             Goal: {formatNumber(minWords)}–{formatNumber(maxWords)} words
+            {isShort && " — below target, try Continue writing"}
           </p>
+        )}
+        {onToggleFinal && wordCount > 0 && (
+          <button
+            onClick={onToggleFinal}
+            className={cn(
+              "mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors",
+              isFinal
+                ? "border-sage/40 bg-sage/10 text-sage"
+                : "border-line bg-paper-raised text-ink-soft hover:border-sage/40 hover:text-sage",
+            )}
+          >
+            <Check className="h-3.5 w-3.5" />
+            {isFinal ? `Final — tap to reopen` : `Mark ${v.unitLower} final`}
+          </button>
         )}
       </div>
 
@@ -192,6 +217,11 @@ export function CommandCenter({
                   {b.action.type === "generate" ? `Generate ${v.unitLower}` : b.label}
                 </ActionBtn>
               ))}
+              {nextChapter && onWriteNext && wordCount > 0 && (
+                <ActionBtn icon={ArrowRightToLine} disabled={busy} onClick={onWriteNext}>
+                  Write next: {nextChapter.title}
+                </ActionBtn>
+              )}
             </Group>
 
             <Group label="Improve whole chapter">
