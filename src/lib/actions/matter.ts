@@ -95,9 +95,29 @@ export type MatterRow = {
 
 /** Lists matter sections for a project, creating missing rows on first visit. */
 export async function listMatter(projectId: string): Promise<MatterRow[]> {
-  const existing = await prisma.chapter.findMany({
+  let existing = await prisma.chapter.findMany({
     where: { projectId, matterType: { not: null } },
   });
+  // Self-heal duplicates (a past bug created two Disclaimer rows, which then
+  // printed twice in every export): keep the row with content, drop the twin.
+  const byType = new Map<string, typeof existing>();
+  for (const c of existing) {
+    const list = byType.get(c.matterType!) ?? [];
+    list.push(c);
+    byType.set(c.matterType!, list);
+  }
+  const dupeIds: string[] = [];
+  for (const list of byType.values()) {
+    if (list.length < 2) continue;
+    const keep = [...list].sort(
+      (a, b) => b.contentText.trim().length - a.contentText.trim().length,
+    )[0];
+    for (const c of list) if (c.id !== keep.id) dupeIds.push(c.id);
+  }
+  if (dupeIds.length) {
+    await prisma.chapter.deleteMany({ where: { id: { in: dupeIds } } });
+    existing = existing.filter((c) => !dupeIds.includes(c.id));
+  }
   const have = new Set(existing.map((c) => c.matterType));
   const missing = MATTER_SECTIONS.filter((s) => !have.has(matterTypeOf(s)));
   if (missing.length) {

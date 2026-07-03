@@ -55,9 +55,9 @@ function blocksXml(blocks: Block[]): string {
     } else if (b.type === "quote") {
       out.push(para(b.runs, { style: "Quote" }));
     } else if (b.type === "list") {
-      for (const item of b.items) {
-        out.push(para([{ text: "•  " }, ...item], { style: "ListPara" }));
-      }
+      b.items.forEach((item, i) => {
+        out.push(para([{ text: b.ordered ? `${i + 1}.  ` : "•  " }, ...item], { style: "ListPara" }));
+      });
     } else {
       out.push(para(b.runs));
     }

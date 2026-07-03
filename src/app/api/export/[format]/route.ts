@@ -6,7 +6,16 @@ import { buildEpub } from "@/lib/export/epub";
 import { buildPdf } from "@/lib/export/pdf";
 import { assembleBookPackage, singleChapterPackage } from "@/lib/export/assemble";
 import { buildEmailHtml, buildPlainText } from "@/lib/export/email";
+import { getCover, coverKey } from "@/lib/storage";
 import { slugify } from "@/lib/utils";
+
+/** The project's front cover (for embedding in EPUB/PDF), or null. */
+async function frontCover(projectId: string) {
+  const row = await prisma.coverImage.findFirst({ where: { projectId, type: "front" } });
+  if (!row) return null;
+  const stored = await getCover(row.r2Key ?? coverKey(projectId, "front"));
+  return stored ? { data: stored.body, contentType: stored.contentType } : null;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -73,19 +82,26 @@ export async function GET(
         },
       });
     case "epub":
-      return new Response(buildEpub(pkg) as BodyInit, {
+      return new Response(buildEpub(pkg, await frontCover(projectId)) as BodyInit, {
         headers: {
           "Content-Type": "application/epub+zip",
           "Content-Disposition": `attachment; filename="${base}.epub"`,
         },
       });
     case "pdf":
-      return new Response((await buildPdf(pkg, { chapterOnly, runningHeader })) as BodyInit, {
-        headers: {
-          "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="${base}.pdf"`,
+      return new Response(
+        (await buildPdf(pkg, {
+          chapterOnly,
+          runningHeader,
+          cover: chapterOnly ? null : await frontCover(projectId),
+        })) as BodyInit,
+        {
+          headers: {
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `attachment; filename="${base}.pdf"`,
+          },
         },
-      });
+      );
     case "email":
       // A single newsletter issue as email-ready HTML (rendered inline).
       return new Response(buildEmailHtml(pkg), {

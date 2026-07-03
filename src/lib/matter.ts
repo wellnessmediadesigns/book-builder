@@ -89,14 +89,6 @@ export const MATTER_SECTIONS: MatterSection[] = [
     directive:
       "Write a short 'About This Book' section: what it is, who it is for, and what the reader will gain.",
   },
-  {
-    key: "disclaimer",
-    group: "front",
-    title: "Disclaimer",
-    inManuscript: true,
-    directive:
-      "Write an appropriate disclaimer for this book's genre (e.g. not professional advice, names changed, work of fiction). Keep it brief and standard.",
-  },
 
   // ——— Back matter ———
   {

@@ -82,12 +82,24 @@ blockquote { margin: 1em 1.2em; font-style: italic; color: #4a4e5e; }
 nav ol { list-style: none; padding-left: 0; }
 nav li { margin: .4em 0; }
 nav a { text-decoration: none; color: inherit; }
+.cover { text-align: center; margin: 0; padding: 0; }
+.cover img { max-width: 100%; max-height: 100%; }
 `;
 
-export function buildEpub(pkg: BookPackage): Uint8Array {
+export type ExportCover = { data: Uint8Array; contentType: string };
+
+export function buildEpub(pkg: BookPackage, cover?: ExportCover | null): Uint8Array {
   const { meta, front, chapters, back } = pkg;
   const uuid = crypto.randomUUID();
   const now = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+  const coverExt = cover
+    ? cover.contentType.includes("png")
+      ? "png"
+      : cover.contentType.includes("webp")
+        ? "webp"
+        : "jpg"
+    : null;
+  const coverHref = coverExt ? `cover.${coverExt}` : null;
 
   type Phase = "title" | "pre" | "post" | "chapter" | "back";
   type Item = {
@@ -100,6 +112,24 @@ export function buildEpub(pkg: BookPackage): Uint8Array {
     inToc: boolean;
   };
   const items: Item[] = [];
+
+  // Cover page — first in the spine so readers open on the artwork, and the
+  // image doubles as the library thumbnail via the manifest cover-image entry.
+  if (cover && coverHref) {
+    items.push({
+      id: "coverpage",
+      href: "coverpage.xhtml",
+      title: "Cover",
+      type: "cover",
+      phase: "title",
+      inToc: false,
+      xhtml: xhtmlDoc(
+        "Cover",
+        `<div class="cover"><img src="${coverHref}" alt="${esc(meta.displayTitle)} cover"/></div>`,
+        "cover",
+      ),
+    });
+  }
 
   // Title page
   items.push({
@@ -233,11 +263,13 @@ ${items
 <dc:creator>${esc(meta.authorName)}</dc:creator>
 <dc:language>en</dc:language>
 <meta property="dcterms:modified">${now}</meta>
+${cover ? `<meta name="cover" content="cover-image"/>` : ""}
 </metadata>
 <manifest>
 <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
 <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
 <item id="css" href="style.css" media-type="text/css"/>
+${cover && coverHref ? `<item id="cover-image" href="${coverHref}" media-type="${cover.contentType}" properties="cover-image"/>` : ""}
 ${items
   .map((it) => `<item id="${it.id}" href="${it.href}" media-type="application/xhtml+xml"/>`)
   .join("\n")}
@@ -278,6 +310,7 @@ ${(() => {
     "OEBPS/style.css": strToU8(CSS),
   };
   for (const it of items) files[`OEBPS/${it.href}`] = strToU8(it.xhtml);
+  if (cover && coverHref) files[`OEBPS/${coverHref}`] = cover.data;
 
   return zipSync(files);
 }

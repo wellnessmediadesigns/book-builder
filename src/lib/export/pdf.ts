@@ -46,9 +46,11 @@ function parse(json: string | null): Parameters<typeof docToBlocks>[0] {
 
 type Fonts = { body: PDFFont; bold: PDFFont; italic: PDFFont; boldItalic: PDFFont; sans: PDFFont };
 
+export type PdfCover = { data: Uint8Array; contentType: string };
+
 export async function buildPdf(
   pkg: BookPackage,
-  opts?: { chapterOnly?: boolean; runningHeader?: boolean },
+  opts?: { chapterOnly?: boolean; runningHeader?: boolean; cover?: PdfCover | null },
 ): Promise<Uint8Array> {
   const { meta, front, chapters, back } = pkg;
   const chapterOnly = opts?.chapterOnly ?? false;
@@ -164,6 +166,25 @@ export async function buildPdf(
     drawRuns([{ text }], { size: 11, lineHeight: 16.5, indent, gapAfter: 7 });
   }
 
+  // ——— Cover page (full-bleed image, not numbered) ———
+  if (!chapterOnly && opts?.cover) {
+    try {
+      const c = opts.cover;
+      const img = c.contentType.includes("png")
+        ? await doc.embedPng(c.data)
+        : await doc.embedJpg(c.data);
+      // Fill the page while preserving aspect ratio (center-crop overflow).
+      const scale = Math.max(PW / img.width, PH / img.height);
+      const w = img.width * scale;
+      const h = img.height * scale;
+      page.drawImage(img, { x: (PW - w) / 2, y: (PH - h) / 2, width: w, height: h });
+      page = doc.addPage([PW, PH]);
+      y = TOP;
+    } catch {
+      // Unsupported image type (e.g. webp) — skip the cover, keep the export.
+    }
+  }
+
   // ——— Title page (page 0, not numbered) ———
   if (!chapterOnly) {
     y = PH * 0.62;
@@ -264,9 +285,14 @@ export async function buildPdf(
           gapAfter: 8,
         });
       } else if (b.type === "list") {
-        for (const item of b.items) {
-          drawRuns([{ text: "•  " }, ...item], { size: 11, lineHeight: 16.5, indent: 8, gapAfter: 2 });
-        }
+        b.items.forEach((item, i) => {
+          drawRuns([{ text: b.ordered ? `${i + 1}.  ` : "•  " }, ...item], {
+            size: 11,
+            lineHeight: 16.5,
+            indent: 8,
+            gapAfter: 2,
+          });
+        });
         y -= 4;
       } else {
         // paragraph — indent all but the first in a section

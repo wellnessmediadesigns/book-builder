@@ -49,8 +49,51 @@ export function MatterView({
 }) {
   const [rows, setRows] = useState<MatterRow[]>(initial);
   const [tab, setTab] = useState<(typeof GROUPS)[number]["id"]>("front");
+  const [batch, setBatch] = useState<{ running: boolean; currentId: string | null }>({
+    running: false,
+    currentId: null,
+  });
   const group = GROUPS.find((g) => g.id === tab)!;
   const visible = rows.filter((r) => r.group === tab);
+  const emptyInTab = visible.filter((r) => !r.content.trim()).length;
+
+  // Drafts every empty section in the current tab, one at a time — sixteen
+  // sections shouldn't take sixteen clicks.
+  async function draftAll() {
+    if (!aiReady) {
+      toast.error("Add your AI key first", "Open Settings to connect a provider.");
+      return;
+    }
+    const targets = rows.filter((r) => r.group === tab && !r.content.trim());
+    if (!targets.length) {
+      toast.info("Nothing to draft", "Every section here already has content.");
+      return;
+    }
+    setBatch({ running: true, currentId: null });
+    let failed = 0;
+    for (const row of targets) {
+      setBatch({ running: true, currentId: row.id });
+      const res = await generateMatter(row.id);
+      if (res.ok) {
+        setRows((rs) => rs.map((x) => (x.id === row.id ? { ...x, content: res.content } : x)));
+      } else {
+        failed++;
+        if (res.error === "no_key") {
+          toast.error("Add your AI key first", "Open Settings to connect a provider.");
+          break;
+        }
+      }
+    }
+    setBatch({ running: false, currentId: null });
+    if (failed) {
+      toast.info(
+        "Drafting finished with some errors",
+        `${failed} section${failed === 1 ? "" : "s"} failed — regenerate ${failed === 1 ? "it" : "them"} individually.`,
+      );
+    } else {
+      toast.success(`${group.label} drafted`, "Every section is yours to edit.");
+    }
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
@@ -91,7 +134,17 @@ export function MatterView({
         })}
       </div>
 
-      <p className="mt-3 text-sm text-muted">{group.blurb}</p>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted">{group.blurb}</p>
+        {emptyInTab > 0 && (
+          <Button variant="brass" size="sm" disabled={batch.running} onClick={draftAll}>
+            {batch.running ? <Spinner /> : <Sparkles className="h-3.5 w-3.5" />}
+            {batch.running
+              ? "Drafting…"
+              : `Draft all ${emptyInTab} empty section${emptyInTab === 1 ? "" : "s"}`}
+          </Button>
+        )}
+      </div>
 
       <div className="mt-5 space-y-3">
         {visible.map((row, i) => (
@@ -100,6 +153,8 @@ export function MatterView({
             row={row}
             index={i}
             aiReady={aiReady}
+            busy={batch.running}
+            batchActive={batch.currentId === row.id}
             onChange={(content) =>
               setRows((rs) => rs.map((r) => (r.id === row.id ? { ...r, content } : r)))
             }
@@ -114,17 +169,22 @@ function MatterCard({
   row,
   index,
   aiReady,
+  busy,
+  batchActive,
   onChange,
 }: {
   row: MatterRow;
   index: number;
   aiReady: boolean;
+  busy?: boolean;
+  batchActive?: boolean;
   onChange: (content: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const hasContent = row.content.trim().length > 0;
+  const spinning = generating || batchActive;
 
   async function generate() {
     if (!aiReady) {
@@ -184,11 +244,11 @@ function MatterCard({
         <Button
           variant={hasContent ? "outline" : "museSoft"}
           size="sm"
-          disabled={generating}
+          disabled={spinning || busy}
           onClick={generate}
           className="shrink-0"
         >
-          {generating ? (
+          {spinning ? (
             <Spinner />
           ) : hasContent ? (
             <RefreshCw className="h-3.5 w-3.5" />

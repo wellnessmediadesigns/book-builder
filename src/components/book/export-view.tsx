@@ -14,6 +14,7 @@ import {
   Palette,
   Loader2,
   Maximize2,
+  Package,
 } from "lucide-react";
 import { Card, Badge } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
@@ -32,9 +33,10 @@ type Format = {
 };
 
 const FORMATS: Format[] = [
-  { key: "pdf", label: "PDF", ext: ".pdf", icon: FileType, real: true, badge: "See the pages", desc: "Real paginated 6×9 book — title page, each chapter on its own page. Opens page-by-page on any device (incl. your phone). Print/KDP-ready." },
+  { key: "kdp", label: "KDP bundle", ext: ".zip", icon: Package, real: true, badge: "Publish", desc: "Everything for Amazon KDP in one zip: interior PDF, your uploaded covers, and step-by-step upload instructions." },
+  { key: "pdf", label: "PDF", ext: ".pdf", icon: FileType, real: true, badge: "See the pages", desc: "Real paginated 6×9 book — cover, title page, each chapter on its own page. Opens page-by-page on any device (incl. your phone). Print/KDP-ready." },
   { key: "docx", label: "Word", ext: ".docx", icon: FileText, real: true, desc: "Editable Word manuscript — 6×9 trim, styled headings, page breaks, matter." },
-  { key: "epub", label: "EPUB", ext: ".epub", icon: BookOpen, real: true, desc: "Reflowable ebook for Kindle & Apple Books, with navigation." },
+  { key: "epub", label: "EPUB", ext: ".epub", icon: BookOpen, real: true, desc: "Reflowable ebook for Kindle & Apple Books, with navigation and your cover embedded." },
   { key: "markdown", label: "Markdown", ext: ".md", icon: Code2, real: true, desc: "Clean Markdown with title page, contents, and matter." },
   { key: "html", label: "HTML", ext: ".html", icon: Globe, real: true, desc: "Styled web page in your chosen theme (view in browser / print)." },
 ];
@@ -62,6 +64,7 @@ export function ExportView({
   const [html, setHtml] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [runningHeader, setRunningHeader] = useState(false);
+  const [downloading, setDownloading] = useState<string | null>(null);
   const [, startSave] = useTransition();
 
   useEffect(() => {
@@ -88,11 +91,48 @@ export function ExportView({
     });
   }
 
-  function download(format: string) {
-    // Open in a new view (not a same-window navigation) so the app/PWA stays put
-    // and the PDF/file viewer has its own Done/Back affordance.
-    const header = format === "pdf" && runningHeader ? "&header=1" : "";
-    window.open(`/api/export/${format}?project=${projectId}${header}`, "_blank");
+  async function download(format: string) {
+    if (downloading) return;
+    setDownloading(format);
+    try {
+      const header = format === "pdf" && runningHeader ? "&header=1" : "";
+      const url =
+        format === "kdp"
+          ? `/api/export/kdp?project=${projectId}`
+          : `/api/export/${format}?project=${projectId}${header}`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        let msg = "Something went wrong. Try again.";
+        try {
+          const data = await res.json();
+          if (data?.error) msg = String(data.error);
+        } catch {
+          /* non-JSON error body */
+        }
+        toast.error("Couldn't export", msg);
+        return;
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      if (format === "pdf") {
+        // The paginated PDF opens in its own viewer tab (Done/Back affordance).
+        window.open(objectUrl, "_blank");
+      } else {
+        const a = document.createElement("a");
+        a.href = objectUrl;
+        const dispo = res.headers.get("Content-Disposition") ?? "";
+        const m = dispo.match(/filename="([^"]+)"/);
+        a.download = m?.[1] ?? `book.${format === "kdp" ? "zip" : format}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+    } catch {
+      toast.error("Couldn't export", "Check your connection and try again.");
+    } finally {
+      setDownloading(null);
+    }
   }
   function openPrint() {
     window.open(`/api/export/html?project=${projectId}&theme=${theme}`, "_blank");
@@ -268,8 +308,18 @@ export function ExportView({
                     <Printer className="h-4 w-4" /> View in browser
                   </Button>
                 ) : (
-                  <Button variant={f.key === "pdf" ? "brass" : "primary"} size="sm" onClick={() => download(f.key)}>
-                    <Download className="h-4 w-4" /> Download {f.label}
+                  <Button
+                    variant={f.key === "kdp" ? "brass" : f.key === "pdf" ? "brass" : "primary"}
+                    size="sm"
+                    disabled={downloading !== null}
+                    onClick={() => download(f.key)}
+                  >
+                    {downloading === f.key ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                    {downloading === f.key ? "Preparing…" : `Download ${f.label}`}
                   </Button>
                 )}
               </div>
@@ -280,9 +330,9 @@ export function ExportView({
 
       <p className="mt-8 text-center text-xs text-muted">
         <strong className="text-ink-soft">PDF is fully paginated</strong> — open it on your
-        phone to flip through the actual pages. Word &amp; EPUB are paginated too, but phone{" "}
-        <em>preview</em> apps show them as one continuous scroll (they page correctly in
-        Word/Google Docs or an ereader). Drafted front/back matter is included automatically.
+        phone to flip through the actual pages. Word is paginated too (it pages correctly in
+        Word/Google Docs); EPUB reflows to fit any reader, like all ebooks. Your front cover
+        and drafted front/back matter are included automatically.
       </p>
     </div>
   );
