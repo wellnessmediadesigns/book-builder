@@ -275,6 +275,10 @@ export function BrainstormBoard({
   // ——— build ———
   function requestBuild() {
     if (building) return;
+    if (!aiReady) {
+      toast.error("Add your AI key first", "Open Settings to connect a provider.");
+      return;
+    }
     if (!hasDirection) {
       toast.info("Keep chatting", "Agree on a few details with Muse first, then build.");
       return;
@@ -285,13 +289,20 @@ export function BrainstormBoard({
   function doBuild() {
     setConfirmBuild(false);
     setBuilding(true);
-    celebrate("book");
     startNav(async () => {
       const res = await buildBookFromBrainstorm(session.id);
       if (res && !res.ok) {
-        toast.error(res.error === "no_key" ? "Add your AI key first" : "Couldn't build the book", res.error === "no_key" ? "Open Settings to connect a provider." : res.error);
+        toast.error(
+          res.error === "no_key" ? "Add your AI key first" : "Couldn't build it",
+          res.error === "no_key"
+            ? "Open Settings to connect a provider."
+            : `${res.error} Your brainstorm is untouched — try Build again.`,
+        );
         setBuilding(false);
+        return;
       }
+      // Success redirects away; celebrate as the navigation kicks in.
+      celebrate("book");
     });
   }
 
@@ -324,7 +335,7 @@ export function BrainstormBoard({
               </Badge>
             </Link>
           ) : (
-            <Button variant="brass" size="sm" onClick={requestBuild} disabled={building || !hasDirection} className="shrink-0">
+            <Button variant="brass" size="sm" onClick={requestBuild} disabled={building || !hasDirection || !aiReady} className="shrink-0">
               {building ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Hammer className="h-3.5 w-3.5" />}
               <span className="hidden sm:inline">{buildLabel}</span>
               <span className="sm:hidden">Build</span>

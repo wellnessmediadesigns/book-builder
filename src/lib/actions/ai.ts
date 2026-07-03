@@ -128,10 +128,10 @@ export async function generateBlueprint(
   const started = Date.now();
   let raw = "";
   let config;
+  const messages = newsletter
+    ? contentPlanMessages(ctx, project.idea, extras, project.chapterCount)
+    : blueprintMessages(ctx, project.idea, extras);
   try {
-    const messages = newsletter
-      ? contentPlanMessages(ctx, project.idea, extras, project.chapterCount)
-      : blueprintMessages(ctx, project.idea, extras);
     const res = await completeWithFallback(messages);
     raw = res.text;
     config = res.config;
@@ -142,15 +142,42 @@ export async function generateBlueprint(
     return { ok: false, error: err };
   }
 
-  let bp: Record<string, unknown>;
-  try {
-    bp = parseBlueprint(raw);
-  } catch {
+  // Parse + validate BEFORE touching the database, with one automatic retry —
+  // free-tier models occasionally return malformed JSON or an empty plan, and a
+  // fresh completion usually succeeds. Nothing is committed until this passes.
+  let bp: Record<string, unknown> | null = null;
+  let toc: unknown[] = [];
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0) {
+      try {
+        const res = await completeWithFallback(messages);
+        raw = res.text;
+        config = res.config;
+      } catch {
+        break;
+      }
+    }
+    try {
+      bp = parseBlueprint(raw);
+      toc = Array.isArray(bp.tableOfContents) ? bp.tableOfContents : [];
+    } catch {
+      bp = null;
+      toc = [];
+    }
+    if (bp && toc.length) break;
+  }
+  if (!bp) {
     await logGen(projectId, "blueprint", config, raw.length, "error", "parse");
     return { ok: false, error: "The model returned an unexpected format. Try again." };
   }
+  if (!toc.length) {
+    await logGen(projectId, "blueprint", config, raw.length, "error", "empty-toc");
+    return {
+      ok: false,
+      error: `The plan came back without any ${newsletter ? "issues" : "chapters"}. Nothing was changed — try again.`,
+    };
+  }
 
-  const toc = Array.isArray(bp.tableOfContents) ? bp.tableOfContents : [];
   const recommendedTitle = String(bp.recommendedTitle || project.title);
   const subtitle = String(bp.recommendedSubtitle || "");
 

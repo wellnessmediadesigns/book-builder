@@ -312,7 +312,17 @@ export async function createNewsletter(input: {
 
   // Hand back a finished, send-ready newsletter: build the plan, then write the
   // first issue so the author lands on real content, not an empty outline.
-  await generateBlueprint(project.id).catch(() => {});
+  const built = await generateBlueprint(project.id).catch(() => ({
+    ok: false as const,
+    error: "Generation failed.",
+  }));
+  if (!built.ok) {
+    // Remove the empty shell so no ghost newsletter appears; the setup form
+    // keeps the author's inputs so they can simply try again.
+    await prisma.project.delete({ where: { id: project.id } }).catch(() => {});
+    const err = built.error ?? "Couldn't build the newsletter. Try again.";
+    return { ok: false as const, error: err };
+  }
   const first = await prisma.chapter.findFirst({
     where: { projectId: project.id, matterType: null },
     orderBy: { order: "asc" },

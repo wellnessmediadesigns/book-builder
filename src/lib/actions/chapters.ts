@@ -14,15 +14,26 @@ export async function saveChapterContent(
   const wordCount = countWords(text);
   const prev = await prisma.chapter.findUnique({
     where: { id: chapterId },
-    select: { wordCount: true },
+    select: { wordCount: true, minWords: true, status: true, projectId: true },
   });
+  // Status reflects reality: empty = planned; below the chapter's word target =
+  // drafting (visibly unfinished); at/above target = drafted. A chapter the
+  // author marked "final" keeps that mark through ordinary edits.
+  const status =
+    prev?.status === "final" && wordCount > 0
+      ? "final"
+      : wordCount === 0
+        ? "planned"
+        : wordCount < (prev?.minWords ?? 0)
+          ? "drafting"
+          : "drafted";
   const chapter = await prisma.chapter.update({
     where: { id: chapterId },
     data: {
       contentJson: JSON.stringify(contentJson),
       contentText: text,
       wordCount,
-      status: wordCount > 0 ? "drafted" : "planned",
+      status,
     },
   });
   // Track daily progress (net words added) for streaks & goals.
@@ -39,7 +50,31 @@ export async function saveChapterContent(
       },
     });
   }
-  return { wordCount, updatedAt: chapter.updatedAt };
+  // Keep the project's headline status honest: it advances to "writing" when the
+  // first chapter lands, and "complete" once every planned chapter is written.
+  if (prev?.projectId) await advanceProjectStatus(prev.projectId).catch(() => {});
+  return { wordCount, updatedAt: chapter.updatedAt, status };
+}
+
+/** Auto-advance the project's status from writing progress (books + newsletters). */
+async function advanceProjectStatus(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { status: true },
+  });
+  // Never regress a project that hasn't reached the writing stage yet.
+  if (!project || project.status === "draft") return;
+  const body = await prisma.chapter.findMany({
+    where: { projectId, matterType: null },
+    select: { wordCount: true, minWords: true },
+  });
+  if (!body.length) return;
+  const written = body.filter((c) => c.wordCount > 0);
+  const done = body.every((c) => c.wordCount > 0 && c.wordCount >= c.minWords);
+  const next = done ? "complete" : written.length > 0 ? "writing" : "blueprint";
+  if (next !== project.status) {
+    await prisma.project.update({ where: { id: projectId }, data: { status: next } });
+  }
 }
 
 export async function createSnapshot(chapterId: string, label: string) {

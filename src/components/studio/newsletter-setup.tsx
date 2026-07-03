@@ -60,7 +60,14 @@ export function NewsletterSetup({ aiReady }: { aiReady: boolean }) {
       return;
     }
     start(async () => {
-      await createNewsletter({ name, about, audience, tone, styleNotes, issueLength, plannedIssues, cadence });
+      const res = await createNewsletter({ name, about, audience, tone, styleNotes, issueLength, plannedIssues, cadence });
+      // On success the action redirects and never returns; a return value means failure.
+      if (res && !res.ok) {
+        toast.error(
+          "Couldn't build the newsletter",
+          res.error === "no_key" ? "Connect an AI provider in Settings." : res.error,
+        );
+      }
     });
   }
 

@@ -464,6 +464,7 @@ export function Writer({
         editor.commands.focus("end");
       };
 
+      let errored = false;
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -471,8 +472,12 @@ export function Writer({
         if (acc.includes("[[QUIRE_ERROR]]")) {
           const msg = acc.split("[[QUIRE_ERROR]]")[1];
           acc = acc.split("[[QUIRE_ERROR]]")[0];
+          errored = true;
           render();
-          toast.error("Generation stopped", msg);
+          toast.error(
+            "Generation stopped",
+            `${msg || "The AI cut out mid-chapter."} Anything already written is kept — use Continue writing or Regenerate.`,
+          );
           break;
         }
         if (!raf) {
@@ -485,20 +490,30 @@ export function Writer({
       cancelAnimationFrame(raf);
       render();
 
+      // Persist whatever arrived (so nothing is lost), but only celebrate a
+      // clean finish — a failed stream must not read as "Chapter drafted".
       const json = editor.getJSON();
-      const { wordCount } = await saveChapterContent(active.id, json, {
-        snapshot: true,
+      const { wordCount, status } = await saveChapterContent(active.id, json, {
+        snapshot: !errored,
         source: "generation",
         day: localDay(),
       });
       setChapters((cs) =>
         cs.map((c) =>
-          c.id === active.id ? { ...c, wordCount, status: "drafted", contentJson: JSON.stringify(json) } : c,
+          c.id === active.id ? { ...c, wordCount, status, contentJson: JSON.stringify(json) } : c,
         ),
       );
       setSave({ status: "saved", at: Date.now() });
       loadVersions(active.id);
-      toast.success(mode === "continue" ? "Chapter extended" : "Chapter drafted", "Edit any word — it's yours.");
+      if (errored) return;
+      if (status === "drafting" && active.minWords > 0) {
+        toast.info(
+          "Came out short",
+          `${wordCount.toLocaleString()} of the ${active.minWords.toLocaleString()}-word target — use Continue writing to extend it.`,
+        );
+      } else {
+        toast.success(mode === "continue" ? "Chapter extended" : "Chapter drafted", "Edit any word — it's yours.");
+      }
       // Update continuity memory in the background so later chapters know what happened.
       summarizeChapter(active.id)
         .then((r) => {

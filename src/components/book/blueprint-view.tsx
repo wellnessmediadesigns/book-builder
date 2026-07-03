@@ -92,6 +92,28 @@ export function BlueprintView({
     );
   }
 
+  // Self-repair: a blueprint with zero plan items (a failed earlier generation)
+  // would otherwise bounce the author between /write and /blueprint forever.
+  if (chapters.length === 0) {
+    return (
+      <div className="mx-auto max-w-xl px-6 py-16 text-center">
+        <Card className="border-clay/40 bg-clay/5 p-8">
+          <h1 className="font-display text-xl font-semibold text-ink">
+            This {v.plan.toLowerCase()} is missing its {v.unitsLower}
+          </h1>
+          <p className="mt-3 text-sm text-ink-soft">
+            A previous generation didn&apos;t finish, so there are no {v.unitsLower} to write yet.
+            Regenerating rebuilds the plan — nothing you&apos;ve written elsewhere is touched.
+          </p>
+          <Button variant="brass" className="mt-6" disabled={generating} onClick={generate}>
+            {generating ? <Spinner /> : <RefreshCw className="h-4 w-4" />}
+            {generating ? "Regenerating…" : `Regenerate ${v.plan.toLowerCase()}`}
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
       <div className="mb-8 flex items-start justify-between gap-4">

@@ -351,6 +351,7 @@ export async function buildBookFromBrainstorm(
     : null;
 
   let projectId: string;
+  let built: { ok: boolean; error?: string };
   if (existing) {
     await prisma.project.update({
       where: { id: existing.id },
@@ -358,7 +359,10 @@ export async function buildBookFromBrainstorm(
     });
     projectId = existing.id;
     // Preserve anything the author has already written; refresh the plan around it.
-    await generateBlueprint(projectId, { preserveWritten: true }).catch(() => {});
+    built = await generateBlueprint(projectId, { preserveWritten: true }).catch(() => ({
+      ok: false as const,
+      error: "Generation failed.",
+    }));
   } else {
     const count = await prisma.project.count();
     const project = await prisma.project.create({
@@ -370,7 +374,18 @@ export async function buildBookFromBrainstorm(
       },
     });
     projectId = project.id;
-    await generateBlueprint(projectId).catch(() => {});
+    built = await generateBlueprint(projectId).catch(() => ({
+      ok: false as const,
+      error: "Generation failed.",
+    }));
+    // If the blueprint never materialized, remove the empty shell so no ghost
+    // book appears in the library — the session stays active for another try.
+    if (!built.ok) await prisma.project.delete({ where: { id: projectId } }).catch(() => {});
+  }
+
+  if (!built.ok) {
+    const err = built.error ?? "Couldn't build the book. Try again.";
+    return { ok: false, error: err === "no_key" ? "no_key" : err };
   }
 
   await prisma.brainstormSession.update({

@@ -84,7 +84,7 @@ const STEPS = [
   { id: 3, label: "Review", icon: Check },
 ];
 
-export function Wizard() {
+export function Wizard({ aiReady = true }: { aiReady?: boolean }) {
   const [step, setStep] = useState(1);
   const [data, setData] = useState<ProjectInput>(empty);
   const [pending, start] = useTransition();
@@ -118,7 +118,10 @@ export function Wizard() {
   const submit = () =>
     start(async () => {
       try {
-        await createProject(data);
+        // Final sanity clamp so a cleared field can't produce a NaN estimate.
+        const minWords = Math.max(100, data.minWords || 0);
+        const maxWords = Math.max(minWords, data.maxWords || 0);
+        await createProject({ ...data, minWords, maxWords });
       } catch (e) {
         // redirect throws internally; only real errors land here
         if (e instanceof Error && e.message.includes("NEXT_REDIRECT")) return;
@@ -145,6 +148,18 @@ export function Wizard() {
       </header>
 
       <main className="mx-auto max-w-3xl px-6 py-10">
+        {!aiReady && (
+          <div className="mb-8 flex items-center gap-2 rounded-xl border border-brass/30 bg-brass-soft/60 px-4 py-2.5 text-sm text-brass-deep">
+            <Sparkles className="h-4 w-4 shrink-0" />
+            <span>
+              You can set the book up now, but generating the blueprint needs an AI provider —{" "}
+              <Link href="/studio/settings" className="font-medium underline">
+                connect one in Settings
+              </Link>
+              .
+            </span>
+          </div>
+        )}
         {/* stepper */}
         <div className="mb-10 flex items-center justify-center gap-2">
           {STEPS.map((s, i) => (
@@ -207,7 +222,7 @@ export function Wizard() {
           ) : (
             <Button variant="brass" disabled={pending} onClick={submit}>
               <Sparkles className="h-4 w-4" />
-              {pending ? "Creating…" : "Create & generate blueprint"}
+              {pending ? "Creating…" : "Create book"}
             </Button>
           )}
         </div>
@@ -532,7 +547,12 @@ function StepStructure({
           <Input
             type="number"
             value={data.minWords}
-            onChange={(e) => set("minWords", Number(e.target.value))}
+            onChange={(e) => set("minWords", Math.max(0, Number(e.target.value) || 0))}
+            onBlur={() => {
+              const min = Math.max(100, data.minWords || 0);
+              set("minWords", min);
+              if (data.maxWords < min) set("maxWords", min);
+            }}
           />
         </div>
         <div>
@@ -540,7 +560,8 @@ function StepStructure({
           <Input
             type="number"
             value={data.maxWords}
-            onChange={(e) => set("maxWords", Number(e.target.value))}
+            onChange={(e) => set("maxWords", Math.max(0, Number(e.target.value) || 0))}
+            onBlur={() => set("maxWords", Math.max(data.minWords || 100, data.maxWords || 0))}
           />
         </div>
       </div>
